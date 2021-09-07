@@ -9,7 +9,8 @@ e.g. : CMR_ind_all_no.stan
      ind = individual-based
 
 3) how the covariates are collected
-     all = perfectly, no gaps -- no model for the covariates, just brought in as data
+     all  = perfectly, no gaps -- no model for the covariates, just brought in as data
+     some = observed for some captured individuals 
 
 4) random effects at the level of individual?
      no  = all individuals behave the same to their covariates (even if the covariates vary) 

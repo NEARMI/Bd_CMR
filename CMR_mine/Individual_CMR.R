@@ -2,6 +2,29 @@
 ## Simulate data for and fit an individual-CMR model in Stan ##
 ###############################################################
 
+########
+## September 7 Notes:
+########
+
+ ## Model seems to be recovering parameters for simulated Bd when the slopes are the same for all individuals; though:
+  ## -- all left out individuals are estimated to have the same Bd (need to check on this when they have variable Bd)
+  ## -- haven't explored a full range of number of individuals and effect sizes and such
+ 
+ ## Next to do
+  ## -- Figure out why all of the left out individuals are currently being predicted to have the same
+   ## bd progression. Does that make sense given how the data is simulated / model written? 
+    ## Individuals that are observed for longer are expected to die but their observations are expected to increase?
+  ## -- Variable slopes by individual 
+  ## -- Make sure linear and/or log scale are operating correctly. 
+   ## There are some issues with data being simulated on linear scale and then logged, while model opperates
+   ## on the log scale already
+  ## -- Explore the number of individuals and the number of individuals with Bd vs not on parameter recovery
+  ## -- Go back through the whole model and check dimensions (especially around the n_occ_minus1)
+  ## -- Try and come up with a better way to index bd_drop.which in the model
+  ## -- Continue to expand generated quantities block
+  ## -- break this script up into multiple for readability
+  ## -- simulated total population bd burden is off, why?
+
 ####
 ## Packages and functions
 ####
@@ -15,10 +38,14 @@ source("../../ggplot_theme.R")
 
 ## "Design" parameters
 nsim <- 1
-ind  <- 300
+ind  <- 100
 samp <- 10
 
-## Bd parameters
+## Sim options
+sim_opt <- "lme4"; sim_opt <- "manual"
+
+## Bd parameters for lme4 simulation
+if (sim_opt == "lme4") {
 bd_beta  <- c(1, 0.05)     ## Intercept and slope for mean response
 bd_sigma <- 2              ## observation noise
 bd_theta <- c(1, 1, 1)     ## random effect variance covariance
@@ -27,9 +54,28 @@ bd_theta <- c(1, 1, 1)     ## random effect variance covariance
 bd_mort   <- c(decay = -0.3, offset = 2)     ## logistic response coefficients for mortality across log(bd_load)
 bd_detect <- c(decay = 0.1, offset = 0)      ## logistic response coefficients for detection across log(bd_load)
 
+} else {
+  
+bd_int   <- c(50, 5)        ## Gamma distribution for starting conditions
+bd_delta <- 300             ## Gain in Bd in individuals (will become a random effect soon [typed Sep 7])
+bd_add   <- 50              ## Process noise in true underlying Bd (normal SD)
+bd_obs   <- 20              ## Observation noise in observed Bd (normal SD)
+
+## Response of individuals to Bd load
+bd_mort   <- c(decay = -0.7, offset = 6)     ## logistic response coefficients for mortality across log(bd_load)
+bd_detect <- c(decay = 0.5, offset = -3)     ## logistic response coefficients for detection across log(bd_load)
+}
+
+bd_all   <- FALSE          ## TRUE = assume all captured individuals have their Bd swabbed
+bd_drop  <- 20             ## number of individuals we will assume didn't have their Bd measured
+                           ## which of the simulated individuals has their Bd dropped
+bd_drop.which <- sample(seq(ind), bd_drop)           
+
 ####
 ## Simulate bd response and relationship between bd and survival and detection
 ####
+
+if (sim_opt == "lme4") {
 
 ## Simulate data using lme4 mixed model structure
 expdat <- expand.grid(samp = seq(samp), ind = factor(seq(ind)))
@@ -51,11 +97,47 @@ expdat %<>% mutate(
   log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
 )
 
+} else {
+  
+## Simulate data manually to more easily perfectly match an easy model form
+expdat <- expand.grid(
+  samp    = seq(samp)
+, ind     = factor(seq(ind))
+, bd_load = 0
+    )
+
+all_ind <- unique(expdat$ind)
+
+## Simulate true underlying Bd and observed Bd
+ ## Probably could do this with some slick dplyr and apply, but w/e loops are easy to read and this
+  ## could become a lot more complicated depending on the model we are simulating for
+for (i in seq_along(all_ind)) {
+  
+  expdat.temp            <- expdat %>% filter(ind == all_ind[i])
+  expdat.temp$bd_load[1] <- rgamma(1, 50, scale = 5)  ## starting Bd is variable among individuals
+  
+for (j in 2:nrow(expdat.temp)) {
+  
+  ## FOR NOW (Sep 7) simulate all the same slopes (but this will get updated very soon)
+  expdat.temp$bd_load[j] <- rnorm(1, expdat.temp$bd_load[j - 1] + bd_delta, bd_add)
+    
+}
+  expdat[expdat$ind == all_ind[i], ]$bd_load <- expdat.temp$bd_load
+}
+
+expdat %<>% mutate(
+  bd_load_obs = rnorm(n(), bd_load, bd_obs)
+, log_bd_load = round(log(bd_load_obs), 1)
+)
+
+}
+
 ## view the simulated data
 expdat %>% {
-  ggplot(., aes(samp, log_bd_load)) + 
+  ggplot(., aes(samp, log_bd_load
+    )) + 
     geom_line(aes(group = ind)) +
-    scale_y_log10() + 
+   # scale_y_log10() + 
     scale_x_continuous(breaks = c(1, 5, 10)) +
     xlab("Sampling Event") + ylab("Bd Load") + {
       if (ind <= 50) {
@@ -65,7 +147,7 @@ expdat %>% {
 } 
 
 ## grab the log of the range of Bd load
-bd_range <- with(expdat, seq(min(log_bd_load), max(log_bd_load), by = 1))
+bd_range <- round(with(expdat, seq(min(log_bd_load), max(log_bd_load), by = .1)), 1)
 
 ## establish "true" relationship between load and mortality probability and detection probability
  ## Note: here "mort" is actually survival probability from time t to t+1
@@ -151,31 +233,59 @@ capture_range  <- expdat %>% group_by(ind) %>%
 
 capture_total <- expdat %>% group_by(samp) %>% summarize(total_capt = sum(detected))
 
+####
+## Run the model
+####
+
+stan.iter   <- 1500
+stan.burn   <- 500
+stan.thin   <- 1
+stan.length <- (stan.iter - stan.burn) / stan.thin
+
+measured_bd <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp]
+
+## If trying without complete Bd sampling
+if (!bd_all) {
+  measured_bd <- measured_bd[-bd_drop.which, ]
+}
+
+## Some of these are not needed in the simplest model, but it is ok (if a bit confusing)
+ ## to just pass everything for the more complicated model
 stan_data      <- list(
-   y             = capture_matrix
+  ## bookkeeping params
+   n_ind         = ind
+ , n_ind_bd      = ind - bd_drop
  , n_occasions   = samp
  , n_occ_minus_1 = samp - 1
- , n_ind         = ind
+  ## Capture data
+ , y             = capture_matrix
  , first         = capture_range$first
  , last          = capture_range$final
- , X             = matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp]
  , n_captured    = capture_total$total_capt
+  ## Covariate associated parameters
+ , X_bd          = measured_bd
+ , X_which       = seq(ind)[-bd_drop.which]
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_all_no.stan"
+# file    = "CMR_ind_all_no.stan"
+  file    = "CMR_ind_some_no_2.stan"
 , data    = stan_data
 , chains  = 1
-, iter    = 1500
-, warmup  = 500
-, thin    = 1
-, control = list(adapt_delta = 0.90)
+, iter    = stan.iter
+, warmup  = stan.burn
+, thin    = stan.thin
+, control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
 shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
+
+####
+## Recovery of simulated coefficients?
+####
 
 pred_coef <- as.data.frame(stan.fit.summary[1:4, c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
@@ -197,6 +307,8 @@ stan.pred <- apply(stan.fit.samples$beta_phi, 1
   , FUN = function(x) plogis(x[1] + x[2] * bd_probs$log_bd_load)) %>%
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "mortality")
+stan.pred %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+  , from = unique(log_bd_load), to = bd_probs$log_bd_load))
 stan.pred %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(mortality, c(0.025))
@@ -217,6 +329,8 @@ stan.pred <- apply(stan.fit.samples$beta_p, 1
   , FUN = function(x) plogis(x[1] + x[2] * bd_probs$log_bd_load)) %>%
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "detect")
+stan.pred %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+  , from = unique(log_bd_load), to = bd_probs$log_bd_load))
 stan.pred %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(detect, c(0.10))
@@ -231,6 +345,167 @@ stan.pred %>% {
     geom_line(data = bd_probs, aes(log_bd_load, detect)
       , colour = "dodgerblue4", lwd = 2) +
     xlab("Log of Bd Load") + ylab("Predicted detection probability")
+}
+
+####
+## Recovery of the Bd profile of the individuals left out of the 
+####
+
+estimated_bd        <- stan.fit.samples$X[,bd_drop.which,] %>% 
+  reshape2::melt(.)
+names(estimated_bd) <- c("samps", "ind", "obs", "log_bd_load")
+estimated_bd        <- estimated_bd %>% 
+  group_by(ind, obs) %>% 
+  summarize(
+    mid = quantile(log_bd_load, 0.50)
+  , lwr = quantile(log_bd_load, 0.025)
+  , upr = quantile(log_bd_load, 0.975)
+  )
+observed_bd         <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[bd_drop.which, -samp] %>% 
+  reshape2::melt(.)
+names(observed_bd)  <- c("ind", "obs", "log_bd_load")
+
+estimated_bd %>% {
+  ggplot(., aes(obs, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+    geom_line() +
+    geom_line(data = observed_bd, aes(obs, log_bd_load), colour = "dodgerblue4") +
+    xlab("Time") + ylab("Bd Load") +
+    facet_wrap(~ind)
+}
+
+####
+## Generated quantities: 
+##  1) Population size
+##  2) Population distribution of infection (for now just total)
+##  3) Expected number to capture at each sampling event
+####
+
+## Population size
+pred_coef <- as.data.frame(stan.fit.summary[
+  grep("pop", dimnames(stan.fit.summary)[[1]])
+  , c(4, 6, 8)])
+names(pred_coef) <- c("lwr", "mid", "upr")
+pred_coef %<>% mutate(param = rownames(.)) %>% 
+  mutate(param = as.numeric(factor(param, levels = param)))
+
+pop_alive <- expdat %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead))
+
+pred_coef %>% {
+  ggplot(., aes(param, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    geom_line(data = pop_alive, aes(samp, pop_size), colour = "dodgerblue4", lwd = 1) +
+    xlab("Time") + ylab("Population Size") 
+}
+
+## Number captured -- interesting that this is perfectly constrained. I guess that makes sense?
+pred_coef <- as.data.frame(stan.fit.summary[
+  grep("captures", dimnames(stan.fit.summary)[[1]])
+  , c(4, 6, 8)])
+names(pred_coef) <- c("lwr", "mid", "upr")
+pred_coef %<>% mutate(param = rownames(.)) %>% 
+  mutate(param = as.numeric(factor(param, levels = param)))
+
+num.captured <- expdat %>% group_by(samp) %>% summarize(num_capt = sum(detected))
+
+pred_coef %>% {
+  ggplot(., aes(param, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    geom_line(data = num.captured, aes(samp, num_capt), colour = "dodgerblue4", lwd = 1) +
+    xlab("Time") + ylab("Population Size") 
+}
+
+## Total Bd load in the population. I think there is a non-linear transormation problem here...
+ ## Not that it matters too much I guess because this will get updated as soon as there is a model
+  ## for Bd load over time in the model
+pop_load <- expdat %>% group_by(samp) %>% mutate(scaled_load = log_bd_load * (1 - dead)) %>% 
+    summarize(mean_load = mean(scaled_load))
+pop_load <- pop_load$mean_load
+
+pop_load <- sweep(stan.fit.samples$pop
+  , 2
+  , pop_load[-10]
+  , "*")
+
+real_load <- expdat %>% group_by(samp) %>% mutate(scaled_load = log_bd_load * (1 - dead)) %>% 
+    summarize(total_load = sum(scaled_load))
+
+pop_load        <- reshape2::melt(pop_load)
+names(pop_load) <- c("samp", "obs", "load")
+pop_load      %<>% group_by(obs) %>%
+  summarize(
+    mid = quantile(load, 0.50)
+  , lwr = quantile(load, 0.025)
+  , upr = quantile(load, 0.975)
+  )
+
+pop_load %>% {
+  ggplot(., aes(obs, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    geom_line(data = real_load, aes(samp, total_load), colour = "dodgerblue4", lwd = 1) +
+    xlab("Time") + ylab("Population Size") 
+}
+
+####
+## Generated quantities: 
+##  4) Simulated capture matrix
+####
+
+capture.sim <- array(data = 0, dim = c(samp - 1, ind, stan.length))
+death.sim   <- array(data = 0, dim = c(samp - 1, ind, stan.length))
+
+for (i in 1:(samp - 1)) {
+  ## Simulate if each individual died in a time step (using all posterior samples)
+  death.sim[i,,]   <- apply(stan.fit.samples$phi[,,i], 1, FUN = function(x) rbinom(length(x), 1, 1 - x))
+  capture.sim[i,,] <- apply(stan.fit.samples$p[,,i], 1, FUN = function(x) rbinom(length(x), 1, x))
+  
+  ## Can only be captured if alive
+  capture.sim[i,,] <- capture.sim[i,,] * (1 - death.sim[i,,])
+  
+}
+
+death.sim          <- reshape2::melt(death.sim)
+names(death.sim)   <- c("obs", "ind", "samp", "dead")
+capture.sim        <- reshape2::melt(capture.sim)
+names(capture.sim) <- c("obs", "ind", "samp", "captured")
+
+pop.sim <- left_join(death.sim, capture.sim)
+
+## Clean up death and captures. This sim is a bit odd but will work because death at each time and observations
+ ## at each time are estimated individually 
+pop.sim %<>% 
+  group_by(samp, ind) %>% 
+  mutate(
+    dead     = cumsum(dead)
+  , dead     = ifelse(dead > 1, 1, dead)
+  , captured = ifelse(dead == 1, 0, captured))
+
+## Take a look at a single posterior for what a capture history would look like (just a random one of the stan.length samples)
+rand_samp <- sample(seq(stan.length), 1)
+
+pop.sim.test <- pop.sim %>% filter(samp == rand_samp) %>%
+  mutate(ind = as.factor(ind))
+
+ pop.sim.test %>% {
+  ggplot(., aes(obs, ind, fill = as.factor(captured))) + 
+    geom_tile(alpha = 0.8) +
+    xlab("Sampling Event") + ylab("Individual") +
+    scale_fill_manual(
+        values = c("dodgerblue4", "firebrick4")
+      , name   = "Detected?"
+      , labels = c("No", "Yes")) +
+    geom_line(data = pop.sim.test %>% filter(dead == 1)
+      , aes(x = obs, y = ind, z = NULL)) +
+    theme(
+      axis.text.y = element_text(size = 8)
+    , legend.text = element_text(size = 12)
+    , legend.key.size = unit(.55, "cm")
+    ) +
+     scale_x_continuous(breaks = c(1, 3, 5, 7, 9)) +
+    ggtitle("Lines show dead individuals")
 }
 
 ####

@@ -23,13 +23,15 @@ functions {
 
 data {
 
-	int<lower=0> n_ind;				    // Number of individuals
+	int<lower=0> n_ind;				    // Total number of individuals ever caught
 	int<lower=2> n_occasions;		            // Number of capture occasions
 	int<lower=0,upper=1> y[n_ind, n_occasions];	    // Capture-history observation matrix
   	int<lower=0,upper=n_occasions> first[n_ind];        // Capture time that each individual was first captured
   	int<lower=0,upper=n_occasions> last[n_ind];         // Capture time that each individual was last captured
 	int n_occ_minus_1; 				    // Number of capture occasions minus 1 (create a data entry for it given that n_occasions - 1 is often used)
 	row_vector[n_occ_minus_1] X[n_ind];		    // Covariate
+	int<lower=0> n_sampled;		 	    	    // Number of individuals with Bd taken
+	int<lower=0> X_which[n_sampled];		    // Individuals for which Bd was taken
 	vector[n_occasions] n_captured;                     // Total number captured at each sampling event
 
 //	int<lower=1,upper=n_ind> ind_id[n_ind];		    // Individual ID
@@ -44,6 +46,12 @@ parameters {
 
 	vector[2] beta_phi;                  		// intercept and slope coefficient for survival
         vector[2] beta_p;				// intercept and slope coefficient for detection
+
+	real bd_delta;					// time point to time point change in Bd load (for now just on average, will make this a random effect eventually)
+	real<lower=0> bd_add;    			// additive noise in changes in Bd over time
+	real<lower=0> bd_obs;    			// observation noise for observed Bd compared to underlying state
+
+        row_vector[n_occ_minus_1] X_mod[n_ind];		// Latent covariate for all time points from the observed covariate
 
 //	real<lower=0> sigma_alpha_phi;			// random effect variance in the intercept for survival
 //	real<lower=0> sigma_beta_phi;			// random effect variance in the slope for survival over bd load
@@ -76,17 +84,17 @@ transformed parameters {
 		
          // linear predictor for survival for individual i and time t based on the covariate X
           // possibly an issue here with the simulated data having covariates for individuals that are never caught,
-          // but eventually there will be a model for the covariates included in this model so this is a bit of a moot point
-	  // for (t in first[i]:n_occ_minus_1) { 
+           // but eventually there will be a model for the covariates included in this model so this is a bit of a moot point
+	    // for (t in first[i]:n_occ_minus_1) { 
 
          for (t in 1:n_occ_minus_1) {
 
 //	  mu = inv_logit((beta[1] + eps_alpha_phi[ind_id[i]] * sigma_alpha_phi) + 
 //		(beta[2] + eps_beta_phi[ind_id[i]] * sigma_beta_phi) * X[i, t]);
 
-	  mu_phi = inv_logit(beta_phi[1] + beta_phi[2] * X[i, t]);
+	  mu_phi = inv_logit(beta_phi[1] + beta_phi[2] * X_mod[i, t]);
  
-	  mu_p = inv_logit(beta_p[1] + beta_p[2] * X[i, t]);
+	  mu_p = inv_logit(beta_p[1] + beta_p[2] * X_mod[i, t]);
           
 	  phi[i, t] = mu_phi;
 	  p[i, t] = mu_p;
@@ -104,12 +112,28 @@ model {
 	beta_p[1] ~ normal(0, 5);
 	beta_p[2] ~ normal(0, 5);
 
+	bd_delta ~ normal(2, 4);
+	bd_add ~ inv_gamma(1, 1);
+	bd_obs ~inv_gamma(1, 1);
+
 //	sigma_alpha_phi ~ inv_gamma(1, 1);
 //	sigma_beta_phi ~ inv_gamma(1, 1);
 //	eps_alpha_phi ~ normal(0, 1);
 //      eps_beta_phi ~ normal(0, 1);
-	
-	// Likelihood
+		
+	// Bd Process Model
+        for (t in 2:n_occ_minus_1) {
+	 for (j in 1:n_ind) {
+          X_mod[j, t] ~ normal(X_mod[j, t-1] + bd_delta, bd_add);  
+	 }
+	}  
+
+	// Bd Data Model
+        for (t in 2:n_occ_minus_1) {
+          X[X_which, t] ~ normal(X_mod[X_which, t], bd_obs);
+   	}         
+
+	// Capture model
 	for (i in 1:n_ind) {
 	 if (first[i] > 0) {
 	  
@@ -126,17 +150,11 @@ model {
 generated quantities {
         
       vector<lower=0>[n_occasions] pop;      // Estimate of the full population
-      vector<lower=0>[n_occasions] load;     // Estimate of the Bd load in the population
       vector<lower=0>[n_occasions] captures; // Estimate of the number captured at each sampling event
  
       pop = n_captured / mu_p;
       captures = pop * mu_p;
    
-      for (i in 1:n_occasions) {
-       load[i] = pop[i] * mean(X[i, ]);
-      }
-
-
 }
 
 
