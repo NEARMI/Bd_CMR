@@ -3,27 +3,36 @@
 ###############################################################
 
 ########
-## September 7 Notes:
+## September 8 Notes:
 ########
 
- ## Model seems to be recovering parameters for simulated Bd when the slopes are the same for all individuals; though:
-  ## -- all left out individuals are estimated to have the same Bd (need to check on this when they have variable Bd)
-  ## -- haven't explored a full range of number of individuals and effect sizes and such
- 
- ## Next to do
-  ## -- Figure out why all of the left out individuals are currently being predicted to have the same
-   ## bd progression. Does that make sense given how the data is simulated / model written? 
-    ## Individuals that are observed for longer are expected to die but their observations are expected to increase?
-  ## -- Variable slopes by individual 
-  ## -- Make sure linear and/or log scale are operating correctly. 
-   ## There are some issues with data being simulated on linear scale and then logged, while model opperates
-   ## on the log scale already
-  ## -- Explore the number of individuals and the number of individuals with Bd vs not on parameter recovery
-  ## -- Go back through the whole model and check dimensions (especially around the n_occ_minus1)
-  ## -- Try and come up with a better way to index bd_drop.which in the model
-  ## -- Continue to expand generated quantities block
-  ## -- break this script up into multiple for readability
-  ## -- simulated total population bd burden is off, why?
+ ## -- General progress since last check in -- 
+ ## Model updated for individual variation in changes in Bd over time. Model can recover some of the variation,
+  ## but lots of the individual slope deviate estimates overlap 0
+   ## !! But I think a lot of the problem stems from the fact that there is a log transform problem (data simulated
+    ## on linear scale and model run on the log scale)
+
+ ## -- Next most important items -- 
+  ## A) Resolve how the model is handling individuals that were never captured (given that so far I have just been
+   ## keeping these simulated individuals in the model but they won't exist in the real data)
+    ## Specifically, these individuals mess with the "Constraints" section and the loop right below that
+  ## B) Need to go back through the whole model and check dimensions (especially around the n_occ_minus1)
+   ## I think I am throwing out data when I don't need to be, especially associated with the model for the 
+    ## covariate. (Need to go back and check the idea that p and phi cant be resolved in the last time step -- though
+     ## their product can be; I think I am currently just ignoring the last time step altogether)
+
+ ## -- Secondary to Do -- 
+  ## 1) Make sure linear and/or log scale are operating correctly. 
+  ## 2) Model doesn't do a great job even at 100 individuals total and 80/100 individuals with modeled bd.
+   ## Explore how this scales with different numbers of individuals, effect size etc.
+  ## 3) Try and come up with a better way to index bd_drop.which in the model
+  ## 4) Need to move bd load estimates at the population level into the generated quantities now that there is a
+   ## bd model inside of the CMR model
+  ## 5) Figure out why population is being under-estimated
+  ## 6) break this script up into multiple for readability
+  ## 7) Move to real data ?!
+   ## For this it will likely be important to have individual-level random effects for capture and mortality 
+    ## probability. These are 
 
 ####
 ## Packages and functions
@@ -37,12 +46,13 @@ source("../../ggplot_theme.R")
 ####
 
 ## "Design" parameters
-nsim <- 1
-ind  <- 100
-samp <- 10
+nsim <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
+ind  <- 100                ## number of individuals
+samp <- 10                 ## number of sampling events
 
-## Sim options
-sim_opt <- "lme4"; sim_opt <- "manual"
+## Two ways to simulated data
+# sim_opt <- "lme4"        ## Use the built in capabilities of lme4
+  sim_opt <- "manual"      ## Simple custom simulation 
 
 ## Bd parameters for lme4 simulation
 if (sim_opt == "lme4") {
@@ -56,9 +66,14 @@ bd_detect <- c(decay = 0.1, offset = 0)      ## logistic response coefficients f
 
 } else {
   
-bd_int   <- c(50, 5)        ## Gamma distribution for starting conditions
-bd_delta <- 300             ## Gain in Bd in individuals (will become a random effect soon [typed Sep 7])
-bd_add   <- 50              ## Process noise in true underlying Bd (normal SD)
+bd_int   <- c(              ## Gamma distribution for variation among individuals in starting conditions
+    shape = 10
+  , scale = 50)              
+bd_delta <- c(              ## Slope in Bd over time (Normal random)
+  mean = 400  
+, sd   = 170 
+  )                         
+bd_add   <- 30              ## Process noise in true underlying Bd (normal SD)
 bd_obs   <- 20              ## Observation noise in observed Bd (normal SD)
 
 ## Response of individuals to Bd load
@@ -66,10 +81,10 @@ bd_mort   <- c(decay = -0.7, offset = 6)     ## logistic response coefficients f
 bd_detect <- c(decay = 0.5, offset = -3)     ## logistic response coefficients for detection across log(bd_load)
 }
 
-bd_all   <- FALSE          ## TRUE = assume all captured individuals have their Bd swabbed
-bd_drop  <- 20             ## number of individuals we will assume didn't have their Bd measured
-                           ## which of the simulated individuals has their Bd dropped
-bd_drop.which <- sample(seq(ind), bd_drop)           
+bd_all        <- FALSE          ## TRUE = assume all captured individuals have their Bd swabbed
+bd_drop       <- 20             ## number of individuals we will assume didn't have their Bd measured
+bd_drop.which <- sample(        ## which of the simulated individuals has their Bd dropped
+  seq(ind), bd_drop)           
 
 ####
 ## Simulate bd response and relationship between bd and survival and detection
@@ -108,18 +123,24 @@ expdat <- expand.grid(
 
 all_ind <- unique(expdat$ind)
 
+## individual-specific bd slopes (i.e., a conditional mode of the random effect for "individual")
+bd_ind  <- rnorm(length(all_ind), bd_delta["mean"], bd_delta["sd"])
+
 ## Simulate true underlying Bd and observed Bd
  ## Probably could do this with some slick dplyr and apply, but w/e loops are easy to read and this
   ## could become a lot more complicated depending on the model we are simulating for
 for (i in seq_along(all_ind)) {
   
   expdat.temp            <- expdat %>% filter(ind == all_ind[i])
-  expdat.temp$bd_load[1] <- rgamma(1, 50, scale = 5)  ## starting Bd is variable among individuals
-  
+  expdat.temp$bd_load[1] <- rgamma(n = 1, shape = bd_int["shape"], scale = bd_int["scale"])  ## starting Bd is variable among individuals
+
 for (j in 2:nrow(expdat.temp)) {
-  
-  ## FOR NOW (Sep 7) simulate all the same slopes (but this will get updated very soon)
-  expdat.temp$bd_load[j] <- rnorm(1, expdat.temp$bd_load[j - 1] + bd_delta, bd_add)
+
+  ## Simulated such that every individual has some true slope but with some additive noise (to simulate
+   ## even more noise to try and better approximate real data (e.g., unexplained variation))
+  expdat.temp$bd_load[j] <- rnorm(1, expdat.temp$bd_load[j - 1] + 
+      bd_ind[i]      
+    , bd_add)           
     
 }
   expdat[expdat$ind == all_ind[i], ]$bd_load <- expdat.temp$bd_load
@@ -137,7 +158,7 @@ expdat %>% {
   ggplot(., aes(samp, log_bd_load
     )) + 
     geom_line(aes(group = ind)) +
-   # scale_y_log10() + 
+    scale_y_log10() + 
     scale_x_continuous(breaks = c(1, 5, 10)) +
     xlab("Sampling Event") + ylab("Bd Load") + {
       if (ind <= 50) {
@@ -155,7 +176,6 @@ bd_probs <- data.frame(
   log_bd_load  = bd_range
 , mort         = exp(bd_mort["offset"] + bd_mort["decay"] * bd_range) /
     (1 + exp(bd_mort["offset"] + bd_mort["decay"] * bd_range))
-  
 ) %>% left_join(.
   , data.frame(
   log_bd_load  = bd_range
@@ -237,12 +257,12 @@ capture_total <- expdat %>% group_by(samp) %>% summarize(total_capt = sum(detect
 ## Run the model
 ####
 
-stan.iter   <- 1500
-stan.burn   <- 500
-stan.thin   <- 1
-stan.length <- (stan.iter - stan.burn) / stan.thin
+stan.iter     <- 1500
+stan.burn     <- 500
+stan.thin     <- 1
+stan.length   <- (stan.iter - stan.burn) / stan.thin
 
-measured_bd <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp]
+measured_bd   <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp]
 
 ## If trying without complete Bd sampling
 if (!bd_all) {
@@ -251,7 +271,7 @@ if (!bd_all) {
 
 ## Some of these are not needed in the simplest model, but it is ok (if a bit confusing)
  ## to just pass everything for the more complicated model
-stan_data      <- list(
+stan_data     <- list(
   ## bookkeeping params
    n_ind         = ind
  , n_ind_bd      = ind - bd_drop
@@ -287,9 +307,10 @@ stan.fit.samples <- extract(stan.fit)
 ## Recovery of simulated coefficients?
 ####
 
-pred_coef <- as.data.frame(stan.fit.summary[1:4, c(4, 6, 8)])
+## Primary Bd effects
+pred_coef        <- as.data.frame(stan.fit.summary[1:4, c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
-pred_coef %<>% mutate(param = rownames(.))
+pred_coef        %<>% mutate(param = rownames(.))
 
 pred_coef %>% {
   ggplot(., aes(param, mid)) + geom_point() +
@@ -303,13 +324,14 @@ pred_coef %>% {
     theme(axis.text.x = element_text(size = 11))
 }
 
-stan.pred <- apply(stan.fit.samples$beta_phi, 1
+## survival over Bd load
+stan.pred        <- apply(stan.fit.samples$beta_phi, 1
   , FUN = function(x) plogis(x[1] + x[2] * bd_probs$log_bd_load)) %>%
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "mortality")
-stan.pred %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
   , from = unique(log_bd_load), to = bd_probs$log_bd_load))
-stan.pred %<>% group_by(log_bd_load) %>% 
+stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(mortality, c(0.025))
   , mid = quantile(mortality, c(0.5))
@@ -325,13 +347,14 @@ stan.pred %>% {
     xlab("Log of Bd Load") + ylab("Predicted mortality probability")
 }
 
-stan.pred <- apply(stan.fit.samples$beta_p, 1
+## detection over Bd load
+stan.pred        <- apply(stan.fit.samples$beta_p, 1
   , FUN = function(x) plogis(x[1] + x[2] * bd_probs$log_bd_load)) %>%
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "detect")
-stan.pred %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
   , from = unique(log_bd_load), to = bd_probs$log_bd_load))
-stan.pred %<>% group_by(log_bd_load) %>% 
+stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(detect, c(0.10))
   , mid = quantile(detect, c(0.5))
@@ -346,6 +369,65 @@ stan.pred %>% {
       , colour = "dodgerblue4", lwd = 2) +
     xlab("Log of Bd Load") + ylab("Predicted detection probability")
 }
+
+## Change in Bd
+pred_coef <- as.data.frame(stan.fit.summary[
+  c(
+    grep("bd_delta_mu", dimnames(stan.fit.summary)[[1]])
+  , grep("bd_delta_sigma", dimnames(stan.fit.summary)[[1]])
+  , grep("bd_add", dimnames(stan.fit.summary)[[1]])
+  , grep("bd_obs", dimnames(stan.fit.summary)[[1]])
+  , grep("start_mean", dimnames(stan.fit.summary)[[1]])
+  , grep("start_var", dimnames(stan.fit.summary)[[1]])
+  )
+  , c(4, 6, 8)])
+names(pred_coef) <- c("lwr", "mid", "upr")
+pred_coef        %<>% mutate(param = rownames(.))
+
+## Hard to directly compare coefficient estimates given the change in sccale, need to work on this
+pred_coef %>% filter(param != "start_mean") %>% {
+  ggplot(., aes(param, mid)) + geom_point() +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
+    xlab("Parameter") + ylab("Estimate") +
+    theme(axis.text.x = element_text(size = 11))
+}
+
+####
+## Individual random effect estimates
+####
+
+stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
+stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
+  reshape2::melt(.) %>% left_join(., stan.ind_pred_eps) %>%
+  mutate(eps = eps * value) %>% group_by(ind) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% arrange(mid) %>%
+  mutate(ind = factor(ind, levels = ind))
+
+## Not doing a very good job of making these look different than 0
+stan.ind_pred_var %>% {
+  ggplot(., aes(as.factor(ind), mid)) + geom_point() +
+    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+    xlab("Individual") + 
+    ylab("Random Effect Deviate") +
+    geom_hline(yintercept = 0, linetype = "dashed", lwd = 1, colour = "firebrick3") +
+    theme(
+      axis.text.x = element_text(size = 8)
+    ) +
+    geom_vline(xintercept = bd_drop.which, lwd = 0.1) +
+    ggtitle("thin dashed lines are the 20 left out of the model. It is at least nice to say the estimates are all different")
+}
+ 
+## Do we at least get the extreme two individuals correct?
+ ## Not terrible! Model is at least somewhat working!
+data.frame(
+  simulated = order(bd_ind)
+, real      = stan.ind_pred_var$ind
+) %>% head(10)
 
 ####
 ## Recovery of the Bd profile of the individuals left out of the 
@@ -365,6 +447,7 @@ observed_bd         <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load
   reshape2::melt(.)
 names(observed_bd)  <- c("ind", "obs", "log_bd_load")
 
+## These are in fact different, which is exciting
 estimated_bd %>% {
   ggplot(., aes(obs, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
@@ -382,11 +465,11 @@ estimated_bd %>% {
 ####
 
 ## Population size
-pred_coef <- as.data.frame(stan.fit.summary[
+pred_coef        <- as.data.frame(stan.fit.summary[
   grep("pop", dimnames(stan.fit.summary)[[1]])
   , c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
-pred_coef %<>% mutate(param = rownames(.)) %>% 
+pred_coef        %<>% mutate(param = rownames(.)) %>% 
   mutate(param = as.numeric(factor(param, levels = param)))
 
 pop_alive <- expdat %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead))
@@ -400,14 +483,13 @@ pred_coef %>% {
 }
 
 ## Number captured -- interesting that this is perfectly constrained. I guess that makes sense?
-pred_coef <- as.data.frame(stan.fit.summary[
+pred_coef        <- as.data.frame(stan.fit.summary[
   grep("captures", dimnames(stan.fit.summary)[[1]])
   , c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
-pred_coef %<>% mutate(param = rownames(.)) %>% 
+pred_coef        %<>% mutate(param = rownames(.)) %>% 
   mutate(param = as.numeric(factor(param, levels = param)))
-
-num.captured <- expdat %>% group_by(samp) %>% summarize(num_capt = sum(detected))
+num.captured     <- expdat %>% group_by(samp) %>% summarize(num_capt = sum(detected))
 
 pred_coef %>% {
   ggplot(., aes(param, mid)) +
@@ -430,7 +512,7 @@ pop_load <- sweep(stan.fit.samples$pop
   , "*")
 
 real_load <- expdat %>% group_by(samp) %>% mutate(scaled_load = log_bd_load * (1 - dead)) %>% 
-    summarize(total_load = sum(scaled_load))
+    summarize(total_load = sum(scaled_load)) 
 
 pop_load        <- reshape2::melt(pop_load)
 names(pop_load) <- c("samp", "obs", "load")
@@ -486,8 +568,7 @@ pop.sim %<>%
 ## Take a look at a single posterior for what a capture history would look like (just a random one of the stan.length samples)
 rand_samp <- sample(seq(stan.length), 1)
 
-pop.sim.test <- pop.sim %>% filter(samp == rand_samp) %>%
-  mutate(ind = as.factor(ind))
+pop.sim.test <- pop.sim %>% filter(samp == rand_samp) %>% mutate(ind = as.factor(ind))
 
  pop.sim.test %>% {
   ggplot(., aes(obs, ind, fill = as.factor(captured))) + 

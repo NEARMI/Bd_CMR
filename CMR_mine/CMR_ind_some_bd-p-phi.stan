@@ -33,7 +33,6 @@ data {
   	int<lower=0,upper=n_occasions> last[n_ind];         // Capture time that each individual was last captured
 	vector[n_occasions] n_captured;                     // Total number captured at each sampling event
 
-//      matrix[n_ind_bd, n_occ_minus_1] X_bd;	            // Covariate
 	row_vector[n_occ_minus_1] X_bd[n_ind_bd];	    // Covariate
 	int<lower=0> X_which[n_ind_bd];		   	    // Individuals for which Bd was taken
 
@@ -62,9 +61,14 @@ parameters {
         row_vector[n_occ_minus_1] X[n_ind];		// Estimated "true" bd for all of the caught individuals with no bd measured
 
 //	real<lower=0> sigma_alpha_phi;			// random effect variance in the intercept for survival
-//	real<lower=0> sigma_beta_phi;			// random effect variance in the slope for survival over bd load
+//	real<lower=0> sigma_beta_phi;			// random effect variance in the slope for survival over time
 //	vector[n_ind] eps_alpha_phi;			// conditional modes of the random effect
 //	vector[n_ind] eps_beta_phi;
+
+//	real<lower=0> sigma_alpha_p;			// random effect variance in the intercept for detection
+//	real<lower=0> sigma_beta_p;			// random effect variance in the slope for detection over time
+//	vector[n_ind] eps_alpha_p;			// conditional modes of the random effect
+//	vector[n_ind] eps_beta_p;
 
 }
 
@@ -81,10 +85,10 @@ transformed parameters {
   	  bd_ind[i] = bd_delta_mu + bd_delta_sigma * bd_delta_eps[i];
 	}
 	
-	// Constraints
+	// Constraints given when each individual was first captured
 	for (i in 1:n_ind) {
 
-        // For all of those individuals that were caught at least once, set these individuals' capture and mortality 
+       	// For all of those individuals that were caught at least once, set these individuals' capture and mortality 
          // probabilities prior to being captured the first time to 0  
 	for (t in 1:(first[i] - 1)) {
 	  if (first[i] > 0) {
@@ -95,15 +99,15 @@ transformed parameters {
 	 }
 		
          // linear predictor for survival for individual i and time t based on the covariate X
-          // possibly an issue here with the simulated data having covariates for individuals that are never caught,
-           // but eventually there will be a model for the covariates included in this model so this is a bit of a moot point
-	    // for (t in first[i]:n_occ_minus_1) { 
-
+          // I am a bit unclear here what should be looped over -- all times or just the times post first capture
+          // That is, I am a bit unsure how the current model is handling individuals that were never caught (which I guess shouldn't be in the data at all)
+      // for (t in first[i]:n_occ_minus_1) { 
          for (t in 1:n_occ_minus_1) {
 
 //	  mu = inv_logit((beta[1] + eps_alpha_phi[ind_id[i]] * sigma_alpha_phi) + 
 //		(beta[2] + eps_beta_phi[ind_id[i]] * sigma_beta_phi) * X[i, t]);
           
+	// for the random effect add the eps_alpha_phi and eps_alpha_p below (see above)
 	  phi[i, t] = inv_logit(beta_phi[1] + beta_phi[2] * X[i, t]);
 	  p[i, t] = inv_logit(beta_p[1] + beta_p[2] * X[i, t]);
 	 }
@@ -133,6 +137,11 @@ model {
 //	sigma_beta_phi ~ inv_gamma(1, 1);
 //	eps_alpha_phi ~ normal(0, 1);
 //      eps_beta_phi ~ normal(0, 1);
+
+//	sigma_alpha_p ~ inv_gamma(1, 1);
+//	sigma_beta_p ~ inv_gamma(1, 1);
+//	eps_alpha_p ~ normal(0, 1);
+//      eps_beta_p ~ normal(0, 1);
 		
 	// Bd Process Model
 
