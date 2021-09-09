@@ -40,6 +40,7 @@
 needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
 lapply(needed_packages, require, character.only = TRUE)
 source("../../ggplot_theme.R")
+set.seed(10001)
 
 ####
 ## Parameters
@@ -71,7 +72,7 @@ bd_int   <- c(              ## Gamma distribution for variation among individual
   , scale = 50)              
 bd_delta <- c(              ## Slope in Bd over time (Normal random)
   mean = 400  
-, sd   = 170 
+, sd   = 160 
   )                         
 bd_add   <- 30              ## Process noise in true underlying Bd (normal SD)
 bd_obs   <- 20              ## Observation noise in observed Bd (normal SD)
@@ -158,7 +159,7 @@ expdat %>% {
   ggplot(., aes(samp, log_bd_load
     )) + 
     geom_line(aes(group = ind)) +
-    scale_y_log10() + 
+    scale_y_log10(breaks = seq(5,9)) + 
     scale_x_continuous(breaks = c(1, 5, 10)) +
     xlab("Sampling Event") + ylab("Bd Load") + {
       if (ind <= 50) {
@@ -184,11 +185,16 @@ bd_probs <- data.frame(
 )
   )
 
-bd_probs %>% {
-  ggplot(., aes(x = log_bd_load)) +
-  geom_line(aes(y = mort), colour = "firebrick3") +
-  geom_line(aes(y = detect), colour = "dodgerblue3") +
-  ylab("Prediction") + xlab("log of Bd load")
+bd_probs %>% pivot_longer(cols = c(2, 3)) %>% {
+  ggplot(., aes(log_bd_load, value)) +
+  geom_line(aes(colour = name)) + 
+  scale_colour_manual(
+      name   = "Relationship"
+    , values = c("firebrick3", "dodgerblue3")
+    , labels = c("Mortality", "Detection")) + 
+  ylab("Prediction") + 
+  xlab("log of Bd load") +
+  theme(legend.key.size = unit(0.75, "cm"))
 }
 
 ## Add to the simulated bd data for the individuals
