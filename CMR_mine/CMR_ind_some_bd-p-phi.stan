@@ -2,14 +2,15 @@ functions {
 
 	// Function to build the required X_t (chi_t) probability estimator for the mark recapture model, which
 	 // is the probability of never recapturing an individual again after capturing them at time t
+	
 	matrix prob_uncaptured(int n_ind, int n_occasions, matrix p, matrix phi) {
 
 	matrix[n_ind, n_occasions] chi;    // chi for each capture date and individual 
 
 	for (i in 1:n_ind) {
-         chi[i, n_occasions] = 1.0;       // on the last sampling date the probability is one
+         chi[i, n_occasions] = 1.0;        // on the last sampling date the probability is one
 
-	for (t in 1:(n_occasions - 1)) {  // loop over from the first to the second to last sampling date and multiply out the probabilities
+	for (t in 1:(n_occasions - 1)) {   // loop over from the first to the second to last sampling date and multiply out the probabilities
          int t_curr = n_occasions - t;
          int t_next = t_curr + 1;
 	 chi[i, t_curr] = (1 - phi[i, t_curr]) + phi[i, t_curr] * (1 - p[i, t_next - 1]) * chi[i, t_next];		

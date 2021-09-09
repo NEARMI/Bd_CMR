@@ -3,36 +3,38 @@
 ###############################################################
 
 ########
-## September 8 Notes:
+## September 9 Notes:
 ########
 
  ## -- General progress since last check in -- 
- ## Model updated for individual variation in changes in Bd over time. Model can recover some of the variation,
-  ## but lots of the individual slope deviate estimates overlap 0
-   ## !! But I think a lot of the problem stems from the fact that there is a log transform problem (data simulated
-    ## on linear scale and model run on the log scale)
+ ## 1) Some parameters added for simulation options (dropping individuals, using n-1 or n time points etc.) --> interesting to compare coefficient estimates 
+  ## from these various options
+ ## 2) Simulation updated to drop individuals that were never caught. This leads to poorer estimates -- maybe there is something interesting
+  ## going on here with bias and the ability to estimate true underlying parameters only from observed individuals 
+ ## 3) log transform problem remains and needs to get fixed (data simulated on linear scale and model run on the log scale)
+ ## 4) Interestingly using up through the last point still allows for a separation of detection from survival. I think because probability 
+  ## and survival are a function of the latent covariate that is being modeled
+ ## 5) Also interestingly forcing the p and phi for each individual prior to their first observation to 0 really doesn't change any of the 
+  ## coefficient estimates. I find this weird, but I guess because we know they are zero the constraints should be there. This is maybe something
+   ## to revisit when exploring real data
+
+ ## -- Other thoughts --
+ ## 1) Feeling decent about the general mechanics of a "simple" CMR model now. Feel I will be able to make some reasonable sense of more complicated
+  ## CMR models now that I have a simpler one running and behaving reasonably well with simulated data
+ ## 2) Possibly no reason at this point to continue with this simulation-based model and move to real data? There are a number of unresolved issues
+  ## (see below) but those _probably_ only need to be resolved if this would turn into some sort of power analysis. In short, the model seems sensible
+   ## enough at this point to move to working on a more complicated bd sub-model and start exploring some real data
+ ## 3) I can see important steps forward to be:
+  ## A) Trying to have multiple species or sites by having the beta parameters themselves be random or the progression of the disease be random
 
  ## -- Next most important items -- 
-  ## A) Resolve how the model is handling individuals that were never captured (given that so far I have just been
-   ## keeping these simulated individuals in the model but they won't exist in the real data)
-    ## Specifically, these individuals mess with the "Constraints" section and the loop right below that
-  ## B) Need to go back through the whole model and check dimensions (especially around the n_occ_minus1)
-   ## I think I am throwing out data when I don't need to be, especially associated with the model for the 
-    ## covariate. (Need to go back and check the idea that p and phi cant be resolved in the last time step -- though
-     ## their product can be; I think I am currently just ignoring the last time step altogether)
+ ## 1) Specifically re: email chain from around 3pm on Thursday -- May want to take a step back from the CMR model and start exploring a more complete
+  ## bd submodel (that is more extensive but can still be nested into a CMR model)
 
  ## -- Secondary to Do -- 
   ## 1) Make sure linear and/or log scale are operating correctly. 
-  ## 2) Model doesn't do a great job even at 100 individuals total and 80/100 individuals with modeled bd.
-   ## Explore how this scales with different numbers of individuals, effect size etc.
-  ## 3) Try and come up with a better way to index bd_drop.which in the model
-  ## 4) Need to move bd load estimates at the population level into the generated quantities now that there is a
-   ## bd model inside of the CMR model
-  ## 5) Figure out why population is being under-estimated
-  ## 6) break this script up into multiple for readability
-  ## 7) Move to real data ?!
-   ## For this it will likely be important to have individual-level random effects for capture and mortality 
-    ## probability. These are 
+  ## 2) Try and come up with a better way to index bd_drop.which in the model
+  ## 3) break this script up into multiple for readability
 
 ####
 ## Packages and functions
@@ -40,7 +42,8 @@
 needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
 lapply(needed_packages, require, character.only = TRUE)
 source("../../ggplot_theme.R")
-set.seed(10001)
+set.seed(10002)
+'%notin%' <- Negate('%in%')
 
 ####
 ## Parameters
@@ -48,12 +51,18 @@ set.seed(10001)
 
 ## "Design" parameters
 nsim <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind  <- 100                ## number of individuals
+ind  <- 200                ## number of individuals
 samp <- 10                 ## number of sampling events
 
 ## Two ways to simulated data
 # sim_opt <- "lme4"        ## Use the built in capabilities of lme4
   sim_opt <- "manual"      ## Simple custom simulation 
+  
+## Keep all simulated individuals or drop individuals never captured?
+only_caught <- TRUE
+
+## Use covaratiates until the last sampling time or one before? (As of Sep 9 still trying to get to the bottom of the impact of this choice)
+use_all_timepoints <- TRUE
 
 ## Bd parameters for lme4 simulation
 if (sim_opt == "lme4") {
@@ -72,20 +81,17 @@ bd_int   <- c(              ## Gamma distribution for variation among individual
   , scale = 50)              
 bd_delta <- c(              ## Slope in Bd over time (Normal random)
   mean = 400  
-, sd   = 160 
-  )                         
+, sd   = 145)                         
 bd_add   <- 30              ## Process noise in true underlying Bd (normal SD)
 bd_obs   <- 20              ## Observation noise in observed Bd (normal SD)
 
 ## Response of individuals to Bd load
 bd_mort   <- c(decay = -0.7, offset = 6)     ## logistic response coefficients for mortality across log(bd_load)
-bd_detect <- c(decay = 0.5, offset = -3)     ## logistic response coefficients for detection across log(bd_load)
+bd_detect <- c(decay = 0.7, offset = -4)     ## logistic response coefficients for detection across log(bd_load)
 }
 
-bd_all        <- FALSE          ## TRUE = assume all captured individuals have their Bd swabbed
-bd_drop       <- 20             ## number of individuals we will assume didn't have their Bd measured
-bd_drop.which <- sample(        ## which of the simulated individuals has their Bd dropped
-  seq(ind), bd_drop)           
+bd_all    <- FALSE          ## TRUE = assume all captured individuals have their Bd swabbed
+bd_drop   <- 20             ## number of individuals we will assume didn't have their Bd measured
 
 ####
 ## Simulate bd response and relationship between bd and survival and detection
@@ -216,6 +222,32 @@ expdat %<>%
   , dead = ifelse(dead > 1, 1, dead)) %>%
   mutate(detected = ifelse(dead == 0, rbinom(n(), 1, detect), 0))
 
+## Drop all individuals that were never caught and update parameters
+if (!only_caught) {
+never_detected <- expdat %>% group_by(ind) %>% summarize(total_detection = sum(detected)) %>% filter(total_detection == 0)
+new_ind <- seq(1, ind - nrow(never_detected))
+
+## store original simulated population for estimate diagnostics
+expdat.not_dropped <- expdat    
+ind.not_dropped    <- ind
+
+expdat         %<>% dplyr::filter(ind %notin% never_detected$ind) %>%
+  droplevels() %>%
+  mutate(ind = as.numeric(ind), ind = as.factor(ind))
+
+ind <- length(unique(expdat$ind))
+
+## Which of the caught individuals has their Bd dropped from those individuals we actually caught
+bd_drop.which <- sample(seq(ind), bd_drop)    
+
+## update bd_ind
+bd_ind <- bd_ind[-as.numeric(never_detected$ind)]
+
+} else {
+## which of the simulated individuals has their Bd dropped. Could be from individuals never caught, which yes, is a bit odd
+bd_drop.which <- sample(seq(ind), bd_drop)   
+}
+
 ## check to see if this worked with a heatmap
 expdat %>% {
   ggplot(., aes(samp, ind, fill = as.factor(detected))) + 
@@ -268,15 +300,17 @@ stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 
-measured_bd   <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp]
+if (use_all_timepoints) {
+measured_bd   <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)
+} else {
+measured_bd   <- matrix(nrow = ind, ncol = samp, data = expdat$log_bd_load, byrow = T)[, -samp] 
+}
 
 ## If trying without complete Bd sampling
 if (!bd_all) {
   measured_bd <- measured_bd[-bd_drop.which, ]
 }
 
-## Some of these are not needed in the simplest model, but it is ok (if a bit confusing)
- ## to just pass everything for the more complicated model
 stan_data     <- list(
   ## bookkeeping params
    n_ind         = ind
@@ -295,7 +329,10 @@ stan_data     <- list(
 
 stan.fit  <- stan(
 # file    = "CMR_ind_all_no.stan"
-  file    = "CMR_ind_some_no_2.stan"
+# file    = "CMR_ind_some_no_2.stan"
+# file    = "CMR_ind_some_bd-p-phi_2.stan"
+# file    = "CMR_ind_some_bd-p-phi_all.stan"
+  file    = "CMR_ind_some_bd-p-phi_restrict.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -304,13 +341,24 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
+## Explore full time course vs reduced time course
+# stan.fit <- stan.fit.minusone
+# stan.fit <- stan.fit.full
+## And all individuals vs only caught individuals
+# stan.fit <- stan.fit.caught.restrict              ## insure p and phi are 0 prior to first catch
+# stan.fit <- stan.fit.caught                       ## do not make this assumption
+
 shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
+## Within all of these diagnostics see *NOTE* for some of my summaries for what I have seen
+ ## from my work on this so far
+
 ####
 ## Recovery of simulated coefficients?
+##   *NOTE*: High success with keeping all individuals, only moderate success with dropping individuals
 ####
 
 ## Primary Bd effects
@@ -435,6 +483,12 @@ data.frame(
 , real      = stan.ind_pred_var$ind
 ) %>% head(10)
 
+## Percent of most extreme estimated individuals that are in the most extreme simulated individuals
+ ## *NOTE*: Seems to recover the most extreme individuals with low slopes than individuals with large slopes
+  ## I think this is probably because of the log-scale
+length(which(head(stan.ind_pred_var$ind, 20) %in% head(order(bd_ind), 20)) ) / 20
+length(which(tail(stan.ind_pred_var$ind, 20) %in% tail(order(bd_ind), 20)) ) / 20
+
 ####
 ## Recovery of the Bd profile of the individuals left out of the 
 ####
@@ -478,14 +532,22 @@ names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.)) %>% 
   mutate(param = as.numeric(factor(param, levels = param)))
 
-pop_alive <- expdat %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead))
+if (!only_caught) {
+  pop_alive <- expdat %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead))
+  pop_alive <- pop_alive %>% rbind(data.frame(samp = 0, pop_size = ind.not_dropped), .)
+} else {
+  pop_alive <- expdat.not_dropped %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead)) 
+  pop_alive <- pop_alive %>% rbind(data.frame(samp = 0, pop_size = ind.not_dropped), .)
+}
 
-pred_coef %>% {
+## SEP 9: Something a bit fishy going on here in my predictions and real pop as a function of time
+pred_coef %>% mutate(param = param - 1) %>%  {
   ggplot(., aes(param, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line() +
     geom_line(data = pop_alive, aes(samp, pop_size), colour = "dodgerblue4", lwd = 1) +
-    xlab("Time") + ylab("Population Size") 
+    xlab("Time") + 
+    ylab("Population Size") 
 }
 
 ## Number captured -- interesting that this is perfectly constrained. I guess that makes sense?
@@ -502,39 +564,28 @@ pred_coef %>% {
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line() +
     geom_line(data = num.captured, aes(samp, num_capt), colour = "dodgerblue4", lwd = 1) +
-    xlab("Time") + ylab("Population Size") 
+    xlab("Time") + ylab("Number Captured") 
 }
 
 ## Total Bd load in the population. I think there is a non-linear transormation problem here...
  ## Not that it matters too much I guess because this will get updated as soon as there is a model
   ## for Bd load over time in the model
 pop_load <- expdat %>% group_by(samp) %>% mutate(scaled_load = log_bd_load * (1 - dead)) %>% 
-    summarize(mean_load = mean(scaled_load))
-pop_load <- pop_load$mean_load
+    summarize(total_load = sum(scaled_load))
 
-pop_load <- sweep(stan.fit.samples$pop
-  , 2
-  , pop_load[-10]
-  , "*")
+pred_coef        <- as.data.frame(stan.fit.summary[
+  grep("total_bd", dimnames(stan.fit.summary)[[1]])
+  , c(4, 6, 8)])
+names(pred_coef) <- c("lwr", "mid", "upr")
+pred_coef        %<>% mutate(param = rownames(.)) %>% 
+  mutate(param = as.numeric(factor(param, levels = param)))
 
-real_load <- expdat %>% group_by(samp) %>% mutate(scaled_load = log_bd_load * (1 - dead)) %>% 
-    summarize(total_load = sum(scaled_load)) 
-
-pop_load        <- reshape2::melt(pop_load)
-names(pop_load) <- c("samp", "obs", "load")
-pop_load      %<>% group_by(obs) %>%
-  summarize(
-    mid = quantile(load, 0.50)
-  , lwr = quantile(load, 0.025)
-  , upr = quantile(load, 0.975)
-  )
-
-pop_load %>% {
-  ggplot(., aes(obs, mid)) +
+pred_coef %>% {
+  ggplot(., aes(param, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line() +
-    geom_line(data = real_load, aes(samp, total_load), colour = "dodgerblue4", lwd = 1) +
-    xlab("Time") + ylab("Population Size") 
+    geom_line(data = pop_load, aes(samp, total_load), colour = "dodgerblue4", lwd = 1) +
+    xlab("Time") + ylab("Total Bd load in the population") 
 }
 
 ####
@@ -542,10 +593,10 @@ pop_load %>% {
 ##  4) Simulated capture matrix
 ####
 
-capture.sim <- array(data = 0, dim = c(samp - 1, ind, stan.length))
-death.sim   <- array(data = 0, dim = c(samp - 1, ind, stan.length))
+capture.sim <- array(data = 0, dim = c(samp, ind, stan.length))
+death.sim   <- array(data = 0, dim = c(samp, ind, stan.length))
 
-for (i in 1:(samp - 1)) {
+for (i in 1:samp) {
   ## Simulate if each individual died in a time step (using all posterior samples)
   death.sim[i,,]   <- apply(stan.fit.samples$phi[,,i], 1, FUN = function(x) rbinom(length(x), 1, 1 - x))
   capture.sim[i,,] <- apply(stan.fit.samples$p[,,i], 1, FUN = function(x) rbinom(length(x), 1, x))
@@ -594,21 +645,3 @@ pop.sim.test <- pop.sim %>% filter(samp == rand_samp) %>% mutate(ind = as.factor
      scale_x_continuous(breaks = c(1, 3, 5, 7, 9)) +
     ggtitle("Lines show dead individuals")
 }
-
-####
-## Notes
-####
-
-# The data from a capture-recapture study can be written in terms of a 'u' by 'k' capture matrix Xobs, where 'u' is the total number of individuals ever captured
-
-## To use the bd data in a mark recapture model need a model for how bd changes within individuals -- presumably this rate
- ## can be modeled as a random effect with some global mean and some individual variation in progression rate
-## Once the model for the covariate is defined, a link function, usually the logit, 
- ## relates the covariate information to the capture or survival probabilities.
-
-## That is, an individuals survival probability could be some intercept (random) + some covariate * modeled bd
-
-
-
-
-
