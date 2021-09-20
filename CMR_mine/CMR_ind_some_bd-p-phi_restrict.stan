@@ -99,7 +99,6 @@ transformed parameters {
          // linear predictor for survival for individual i and time t based on the covariate X. Prior to first capture (see above loop)
           // the probabilities are 0, after first capture the probabilities are determined by their covariates
            for (t in first[i]:n_occasions) {
-//         for (t in 1:n_occasions) {
 
 	// for the random effect add the eps_alpha_phi and eps_alpha_p below (see below)
 	  phi[i, t] = inv_logit(beta_phi[1] + beta_phi[2] * X[i, t]);
@@ -155,7 +154,7 @@ model {
 	// Bd Data Model
          // Slightly confusing way to write this but works because order is conserved. That is,
          // the length(X_which) individuals of the full X line up with the subset X_bd
-        for (t in 2:n_occasions) {
+        for (t in 1:n_occasions) {
           X_bd[, t] ~ normal(X[X_which, t], bd_obs); 
    	}         
 

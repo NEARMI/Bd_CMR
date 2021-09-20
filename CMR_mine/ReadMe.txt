@@ -29,4 +29,7 @@ CMR_ind_some_no_2 -- ... and have different slopes
 CMR_ind_some_bd-p-phi -- Individuals also vary in their response to detection and mortality (and not just to their variable bd load)
 CMR_ind_some_bd-p-phi_all -- ^^ with estimating p and phi before first capture
 CMR_ind_some_bd-p-phi_restrict -- ^^ with setting p and phi before first capture to 0
+
+CMR_ind_some_bd_empirical -- Modifying 'CMR_ind_some_bd-p-phi_restrict' for the actual structure of how
+                              bd is sampled (from time to time for some individuals)
  
