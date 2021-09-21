@@ -2,40 +2,153 @@
 ## Try and fit a CMR model with the newt data ##
 ################################################
 
+####
+## About this script
+####
+
 ## First, see and start with 'data_exploration.R' for data info
-## Second, see 'individual_CRM.R' for a CMR model with a bd submodel that fits reasonablly well with simulated data
+## Second, see 'individual_CRM_few_samples.R' for a CMR model with a bd submodel that fits reasonably well with simulated data
+## Third, this script attempts to fit a very simple model to one site 
 
-## There is basically no chance the model is actually going to work, but just for kicks (and to 
- ## set the data up in the right structure to run the model)
+####
+## Notes as of Sep 21:
+####
 
-capt_history %<>% mutate(log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load))
+## 1) The data in MA:A11 honestly seems good enough to be able to fit some sort of model
+ ## -- **** However really need to resolve:
+  ## A) the time gaps problem between observations
+  ## B) a realistic bd process model
+
+## 2) It sort of seems like more of a regression-style random effects model for bd change over time could be fruitful
+ ## -- **** Going this route however:
+  ## A) Does every individual need their latent bd estimated because that is really hard. How much work to put into estimating all of this?
+  ## B) How many extra random effects are needed: do individuals need to vary in their survival and detection apart from their variation in bd?
+  ## C) How to deal with the time gaps inbetween sampling
+  ## D) Will we be able to fit other covariates?
+
+####
+## Packages and functions
+####
+needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
+lapply(needed_packages, require, character.only = TRUE)
+source("../ggplot_theme.R")
+set.seed(10002)
+'%notin%' <- Negate('%in%')
+
+Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_9.12.21.csv")
+Bd_Newts_AllSites   %<>% mutate(Date = as.Date(Date))
+
+## Some parameters
+red_ind        <- FALSE    ## reduce the number of individuals for debugging purposes
+all_dates      <- TRUE     ## TRUE  = expand the capture matrix to have an event on every day
+                           ## FALSE = collapse sampling events to lose the time spacing between them
+
+if (red_ind) {
+red_total_capt <- 4        ## minimum number of recaptures to keep an individual in an analysis
+}
+
+A11 <- Bd_Newts_AllSites %>% 
+  filter(
+    Site == "A11"
+  , year == 2020
+  )
+
+if (!all_dates) {
+capt_history <- expand.grid(
+  Date = unique(A11$Date)
+, Mark = unique(A11$Mark)
+)
+} else {
+capt_history <- expand.grid(
+  Date = seq(from = min(A11$Date), to = max(A11$Date), by = 1)
+, Mark = unique(A11$Mark)
+) 
+}
+
+capt_history %<>% 
+  left_join(.
+    , {A11 %>% dplyr::select(Date, Mark, julian, copies.swab)}
+    ) %>% rename(
+      captured = julian
+    , bd_load  = copies.swab) %>% 
+  mutate(
+    captured = ifelse(is.na(captured), 0, 1)
+  , swabbed  = ifelse(is.na(bd_load), 0, 1)) %>%
+  mutate(log_bd_load = log(bd_load + 1)) %>%                          ### eeek!
+  mutate(log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load))    ### eeek X2!!
+
+capt_history %<>% arrange(Date, Mark)
 
 ## Try a small subset to see if the model will run (regardless of whether it will fit or not)
-capt_history.well_meas <- capt_history %>% 
+if (red_ind) {
+  capt_history.well_meas <- capt_history %>% 
   group_by(Mark) %>%
   summarize(total_capt = sum(captured)) %>% 
-  filter(total_capt > 4) %>% 
+  filter(total_capt > red_total_capt) %>% 
   droplevels()
+  
+  capt_history %<>% filter(Mark %in% capt_history.well_meas$Mark)
+} 
 
-capt_history %<>% filter(Mark %in% capt_history.well_meas$Mark)
+## Quick double check of these individuals' bd load. Honestly doesn't look too bad
+capt_history %>% filter(swabbed == 1) %>%  {
+  ggplot(., aes(Date, log_bd_load)) + 
+    geom_line(aes(group = Mark)) +
+    xlab("Date") +
+    ylab("Bd Load") 
+}
 
+## Why collapsing sampling events doesnt work -- cant model a continuous curve appropriately when things
+ ## get squashed without taking into consideration the length of time between the gaps
+capt_history %>% filter(swabbed == 1) %>% 
+  mutate(occ = as.numeric(as.factor(Date))) %>% {
+  ggplot(., aes(occ, log_bd_load)) + 
+    geom_line(aes(group = Mark)) +
+    xlab("Date") +
+    ylab("Bd Load")
+}
+
+## capture matrix
 capt_history.matrix <- matrix(
   nrow = length(unique(capt_history$Mark))
 , ncol = length(unique(capt_history$Date))
 , data = capt_history$captured
-, byrow = T)
+, byrow = F)
 
+## individuals' measured bd 
 capt_history.bd_load <- matrix(
   nrow = length(unique(capt_history$Mark))
 , ncol = length(unique(capt_history$Date))
 , data = capt_history$log_bd_load
-, byrow = T)
+, byrow = F)
 
+## time points where bd was measured
 capt_history.bd_measured <- matrix(
   nrow = length(unique(capt_history$Mark))
 , ncol = length(unique(capt_history$Date))
 , data = capt_history$swabbed
-, byrow = T)
+, byrow = F)
+
+## some quick visuals and checks
+par(mfrow = c(2, 1))
+image(capt_history.matrix)
+image(capt_history.bd_measured)
+
+if (length(
+  which(
+  (capt_history.matrix[2, ] == capt_history[capt_history$Mark == unique(capt_history$Mark)[2], ]$captured) == FALSE
+)
+) > 0) {
+  print("ERROR: capture matrix not filled in correctly"); break
+}
+
+if (length(
+  which(
+  (capt_history.bd_measured[2, ] == capt_history[capt_history$Mark == unique(capt_history$Mark)[2], ]$swabbed) == FALSE
+)
+) > 0) {
+  print("ERROR: bd matrix not filled in correctly"); break
+}
 
 capture_range  <- capt_history %>% group_by(Mark) %>% 
   summarize(
@@ -50,8 +163,10 @@ capture_range  <- capt_history %>% group_by(Mark) %>%
 capture_total <- capt_history %>% group_by(Date) %>% summarize(total_capt = sum(captured))
 
 capt_history %>% mutate(event = as.factor(Date)) %>% {
-  ggplot(., aes(event, Mark, fill = as.factor(captured))) + 
+  ggplot(., aes(Date, Mark, fill = as.factor(captured))) + 
     geom_tile(alpha = 0.8) +
+    geom_point(data = capt_history %>% mutate(event = as.factor(Date)) %>% 
+        filter(swabbed == 1), aes(x = Date, y = Mark, z = NULL), lwd = 0.7) +
     xlab("Sampling Event") + ylab("Individual") +
     scale_fill_manual(
         values = c("dodgerblue4", "firebrick4")
@@ -65,6 +180,10 @@ capt_history %>% mutate(event = as.factor(Date)) %>% {
     ) 
 }
 
+####
+## Run the stan model
+####
+
 stan.iter     <- 1500
 stan.burn     <- 500
 stan.thin     <- 1
@@ -74,6 +193,7 @@ stan_data     <- list(
   ## bookkeeping params
    n_ind         = length(unique(capt_history$Mark))
  , n_occasions   = length(unique(capt_history$Date))
+ , samp_events   = seq(length(unique(capt_history$Date)))  ## Need to update for uneven spacing
   ## Capture data
  , y             = capt_history.matrix
  , first         = capture_range$first
@@ -85,7 +205,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_mine/CMR_ind_some_bd_empirical.stan"
+  file    = "CMR_mine/CMR_ind_pat_bd_empirical_red2.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -93,6 +213,8 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+
+shinystan::launch_shinystan(stan.fit)
 
 saveRDS(stan.fit, "stan.fit.empirical.Rds")
 
@@ -126,7 +248,7 @@ stan.pred        <- apply(stan.fit.samples$beta_phi, 1
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "mortality")
 stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
-  , from = unique(log_bd_load), to = log(bd_levels)))
+  , from = unique(log_bd_load), to = bd_levels))
 stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(mortality, c(0.025))
@@ -147,7 +269,7 @@ stan.pred        <- apply(stan.fit.samples$beta_p, 1
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "detect")
 stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
-  , from = unique(log_bd_load), to = log(bd_levels)))
+  , from = unique(log_bd_load), to = bd_levels))
 stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(detect, c(0.10))
@@ -183,6 +305,39 @@ pred_coef %>% filter(param != "start_mean") %>% {
     xlab("Parameter") + ylab("Estimate") +
     theme(axis.text.x = element_text(size = 11))
 }
+
+####
+## What does predicted overall bd look like?
+####
+stan.pred <- matrix(nrow = length(unique(capt_history$Date)), ncol = 1000, data = 0)
+samp_occ  <- seq(length(unique(capt_history$Date)))
+
+for (i in 1:nrow(stan.pred)) {
+stan.pred[i, ] <- stan.fit.samples$beta_bd[, 1] + 
+  stan.fit.samples$beta_bd[, 2] * samp_occ[i] +
+  stan.fit.samples$beta_bd[, 3] * samp_occ[i]^2
+}
+
+stan.pred <- reshape2::melt(stan.pred)
+names(stan.pred) <- c("occ", "iter", "value")
+
+stan.pred %<>% 
+  group_by(occ) %>%
+  summarize(
+    lwr = quantile(value, 0.025)
+  , mid = quantile(value, 0.50)
+  , upr = quantile(value, 0.975)
+  )
+
+ggplot(stan.pred, aes(occ, mid)) + 
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.4) +
+  geom_line() +
+  geom_line(
+    data = (capt_history %>% filter(swabbed == 1) %>% mutate(occ = as.numeric(as.factor(Date))))
+  , aes(occ, log_bd_load, group = Mark)
+  , colour = "red"
+  ) + xlab("Sampling Occasion") +
+  ylab("Bd Load")
 
 ####
 ## Individual random effect estimates

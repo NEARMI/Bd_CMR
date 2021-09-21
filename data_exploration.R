@@ -636,7 +636,7 @@ gg.j.2 <- Bd_Newts_AllSites %>%
     theme(axis.text.x = element_text(size = 9, angle = 300))
 }
 
-## THere doesn't seem to be much pattern in Bd load through the year in WI
+## There doesn't seem to be much pattern in Bd load through the year in WI
 gridExtra::grid.arrange(gg.j.1, gg.j.2, ncol = 1)
 
 ## Lets see an example recapture matrix for a given location (I guess PA for now
@@ -646,7 +646,11 @@ Bd_Newts_AllSites %>%
   group_by(Site) %>% 
   summarize(num_ind = n_distinct(Mark))
 
-A11 <- Bd_Newts_AllSites %>% filter(Site == "A11")
+A11 <- Bd_Newts_AllSites %>% 
+  filter(
+    Site == "A11"
+  , year == 2020
+  )
 
 capt_history <- expand.grid(
   Date = unique(A11$Date)
@@ -698,5 +702,3 @@ capt_history %>% mutate(event = as.factor(Date)) %>% {
     , legend.key.size = unit(.55, "cm")
     ) 
 }
-
-
