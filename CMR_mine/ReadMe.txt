@@ -44,6 +44,9 @@ CMR_ind_pat_bd_empirical -- ^^ but with random survival and detectability not as
 CMR_ind_pat_bd_empirical_red -- ^^ but with a completely different bd process model and no extra random effects to remove parameters
 		^^ Important note about this model in the script
 CMR_ind_pat_bd_empirical_red2 -- Extremely reduced form of ^^ to try and get it to fit to real data
+CMR_ind_pat_bd_empirical_red3 -- ^^ but trying to adjust the n_occasions to restrict the likelihood to only get updated on days where sampling actually was taking place 
+CMR_ind_pat_bd_empirical_red4 -- ^^ trying to debug. Problems with X as a transformed parameter and not parameter... 
+	^^^^^ Will continue to just add a number to work on model development...
 
 CMR_ind_pat_bd_empirical_01 -- Step back and try and fit just a binary of infected or not since load has so many issues
 
