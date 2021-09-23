@@ -40,6 +40,10 @@ CMR_ind_some_bd-p-phi_restrict -- ^^ with setting p and phi before first capture
 
 CMR_ind_pat_bd-p-phi     -- Modifying 'CMR_ind_some_bd-p-phi_restrict' for the actual structure of how
                               bd is sampled (from time to time for some individuals)
+
+CMR_ind_pat_bd-p-phiXX   -- All of these are various attempts at debugging the next steps of uneven gaps in time between sampling events and other covariates 
+
+
 CMR_ind_pat_bd_empirical -- ^^ but with random survival and detectability not as a function of bd to capture more of the individual variation
 CMR_ind_pat_bd_empirical_red -- ^^ but with a completely different bd process model and no extra random effects to remove parameters
 		^^ Important note about this model in the script
