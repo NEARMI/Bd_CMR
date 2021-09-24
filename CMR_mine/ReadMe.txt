@@ -25,8 +25,29 @@ e.g. : CMR_ind_all_no.stan
      bd-p-phi = individuals vary in their Bd profiles and individuals vary in their capture probability and mortality probability 
 
 
-Models
-------
+--------------------
+A list of all models
+--------------------
+
+
+Currently important models being worked on (not as scratch as those further down) (to be updated regularly)
+-----------------------------------------------------------------------------------------------------------
+
+CMR_ind_pat_bd-p-phi_no_timegap_covariate
+	- Random effect in bd intercept only
+	- No individual variation in response to bd and no other random effects
+	- Sampling occasions collapsed, meaning that the amount of time elapsed between sampling events is ignored
+	- Survival from one sampling event to the next, even if there is a gap in time, is based on bd at the time of the first sampling event
+CMR_ind_pat_bd-p-phi_no_average_bd
+	- Random effect in bd intercept only
+	- No individual variation in response to bd and no other random effects
+	- Sampling occasions collapsed, but a covariate added to try and control for how much time elapsed between sampling events
+	- Survival from one sampling event to the next, even if there is a gap in time, is based on bd at the time of the first sampling event
+CMR_ind_pat_bd-p-phi_average_bd
+	- Random effect in bd intercept only
+	- No individual variation in response to bd and no other random effects
+	- Sampling occasions collapsed, but a covariate added to try and control for how much time elapsed between sampling events
+	- Survival from one sampling event to the next, is based on average estimated bd over the period between the sampling events
 
 Models build on each other moving down this list
 
@@ -53,5 +74,13 @@ CMR_ind_pat_bd_empirical_red4 -- ^^ trying to debug. Problems with X as a transf
 	^^^^^ Will continue to just add a number to work on model development...
 
 CMR_ind_pat_bd_empirical_01 -- Step back and try and fit just a binary of infected or not since load has so many issues
+
+
+This is getting a bit unwieldy...
+
+Models being worked on As of SEP 24:
+	
+
+
 
 

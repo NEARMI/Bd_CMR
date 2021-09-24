@@ -52,3 +52,66 @@ est.20 %>% {
   ggplot(., aes(num_measured, wid)) + geom_point()
 }
 
+
+
+stan.fit <- stan.fit.1
+
+stan.fit.summary <- summary(stan.fit)[[1]]
+
+est.1 <- stan.fit.summary[
+  # grep("bd_delta_eps", dimnames(stan.fit.summary)[[1]])
+  1:7, ][, c(4, 6, 8)] %>%
+  as.data.frame() %>% mutate(ind = rownames(.))
+names(est.1)[1:3] <- c("lwr", "mid", "upr")
+est.1 <- est.1 %>% mutate(model = "1")
+
+stan.fit <- stan.fit.2
+
+stan.fit.summary <- summary(stan.fit)[[1]]
+
+est.2 <- stan.fit.summary[
+  # grep("bd_delta_eps", dimnames(stan.fit.summary)[[1]])
+  1:7, ][, c(4, 6, 8)] %>%
+  as.data.frame() %>% mutate(ind = rownames(.))
+names(est.2)[1:3] <- c("lwr", "mid", "upr")
+est.2 <- est.2 %>% mutate(model = "2")
+
+stan.fit <- stan.fit.3
+
+stan.fit.summary <- summary(stan.fit)[[1]]
+
+est.3 <- stan.fit.summary[
+  # grep("bd_delta_eps", dimnames(stan.fit.summary)[[1]])
+  1:7, ][, c(4, 6, 8)] %>%
+  as.data.frame() %>% mutate(ind = rownames(.))
+names(est.3)[1:3] <- c("lwr", "mid", "upr")
+est.3 <- est.3 %>% mutate(model = "3")
+
+stan.fit <- stan.fit.4
+
+stan.fit.summary <- summary(stan.fit)[[1]]
+
+est.4 <- stan.fit.summary[
+  # grep("bd_delta_eps", dimnames(stan.fit.summary)[[1]])
+  1:7, ][, c(4, 6, 8)] %>%
+  as.data.frame() %>% mutate(ind = rownames(.))
+names(est.4)[1:3] <- c("lwr", "mid", "upr")
+est.4 <- est.4 %>% mutate(model = "4")
+
+stan.fit <- stan.fit.6
+
+stan.fit.summary <- summary(stan.fit)[[1]]
+
+est.6 <- stan.fit.summary[
+  # grep("bd_delta_eps", dimnames(stan.fit.summary)[[1]])
+  1:7, ][, c(4, 6, 8)] %>%
+  as.data.frame() %>% mutate(ind = rownames(.))
+names(est.6)[1:3] <- c("lwr", "mid", "upr")
+est.6 <- est.6 %>% mutate(model = "6")
+
+est.check <- rbind(est.1, est.2, est.3, est.4, est.6)
+
+ggplot(est.check, aes(mid, ind, colour = model)) + 
+  geom_point(position = position_dodge(1.2)) +
+  geom_errorbarh(aes(xmin = lwr, xmax = upr), position = position_dodge(1.2), width = 0.2)
+
