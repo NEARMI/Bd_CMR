@@ -55,7 +55,7 @@ parameters {
 	vector[2] beta_phi;                  		// intercept and slope coefficient for survival
         vector[2] beta_p;				// intercept and slope coefficient for detection
 	vector[3] beta_bd;				// intercept and two slope coefficients for grand mean change in bd over time
-	real<lower=0> beta_timegaps;
+	real beta_timegaps;
 
 	real<lower=0> bd_delta_sigma;			// change in Bd by individual (normal random effect variance)
 	real bd_delta_eps[n_ind];			// the conditions modes of the random effect (each individual's intercept (for now))

@@ -40,6 +40,7 @@ data {
 	row_vector[n_occasions] X_bd[n_ind];		    // Covariate
 	matrix[n_ind, n_occasions] X_measured;		    // Captures during which Bd was taken
 	int<lower=0,upper=n_occasions> time_gaps[n_oc_min1];
+	int<lower=0,upper=n_times> bd_after_gap[n_occasions];
 
 }
 
@@ -71,12 +72,18 @@ transformed parameters {
 
         row_vector[n_times] X[n_ind];			// Estimated "true" bd for all of the caught individuals with no bd measured
 	real bd_ind[n_ind];                             // Individual random effect deviates
+	row_vector[n_occasions] X_avg[n_ind];		// Average bd load over the time period in-between measures
 
 	for (i in 1:n_ind) {
   	  bd_ind[i]  = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];
 
 	for (t in 1:n_times) {
 	  X[i, t] = bd_ind[i] + beta_bd[2] * time[t] + beta_bd[3] * square(time[t]);
+	}
+
+	// Average estimated bd load from each sampling day through to the next sampling day
+	for (t in 1:n_occasions) {
+	  X_avg[i, t] = sum(X[i, t:bd_after_gap[t]]);
 	}
 
 	}
@@ -93,11 +100,16 @@ transformed parameters {
          // linear predictor for survival for individual i and time t based on the covariate X. Prior to first capture (see above loop)
           // the probabilities are 0, after first capture the probabilities are determined by their covariates
            for (t in first[i]:n_occasions) {
+         
 	    p[i, t] = inv_logit(beta_p[1] + beta_p[2] * X[i, sampling_events[t]]);
+
 	 }
 	
 	  for (t in first[i]:n_oc_min1){
-	    phi[i, t] = inv_logit(beta_phi[1] + beta_timegaps * time_gaps[t] + beta_phi[2] * X[i, sampling_events[t]]);
+
+	//  phi[i, t] = inv_logit(beta_phi[1] + beta_timegaps * time_gaps[t] + beta_phi[2] * X[i, sampling_events[t]]);
+	    phi[i, t] = inv_logit(beta_phi[1] + beta_timegaps * time_gaps[t] + beta_phi[2] * X_avg[i, t]);
+
 	  }
 
 	}

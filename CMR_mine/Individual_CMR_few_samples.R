@@ -12,38 +12,19 @@
  ## NOTE search ** for date-stamped notes throughout the script
 
 ####
-## Notes as of SEP 24: 
+## Notes as of SEP 24 (late day):
 ####
 
 ## 1) Decided to step back to using n_occasions - 1 for phi and n_occasions for p. Hypothetically with a well-estimated
  ## latent covariate the last p and the second to last phi are identifiable, but my worry is that with real data they 
   ## will not be separable. In a simulation model even when they are separable not estimating them has only a tiny (almost
    ## not detectable) effect on coefficient estimates of interest
-## 2) Ran the options from SEP 23 to try and get to the bottom of continuous time for bd and it seems that:
-  ## -- a) having a time gap between measures (at least in a pleasant simulated model) with or without a covaraite for time duration
-   ## doesn't seem to have much of an effect (at least in a simple model). They both mix well and recover the parameters.
-    ## However, this simulation is set up such that survival from one period to the next is driven entirely by bd. With real data I think this parameter
-     ## will be important because the time spacing will obviously matter for an individual's survival probability to the next time
-  ## -- b1) However, just have a covariate for time gap feels incomplete. That is, estimating probability of survival to the next time period 
-   ## which is what the parameter phi[t] is measuring seems like it could lead to --upward biased estimates-- if there are a lot of gaps
-    ## (that is the effect of bd on survival would be estimated to be too strong because survival is low and being based off the potentially
-     ## lower bd at the first measure instead of the bd affecting their survival over the whole time period that they are not being measured 
-      ## -- Again, this seems really important for large data gaps 
-   ## -- b2) I also tried this and, again, for this simple simulation the parameters are recovered perfectly, using avg bd has basically
-    ## no effect. However, again, I think this will start to be important the more and longer the gaps in the data.
-     ## So far I have double checked that this is working for one gap, but .... ---> 
+## 2) Everything I said earlier today is a lie. I accidentally had the covaraite that controlled for the gap between sampling times
+ ## to be forced to be positive, though an increase in time should _decrease_ survival probability. Oops. 
+  ## Now with the corrected model everything is beahving as it should be. The model that corrects for time does a lot better
+   ## And the average bd model does as well if not better than the other model
  
-## ^^^ Next is to try all of this again with randomly sampling on only say 10/20 days instead of 17/20 days because some of these choices
- ## might start to matter
-
 ## ^^^ ReadMe.txt that describes the stan models has been updated to describe these various models
-
-## 3) I tried this (using average latent bd between the consecutive samples instead of the bd observed at the first sample
- ## before the gap) and it also doesn't seem to change estiamtes for at least this simple simulated case
-
-## ^^ TBH I still would rather just estimate latent phi at all times and set p to 0 at the times when 0s are not missed species
- ## but no surveys, but I cant seem to get this model to work. I feel like all these extra parameters are just trying to make
-  ## up for this fact...
 
 ## A) "manual" simulation lagging behind other option. Can catch this up later, but many of the sim options wont work correctly with sim_opt == "manual" currently 
 ## B) Really needed -- move the simulation piece into a function
@@ -68,7 +49,7 @@ set.seed(10002)
 nsim      <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
 ind       <- 100                ## number of individuals _in the population being modeled_
 times     <- 20                 ## number of time periods (weeks or months -- days are probably too fine)
-samp      <- 17                 ## number of sampling events occurring over times
+samp      <- 10                 ## number of sampling events occurring over times
 when_samp <- "random"           ## random = sampling occurs on a random subset of possible days
 
 ## Two ways to simulated data
@@ -159,11 +140,14 @@ expdat %<>% mutate(
 
 ## On which days is sampling occurring
 if (when_samp == "random") {
- sampling_days <- unique(expdat$times) %>% sample(samp)
+ sampling_days <- unique(expdat$times) %>% sample(samp) %>% sort(.)
  time_gaps     <- (sampling_days - lag(sampling_days, 1))[-1]
  sampling_vec  <- data.frame(times = seq(times), sampling = 0) 
  sampling_vec[sampling_vec$times %in% sampling_days, ]$sampling <- 1
 }
+
+## For debugging, save the same simulated data set to compare alternative models
+expdat.sim <- expdat
 
 } else {
   
@@ -228,6 +212,17 @@ expdat %>% {
       }
     }
 } 
+
+####
+## For debugging to compare models and sampling schemes -- can loop this or function this later if
+## we want something more formal
+####
+# samp          <- 10
+# sampling_days <- unique(expdat$times) %>% sample(samp) %>% sort(.)
+# time_gaps     <- (sampling_days - lag(sampling_days, 1))[-1]
+# sampling_vec  <- data.frame(times = seq(times), sampling = 0) 
+# sampling_vec[sampling_vec$times %in% sampling_days, ]$sampling <- 1
+# expdat        <- expdat.sim  ## retrieve the simulated data set to compare alternative models
 
 ## grab the log of the range of Bd load
 bd_range <- round(with(expdat, seq(min(log_bd_load), max(log_bd_load), by = .1)), 1)
@@ -464,6 +459,8 @@ stan.fit  <- stan(
 
 } else if (bd_swabs == "PAT") {
   
+## Possibly slightly confusing, but can keep all of the parameters needed for the most complicated model.
+ ## The less complicated models that don't use these parameters will just ignore what they don't need
 stan_data     <- list(
   ## bookkeeping params
    n_ind           = ind
@@ -486,30 +483,32 @@ stan_data     <- list(
  , bd_after_gap    = c(sort(sampling_days)[-samp] + (time_gaps - 1), times)
   )
 
-stan.fit.6  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi6.stan"
+## bd_after_gap is confusing, so make sure it is doing what we want
+data.frame(
+  phi_num   = seq(samp)[-samp]
+, time_gaps = time_gaps
+, bd_from   = sort(sampling_days)[-samp]
+, bd_to     = c(sort(sampling_days)[-samp] + (time_gaps - 1), times)[-samp]
+)
+
+stan.fit.4  <- stan(
+#   file    = "CMR_ind_pat_bd-p-phi_no_timegap_covariate.stan"
+#  file    = "CMR_ind_pat_bd-p-phi_no_average_bd.stan"
+  file    = "CMR_ind_pat_bd-p-phi_average_bd.stan"
+#  file    = "CMR_ind_pat_bd-p-phi_cumulative_bd.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
 , warmup  = stan.burn
 , thin    = stan.thin
-, init    = list(
-  list(
-    phi = matrix(
-      nrow = ind
-    , ncol = times
-    , data = 0.5
-    )
-  )
-)
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
 }
 
-# stan.fit <- stan.fit.2
+stan.fit <- stan.fit.4
 
-shinystan::launch_shinystan(stan.fit)
+# shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)

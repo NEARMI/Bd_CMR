@@ -11,23 +11,17 @@
 ## Third, this script attempts to fit a very simple model to one site 
 
 ####
-## End of day conclusion for Sep 22:
+## End of day conclusion for SEP 24:
 ####
 
-## 1) Best to step back to simulation models to work on including other covariates, continue to work on 
- ## the sampling scheme seen in the data, and think about multi-season models which is what I will need to focus
-  ## on when I get all of the data.
- ## -- Trying to develop and fit a model for real data when that data is so messy is difficult as it is hard to parse
-  ## apart whether the model is failing for structural reasons or data reasons
- ## -- Conclusion: Now that I have seen the structure of the real data, continue with the simulation model for a while
-
-####
-## Broader meta-questions as of Sep 22:
-####
-
-## 1) Worth stepping back to think more broadly about what model I am working towards:
- ## -- multi-season?
- ## -- how much of a latent process can we use?
+## 1) After lots of putsing around with the simulation models I finally have one that returns sensible results for
+ ## gaps in time between sampling events. Running this on the real data for PA A11 fits very quickly but returns that
+  ## amphibian survival increases with bd load, which means that bd load is standing in for something else... Need
+   ## to add covariates to get to the bottom of this issues; but before moving forward with the data:
+## 2) Return to the simulation script to get:
+ ## A) covariates working
+ ## B) multi primary periods with intermediate periods set up (see below)
+ ## C) a model with fewer secondary periods within primary periods to better match the other data
 
 ####
 ## Meeting notes from Sep 22:
@@ -242,22 +236,25 @@ if (red_ind) {
 ## capture matrix
 capt_history.matrix <- matrix(
   nrow = length(unique(capt_history$Mark))
-, ncol = length(unique(capt_history$Date))
-, data = capt_history$captured
+# , ncol = length(unique(capt_history$Date))
+, ncol = length(weeks_sampled)
+, data = capt_history[capt_history$no_sampling == 0, ]$captured
 , byrow = F)
 
 ## individuals' measured bd 
 capt_history.bd_load <- matrix(
   nrow = length(unique(capt_history$Mark))
-, ncol = length(unique(capt_history$Date))
-, data = capt_history$log_bd_load
+# , ncol = length(unique(capt_history$Date))
+, ncol = length(weeks_sampled)
+, data = capt_history[capt_history$no_sampling == 0, ]$log_bd_load
 , byrow = F)
 
 ## time points where bd was measured
 capt_history.bd_measured <- matrix(
   nrow = length(unique(capt_history$Mark))
-, ncol = length(unique(capt_history$Date))
-, data = capt_history$swabbed
+# , ncol = length(unique(capt_history$Date))
+, ncol = length(weeks_sampled)
+, data = capt_history[capt_history$no_sampling == 0, ]$swabbed
 , byrow = F)
 
 ## some quick visuals and checks
@@ -281,7 +278,9 @@ if (length(
   print("ERROR: bd matrix not filled in correctly"); break
 }
 
-capture_range  <- capt_history %>% group_by(Mark) %>% 
+capture_range  <- capt_history %>% 
+  group_by(Mark) %>% 
+  filter(no_sampling == 0) %>%
   summarize(
     first = min(which(captured == 1))
   , final = max(which(captured == 1))) %>% 
@@ -291,7 +290,10 @@ capture_range  <- capt_history %>% group_by(Mark) %>%
   , final = ifelse(is.infinite(final), 0, final)
     )
 
-capture_total <- capt_history %>% group_by(Date) %>% summarize(total_capt = sum(captured))
+capture_total <- capt_history %>% 
+  group_by(Date) %>% 
+  filter(no_sampling == 0) %>%
+  summarize(total_capt = sum(captured))
 
 capt_history %>% mutate(event = as.factor(Date)) %>% {
   ggplot(., aes(Date, Mark, fill = as.factor(captured))) + 
@@ -375,6 +377,41 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+
+stan_data     <- list(
+  ## bookkeeping params
+   n_ind         = length(unique(capt_history$Mark))
+ , n_times       = length(unique(capt_history$Date))
+ , n_occasions   = sum(sampling)
+ , n_oc_min1     = sum(sampling) - 1
+ , time          = seq(length(unique(capt_history$Date)))
+ , sampling      = sampling
+ , sampling_events = weeks_sampled
+ , no_sampling     = weeks_not_sampled
+  ## Capture data
+ , y             = capt_history.matrix
+ , first         = capture_range$first
+ , last          = capture_range$final
+ , n_captured    = capture_total$total_capt
+  ## Covariate associated parameters
+ , X_bd          = capt_history.bd_load
+ , X_measured    = capt_history.bd_measured
+ , time_gaps     = (weeks_sampled - lag(weeks_sampled, 1))[-1]
+ , bd_after_gap  = c(sort(weeks_sampled)[-samp] + (
+   (weeks_sampled - lag(weeks_sampled, 1))[-1] - 1
+   ), times)
+  ) 
+
+stan.fit  <- stan(
+# file    = "CMR_mine/CMR_ind_pat_bd_empirical_red4.stan"
+  file    = "CMR_mine/CMR_ind_pat_bd-p-phi_no_average_bd.stan"
+, data    = stan_data
+, chains  = 1
+, iter    = stan.iter
+, warmup  = stan.burn
+, thin    = stan.thin
+, control = list(adapt_delta = 0.92, max_treedepth = 12)
+  )
   
 }
 
@@ -417,8 +454,7 @@ stan.pred        <- apply(stan.fit.samples$beta_phi, 1
   reshape2::melt(.)
 names(stan.pred) <- c("log_bd_load", "sample", "mortality")
 stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
-  , from = unique(log_bd_load), to = bd_levels)
-  , mortality = 1 - mortality)
+  , from = unique(log_bd_load), to = bd_levels))
 stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
     lwr = quantile(mortality, c(0.025))
@@ -479,13 +515,21 @@ pred_coef %>% filter(param != "start_mean") %>% {
 ####
 ## What does predicted overall bd look like?
 ####
-stan.pred <- matrix(nrow = length(unique(capt_history$Date)), ncol = 1000, data = 0)
-samp_occ  <- seq(length(unique(capt_history$Date)))
+stan.pred     <- matrix(nrow = length(unique(capt_history$Date)), ncol = 1000, data = 0)
+stan.pred.ind <- array(dim = c(length(unique(capt_history$Mark)), length(unique(capt_history$Date)), 1000), data = 0)
+samp_occ      <- seq(length(unique(capt_history$Date)))
 
 for (i in 1:nrow(stan.pred)) {
 stan.pred[i, ] <- stan.fit.samples$beta_bd[, 1] + 
   stan.fit.samples$beta_bd[, 2] * samp_occ[i] +
   stan.fit.samples$beta_bd[, 3] * samp_occ[i]^2
+
+for (j in 1:dim(stan.pred.ind)[1]) {
+stan.pred.ind[j,i,] <- stan.fit.samples$bd_ind[, j] +
+  stan.fit.samples$beta_bd[, 2] * samp_occ[i] +
+  stan.fit.samples$beta_bd[, 3] * samp_occ[i]^2
+}
+
 }
 
 stan.pred <- reshape2::melt(stan.pred)
@@ -499,18 +543,33 @@ stan.pred %<>%
   , upr = quantile(value, 0.975)
   )
 
+stan.pred.ind <- reshape2::melt(stan.pred.ind)
+names(stan.pred.ind) <- c("ind", "occ", "iter", "value")
+
+stan.pred.ind %<>% 
+  group_by(occ, ind) %>%
+  summarize(
+    lwr = quantile(value, 0.025)
+  , mid = quantile(value, 0.50)
+  , upr = quantile(value, 0.975)
+  )
+
 ggplot(stan.pred, aes(occ, mid)) + 
   geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.4) +
   geom_line() +
+  geom_line(data = stan.pred.ind
+    , aes(occ, mid, group = ind), lwd = 0.5, alpha = 0.5) +
   geom_line(
-    data = (capt_history %>% filter(swabbed == 1) %>% mutate(occ = as.numeric(as.factor(Date))))
+    data = (capt_history %>% 
+        filter(swabbed == 1) %>% 
+        mutate(occ = week))
   , aes(occ, log_bd_load, group = Mark)
   , colour = "red"
   ) + xlab("Sampling Occasion") +
   ylab("Bd Load")
 
 ####
-## Individual random effect estimates
+## Add individual random effect estimates
 ####
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
