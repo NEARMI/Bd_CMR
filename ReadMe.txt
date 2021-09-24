@@ -1,8 +1,6 @@
-CMR_mine -- 
+Simulation-based work on CMR models with a latent disease process.
 
-CMR_example -- https://discourse.mc-stan.org/t/mark-recapture-models-with-individual-covariates/7519
+Real data from CMR study on amphibians across the US from USGS
 
-CMR_example2 -- https://discourse.mc-stan.org/t/mark-recapture-model-with-a-covariate-fit-with-varying-intercept-and-slopes-greatly-increases-sd-on-betas/7841
-
-CMR_example3 -- https://tobiasroth.github.io/BDAEcology/cjs-with-mix.html
+Simulation model first (see CMR_mine) to explore sampling schemes and model fits with simulated data to assist model development
 
