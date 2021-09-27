@@ -3,38 +3,41 @@
 ###############################################################
 
 ########
-## See Individual_CMR.R for more extensive notes
+## See Individual_CMR_few_examples.R for the precursor to this script. Starting a new script instead of continuing with that one
+## for now -- if this evolves into some form of power analysis of design study will convert everything to a streamlined script
+ ## This script takes the fundamental within-season single-site model from Individual_CMR_few_examples.R and expands it out
+ ## to multiple seasons and multiple sites
 ########
 
-## This script modifies ^^ script and model for a more realistic bd sampling scheme 
- ## in some small subset of captures individuals are swabbed
-
- ## NOTE search ** for date-stamped notes throughout the script
-
 ####
-## Notes as of SEP 24 (late day):
+## Notes as of SEP 27:
 ####
 
-## 1) Decided to step back to using n_occasions - 1 for phi and n_occasions for p. Hypothetically with a well-estimated
- ## latent covariate the last p and the second to last phi are identifiable, but my worry is that with real data they 
-  ## will not be separable. In a simulation model even when they are separable not estimating them has only a tiny (almost
-   ## not detectable) effect on coefficient estimates of interest
-## 2) Everything I said earlier today is a lie. I accidentally had the covaraite that controlled for the gap between sampling times
- ## to be forced to be positive, though an increase in time should _decrease_ survival probability. Oops. 
-  ## Now with the corrected model everything is behaving as it should be. The model that corrects for time does a lot better
-   ## And the average bd model does as well if not better than the other model
- 
-## ^^^ ReadMe.txt that describes the stan models has been updated to describe these various models
+## 0A) Coming together, but I see that when n_occasions varies by period the model as currently 
+ ## written is going to be hard to scale (especially since the number of samples and the number of years
+  ## is going to vary by state and site). Will need to use a pretty tricky indexing scheme to keep the model
+   ## from being overly cumbersome with different named phi containers etc.
+ ## For a single site over a few years with a different number of sampling days per year a single model with
+  ## differently named phi's etc. could work even if it is a little ugly. It won't work for a much bigger model
 
-## A) "manual" simulation lagging behind other option. Can catch this up later, but many of the sim options wont work correctly with sim_opt == "manual" currently 
-## B) Really needed -- move the simulation piece into a function
-## C) To correspond to the real data, the model will need
- ## 1) Additional site-level covariates that affect bd and affect phi and p directly
- ## 2) Multiple primary periods and survival in-between primary periods
- ## 3) Fewer secondary periods within primary periods 
- ## 4) Multiple sites and sites nested in state, with random effects for each location
- ## 5) Possibly a reduced model for just inf/not instead of a full latent model for bd load
-  
+## 0B) All of that being said, it still isn't clear to me how to add the parameter for between-year survival
+ ## probability
+  ## -- As it stands, I can probably just stick together the two sampling periods and model the whole
+   ## intervening time as a gap of a specified length and use that to estiamte beta_timegames, but I think
+    ## there is a fundamental difference in survival on and off season so this is not satisfying
+  ## -- The alternative (and classic way) is to have parameters that adjust the population between sampling windows
+   ## Need to think more about how to do this and also read some of the Robust Design models
+   ## -- I sort of think of these as derived quantities and not parameters, but need to rethink..
+
+## 1) Stan models for this script begin with:
+ ## CMR_ind_pat_bd-p-phi_multi
+## 2) To correspond to the real data, the model will need
+ ## A) Additional site-level covariates that affect bd and affect phi and p directly
+ ## B) Multiple primary periods and survival in-between primary periods
+ ## C) Fewer secondary periods within primary periods 
+ ## D) Multiple sites and sites nested in state, with random effects for each location
+ ## E) Possibly a reduced model for just inf/not instead of a full latent model for bd load
+
 ####
 ## Packages and functions
 ####
@@ -50,52 +53,49 @@ set.seed(10002)
 
 ## "Design" parameters
 nsim      <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 60                ## number of individuals _in the population being modeled_
-times     <- 20                 ## number of time periods (weeks or months -- days are probably too fine)
-samp      <- 10                 ## number of sampling events occurring over times
+ind       <- 100                ## number of individuals in the population being modeled
+periods   <- 2                  ## number of primary periods (years in most cases)
+times     <- 20                 ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
+if (periods > 1) {
+times <- rep(times, periods)    ## for now assume same number of periods per year, but this likely wont be the case in the real data
+}
+samp      <- 10                 ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
+if (periods > 1) {
+samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this likely wont be the case in the real data
+}
 when_samp <- "random"           ## random = sampling occurs on a random subset of possible days
 
 ## Two ways to simulated data
   sim_opt <- "lme4"        ## Use the built in capabilities of lme4
-# sim_opt <- "manual"      ## Simple custom simulation 
+# sim_opt <- "manual"      ## Simple custom simulation ** SEP 27: lagging behind "lme4" -- hasn't caught up with all of the options
   
 ## Drop simulated individuals never caught (TRUE) or keep all simulated individuals (FALSE) (unrealistic)
 only_caught        <- TRUE
 
-## Use covaratiates until the last sampling time or one before? (Seems keeping all time points doesn't lead to any worse mixing)
-use_all_timepoints <- TRUE
+## Use covaratiates until the last sampling time (TRUE) or one before (FALSE)? (because p and phi are hard to separate in the last time point)
+use_all_timepoints <- FALSE
 
 ## Bd parameters 
- ## for lme4 simulation
-if (sim_opt == "lme4") {
-bd_beta   <- c(10, 30, -50) ## Intercept and slope for mean response
-                            ##  ** SEP 23: This is pretty un-dynamic and probably needs to be updated.
-                             ## for now, based on the patterns in the real data estimate bd based on some quadratic function of time
+ ## for lme4 simulation. 
+  ## ** SEP 27: for now dropping sim option manual, can add it back in later if we want a more complicated manual bd process model
+bd_beta   <- c(
+  7   ## Intercept
+, 2   ## Period effect
+, 30  ## Linear effect of time on bd
+, -50 ## Quadratic effect of time on bd
+) 
 bd_sigma  <- 2              ## observation noise
-bd_theta  <- c(2)           ## random effect variance covariance
+bd_theta  <- c(2)           ## random effect variance covariance 
 
 ## Response of individuals to Bd load
-bd_mort   <- c(decay = -0.45, offset = 6)     ## logistic response coefficients for mortality across log(bd_load)
+bd_mort   <- c(decay = -0.3, offset = 6)       ## logistic response coefficients for mortality across log(bd_load)
 bd_detect <- c(decay = 0.1, offset = -0.5)     ## logistic response coefficients for detection across log(bd_load)
 
-## Or the "manual" bd process simulation
-} else {
-bd_int   <- c(              ## Gamma distribution for variation among individuals in starting conditions
-    shape = 10
-  , scale = 50)              
-bd_delta <- c(              ## Slope in Bd over time (Normal random)
-  mean = 400  
-, sd   = 145)                         
-bd_add   <- 30              ## Process noise in true underlying Bd (normal SD)
-bd_obs   <- 20              ## Observation noise in observed Bd (normal SD)
-
-## Response of individuals to Bd load
-bd_mort   <- c(decay = -0.45, offset = 6)     ## logistic response coefficients for mortality across log(bd_load)
-bd_detect <- c(decay = 0.7, offset = -4)     ## logistic response coefficients for detection across log(bd_load)
-}
+## Other parameters
+p_mort    <- c(0.40) ## mortality probability in-between periods
 
 ## bd sampling sampling scheme
-bd_swabs  <- "PAT"  ## ALL = assume all captured individuals have their Bd swabbed
+bd_swabs  <- "PAT"  ## ALL = assume all captured individuals have their Bd swabbed on every capture
                     ## IND = assume specific captured individuals always have their Bd swabbed while others are never swabbed
                     ## PAT = assume patchy bd swabbing among all captured individuals 
 
@@ -119,12 +119,15 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 ## Simulate bd response and relationship between bd and survival and detection
 ####
 
-if (sim_opt == "lme4") {
-
 ## Simulate data using lme4 mixed model structure
-expdat <- expand.grid(times = seq(times), ind = factor(seq(ind)))
+expdat <- expand.grid(
+  periods = seq(periods)
+, times   = seq(times[1])     ## ** SEP 27: Update to allow variable times by period? Maybe not needed because this is just the simulate underlying "true" bd data?
+, ind     = factor(seq(ind))
+  )
+
 expdat %<>% mutate(
-  bd_load   = simulate(~poly(times, 2) + (1 | ind)
+  bd_load   = simulate(~periods + poly(times, 2) + (1 | ind)
   , nsim    = nsim
   , family  = Gamma(link = "log")
   , newdata = expdat
@@ -143,78 +146,44 @@ expdat %<>% mutate(
 
 ## On which days is sampling occurring
 if (when_samp == "random") {
- sampling_days <- unique(expdat$times) %>% sample(samp) %>% sort(.)
- time_gaps     <- (sampling_days - lag(sampling_days, 1))[-1]
- sampling_vec  <- data.frame(times = seq(times), sampling = 0) 
- sampling_vec[sampling_vec$times %in% sampling_days, ]$sampling <- 1
+ sampling_days <- expand.grid(
+  times   = seq(times[1]) ## ** SEP 27: Update to allow variable times by period? Maybe not needed because this is just the simulate underlying "true" bd data?
+                           ## Will no longer continue to make this comment
+, periods = seq(periods)
+   ) %>% group_by(periods) %>% 
+   mutate(
+     sampling_days = ifelse(times %in% sample(times, samp), 1, 0)
+       )
+ 
+  # (sampling_days - lag(sampling_days, 1))[-1]
+ time_gaps     <- sampling_days %>% filter(sampling_days == 1) %>%
+   group_by(periods) %>% mutate(time_gaps = (times - lag(times, 1)))
+ 
+ time_gaps  <- matrix(data = time_gaps$time_gaps
+   , ncol = periods
+   , nrow = samp[1]
+   )
+ 
+ time_gaps <- time_gaps[-1, ]
+
+## Now just sampling_days$sampling_days
+ sampling_vec  <- matrix(data = sampling_days$sampling_days
+   , ncol = periods
+   , nrow = times[1]
+   , dimnames = list(
+     seq(times[1])
+  ,  seq(periods)
+   ))
+ 
+ sampling_times  <- matrix(data = (sampling_days %>% filter(sampling_days == 1))$times
+   , ncol = periods
+   , nrow = samp[1]
+  )
+ 
 }
 
 ## For debugging, save the same simulated data set to compare alternative models
 expdat.sim <- expdat
-
-} else {
-  
-## Simulate data manually to more easily perfectly match an easy model form
- ## ** SEP 23: Don't think I actually need the sampling bit here when I am simulating bd -- update!
-expdat <- expand.grid(
-  times    = seq(times)
-, ind      = factor(seq(ind))
-, sampling = 0
-, bd_load  = 0
-    )
-
-## On which days is sampling occurring
-if (when_samp == "random") {
- sampling_days <- unique(expdat$times) %>% sample(samp)
-}
-
-expdat[expdat$times %in% sampling_days, ]$sampling <- 1
-
-all_ind <- unique(expdat$ind)
-
-## individual-specific bd slopes (i.e., a conditional mode of the random effect for "individual")
-bd_ind  <- rnorm(length(all_ind), bd_delta["mean"], bd_delta["sd"])
-
-## Simulate true underlying Bd and observed Bd
- ## Probably could do this with some slick dplyr and apply, but w/e loops are easy to read and this
-  ## could become a lot more complicated depending on the model we are simulating for
-for (i in seq_along(all_ind)) {
-  
-  expdat.temp            <- expdat %>% filter(ind == all_ind[i])
-  expdat.temp$bd_load[1] <- rgamma(n = 1, shape = bd_int["shape"], scale = bd_int["scale"])  ## starting Bd is variable among individuals
-
-for (j in 2:nrow(expdat.temp)) {
-
-  ## Simulated such that every individual has some true slope but with some additive noise (to simulate
-   ## even more noise to try and better approximate real data (e.g., unexplained variation))
-  expdat.temp$bd_load[j] <- rnorm(1, expdat.temp$bd_load[j - 1] + 
-      bd_ind[i]      
-    , bd_add)           
-    
-}
-  expdat[expdat$ind == all_ind[i], ]$bd_load <- expdat.temp$bd_load
-}
-
-expdat %<>% mutate(
-  bd_load_obs = rnorm(n(), bd_load, bd_obs)
-, log_bd_load = round(log(bd_load_obs), 1)
-)
-
-}
-
-## view the simulated data
-expdat %>% {
-  ggplot(., aes(times, bd_load
-    )) + 
-    geom_line(aes(group = ind)) +
-    scale_y_log10() + 
-#   scale_x_continuous(breaks = c(1, 5, 10)) +
-    xlab("Sampling Event") + ylab("Bd Load") + {
-      if (ind <= 50) {
-        facet_wrap(~ind)
-      }
-    }
-} 
 
 ####
 ## For debugging to compare models and sampling schemes -- can loop this or function this later if
@@ -257,10 +226,23 @@ bd_probs %>% pivot_longer(cols = c(2, 3)) %>% {
 }
 
 ## Add to the simulated bd data for the individuals
+off_season <- expand.grid(
+     periods = seq(from = periods - 0.5, to = periods, by = 1)
+   , times   = 1
+   , ind     = seq(ind)
+   , bd_load = 0
+   , log_bd_load = 0
+   , mort    = 1 - p_mort
+   , detect  = 0
+    )
+
 expdat %<>% 
   left_join(., bd_probs) %>%
+  rbind(off_season, .) %>%
   group_by(ind) %>%
-  mutate(cum_surv = cumprod(mort))
+  arrange(periods, ind, times) %>%
+  mutate(cum_surv = cumprod(mort)) %>% 
+  filter(periods %in% seq(periods))  
 
 ####
 ## create the true state of the population from the simulated bd values
@@ -274,18 +256,8 @@ expdat %<>%
   , dead = ifelse(dead > 1, 1, dead)) 
 
 ## On sampling days check for detection
-expdat %<>% left_join(.
-  , {
-    expdat %>% 
-      filter(times %in% sampling_days) %>%
-      mutate(
-        detected     = ifelse(dead == 0, rbinom(n(), 1, detect), 0)
-      , sampling_day = 1)
-  }
-  ) %>% mutate(
-    sampling_day = ifelse(is.na(sampling_day), 0, sampling_day)
-  , detected     = ifelse(is.na(detected), 0, detected)
-  )
+expdat %<>% left_join(., sampling_days) %>%
+  mutate(detected     = ifelse(dead == 0 & sampling_days == 1, rbinom(n(), 1, detect), 0))
 
 ####
 ## Create the sampling data from the simulated population 
@@ -309,71 +281,95 @@ expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>%
 
 ## total number of individuals ever captured
 ind <- length(unique(expdat$ind))
-
 }
 
+## Create the capture array in the correct structure for stan
+capture_matrix <- array(
+   dim = c(
+       ind
+     , samp[1]
+     , periods
+     )
+  , data = 0
+  )
 
-## another debugging check
-# expdat.t <- expdat
-# expdat <- expdat.t
+all_ind <- unique(expdat$ind)
 
-## Create the capture matrix in the correct structure for stan
- ## ** SEP 23: Still getting to the bottom of whethter this matrix can have "samp" columns (and the model
-  ## can have an index vector for which time points these samps correspond to) or if it needs to have "times" columns
-capture_matrix <- matrix(
-    nrow = ind
-  , ncol = samp
-  , data = (expdat %>% filter(sampling_day == 1))$detected
-  , byrow = T)
+expdat.capt <- expdat %>% filter(sampling_days == 1)
 
-capture_range  <- expdat %>% group_by(ind) %>%
-  filter(sampling_day == 1) %>%  
+## Filling in an array can be confusing, so do it manually for clarity
+for (i in seq_along(all_ind)) {
+    capture_matrix[i,,] <- matrix(data = (expdat.capt %>% filter(ind == all_ind[i]))$detected, nrow = samp[1], ncol = periods)
+}
+
+capture_range  <- expdat %>% 
+  group_by(ind, periods) %>%
+  filter(sampling_days == 1) %>%  
   summarize(
     first = min(which(detected == 1))
-  , final = max(which(detected == 1))) %>% 
-  dplyr::select(first, final) %>% 
+  , final = max(which(detected == 1))
+    ) %>%
   mutate(
     first = ifelse(is.infinite(first), 0, first)
   , final = ifelse(is.infinite(final), 0, final)
     )
 
-capture_total <- expdat %>% group_by(times) %>% summarize(total_capt = sum(detected)) %>%
-  mutate(sampling_day = ifelse(times %in% sampling_days, 1, 0)) %>% filter(sampling_day == 1)
+capture_range.first <- with(capture_range, matrix(
+  data = first
+, nrow = length(unique(ind))
+, ncol = length(unique(periods))
+, byrow = T)
+  )
 
+capture_range.final <- with(capture_range, matrix(
+  data = final
+, nrow = length(unique(ind))
+, ncol = length(unique(periods))
+, byrow = T)
+  )
+
+capture_total <- expdat %>% 
+  group_by(times, periods) %>% 
+  filter(sampling_days == 1) %>%
+  summarize(total_capt = sum(detected)) %>%
+  arrange(periods, times)
+
+capture_total <- with(capture_total, matrix(
+  data = total_capt
+, nrow = samp[1]
+, ncol = length(unique(periods))
+  )
+)
+  
 ####
 ## Set up the bd sampling data
 ####
 
 ## full "true" bd values to be subset into "observed" bd values below
-if (use_all_timepoints) {
-measured_bd   <- matrix(
-  nrow = ind
-, ncol = samp
-, data = (expdat %>% filter(sampling_day == 1))$log_bd_load
-, byrow = T)
-} else {
-measured_bd   <- matrix(nrow = ind, ncol = times, data = expdat$log_bd_load, byrow = T)[, -samp] 
+measured_bd <- array(
+   dim = c(
+       ind
+     , samp[1]
+     , periods
+     )
+  , data = 0
+  )
+
+## Filling in an array can be confusing, so do it manually for clarity
+for (i in seq_along(all_ind)) {
+    temp_data <- (expdat.capt %>% filter(ind == all_ind[i]))$log_bd_load
+    ## Add the observation noise
+    temp_data <- rnorm(length(temp_data), temp_data, obs_noise)
+    measured_bd[i,,] <- matrix(data = temp_data, nrow = samp[1], ncol = periods)
 }
 
-## SEP 23: OLD and likely broken
-       if (bd_swabs == "IND") {
-       
-## Which of the caught individuals doesnt get measured for bd?
-bd_drop.which <- sample(seq(ind), bd_drop)    
-
-## update bd_ind (extract the captured individuals with swabbed bd)
-bd_ind        <- bd_ind[-as.numeric(never_detected$ind)]
-
-## drop these individuals
-measured_bd   <- measured_bd[-bd_drop.which, ]
-
-} else if (bd_swabs == "PAT") {
+if (bd_swabs == "PAT") {
   
 ## Find the captures that included bd swabs
 expdat %<>% left_join(.
   , {
     expdat %>% 
-      filter(sampling_day == 1, detected == 1) %>% 
+      filter(sampling_days == 1, detected == 1) %>% 
       ungroup() %>% 
       mutate(bd_swabbed = rbinom(n(), 1, bd_perc))
   }) 
@@ -383,22 +379,39 @@ expdat %<>% mutate(
 )
   
 ## Create a matrix of these samples
-bd.measured   <- matrix(
-  nrow = ind
-, ncol = samp
-, data = (expdat %>% filter(sampling_day == 1))$bd_swabbed
-, byrow = T)
+bd.measured <- array(
+   dim = c(
+       ind
+     , samp[1]
+     , periods
+     )
+  , data = 0
+  )
 
-## Set up a full matrix of the days in which each individual was searched for after the first day in which
- ## it was captured?
+expdat.swabbed <- expdat %>% filter(sampling_days == 1)
+
+## Filling in an array can be confusing, so do it manually for clarity
+for (i in seq_along(all_ind)) {
+    bd.measured[i,,] <- matrix(data = (expdat.swabbed %>% filter(ind == all_ind[i]))$bd_swabbed, nrow = samp[1], ncol = periods)
+}
 
 }
+
+## and finally for this piece create an array of covariate data to designate period
+periods.cov <- array(
+   dim = c(
+       ind
+     , times[1]
+     , periods
+     )
+  , data = expdat$periods
+  )
 
 ## Double check to make sure this produces sensible capture data
 if (ind <= 100) {
  expdat %>% {
    ggplot(., aes(times, ind, fill = as.factor(detected))) + 
-     geom_tile(aes(alpha = sampling_day)) +
+     geom_tile(aes(alpha = sampling_days)) +
      scale_x_continuous(breaks = c(1, 5, 10)) +
      xlab("Time") + 
      ylab("Individual") +
@@ -407,104 +420,57 @@ if (ind <= 100) {
        , name   = "Detected?"
        , labels = c("No", "Yes")) +
      guides(alpha = FALSE) +
-     geom_line(data = expdat %>% filter(dead == 1), aes(x = samp, y = ind, z = NULL)) +
+     geom_line(data = expdat %>% filter(dead == 1), aes(x = times, y = ind, z = NULL), lwd= 0.5, alpha = 0.5) +
      geom_point(data = expdat %>% filter(bd_swabbed == 1)
        , aes(x = times, y = ind, z = NULL), lwd = 0.5) +
+     facet_wrap(~periods) +
      theme(
        axis.text.y = element_text(size = 8)
      , legend.text = element_text(size = 12)
      , legend.key.size = unit(.55, "cm")
      ) +
-     ggtitle("Lines show dead individuals")
+     ggtitle("Lines show dead individuals; dots show bd swabbs")
  }
  }
 
 ## Finally, inject the observation noise
 # par(mfrow = c(2, 1))
 # matplot(t(measured_bd)); matlines(t(measured_bd))
-measured_bd <- t(apply(measured_bd, 1, FUN = function(x) x + rnorm(length(x), 0, obs_noise)))
+# measured_bd <- t(apply(measured_bd, 1, FUN = function(x) x + rnorm(length(x), 0, obs_noise)))
 # matplot(t(measured_bd)); matlines(t(measured_bd))
 
 ####
 ## Run the model
 ####
 
-## ** SEP 23: In progress trying to get the model updated to:
- ## model bd as a continuous time process + 
- ## consider capture probability only on searching days
-
-if (bd_swabs == "IND" | bd_swabs == "ALL") {
-
-stan_data     <- list(
-  ## bookkeeping params
-   n_ind         = ind
- , n_ind_bd      = ind - bd_drop
- , n_occasions   = samp
- , n_occ_minus_1 = samp - 1
-  ## Capture data
- , y             = capture_matrix
- , first         = capture_range$first
- , last          = capture_range$final
- , n_captured    = capture_total$total_capt
-  ## Covariate associated parameters
- , X_bd          = measured_bd
- , X_which       = seq(ind)[-bd_drop.which]
-  )
-
-stan.fit  <- stan(
-# file    = "CMR_ind_all_no.stan"
-# file    = "CMR_ind_some_no_2.stan"
-# file    = "CMR_ind_some_bd-p-phi_2.stan"
-# file    = "CMR_ind_some_bd-p-phi_all.stan"
-  file    = "CMR_ind_some_bd-p-phi_restrict.stan"
-, data    = stan_data
-, chains  = 1
-, iter    = stan.iter
-, warmup  = stan.burn
-, thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
-  )
-
-} else if (bd_swabs == "PAT") {
+if (bd_swabs == "PAT") {
   
 ## Possibly slightly confusing, but can keep all of the parameters needed for the most complicated model.
  ## The less complicated models that don't use these parameters will just ignore what they don't need
 stan_data     <- list(
-  ## bookkeeping params
-   n_ind           = ind
+  ## dimensional params
+   n_periods       = periods
+ , n_ind           = ind                  
  , n_times         = times
  , n_occasions     = samp
  , n_oc_min1       = samp - 1
- , time            = seq(times)
- , sampling        = sampling_vec$sampling
- , sampling_events = sort(sampling_days)
- , no_sampling     = which(seq(times) %notin% sampling_days)
+ , time            = seq(times[1])
+ , sampling        = sampling_vec
+ , sampling_events = sampling_times
+ , time_gaps       = time_gaps
   ## Capture data
  , y               = capture_matrix
- , first           = capture_range$first
- , last            = capture_range$final
- , n_captured      = capture_total$total_capt
+ , first           = capture_range.first
+ , last            = capture_range.final
+ , n_captured      = capture_total
   ## Covariate associated parameters
  , X_bd            = measured_bd
  , X_measured      = bd.measured
- , time_gaps       = time_gaps
- , bd_after_gap    = c(sort(sampling_days)[-samp] + (time_gaps - 1), times)
+ , periods         = periods.cov
   )
 
-## bd_after_gap is confusing, so make sure it is doing what we want
-data.frame(
-  phi_num   = seq(samp)[-samp]
-, time_gaps = time_gaps
-, bd_from   = sort(sampling_days)[-samp]
-, bd_to     = c(sort(sampling_days)[-samp] + (time_gaps - 1), times)[-samp]
-)
-
 stan.fit  <- stan(
-#   file    = "CMR_ind_pat_bd-p-phi_no_timegap_covariate.stan"
-  file    = "CMR_ind_pat_bd-p-phi_no_average_bd.stan"
-#    file    = "CMR_ind_pat_bd-p-phi_no_average_bd_all_times.stan"
-#  file    = "CMR_ind_pat_bd-p-phi_average_bd.stan"
-#  file    = "CMR_ind_pat_bd-p-phi_cumulative_bd.stan"
+  file    = "CMR_ind_pat_bd-p-phi_multi.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
