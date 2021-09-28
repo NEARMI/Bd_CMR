@@ -27,22 +27,25 @@ data {
 	int<lower=0> n_periods;				    // Total number of primary n_periods over which individuals are captured
 	int<lower=0> n_ind;				    // Total number of individuals caught (ever, over all years)
 	int<lower=2> n_times[n_periods];		    // Number of discrete time points in each season
-	int<lower=2> all_samps;
+	int<lower=2> all_samps;				    // sum of all within season sampling days + between seasons
+	int<lower=1> all_samps_min1;			    // sum of all within season sampling days (-1) + between seasons
 	int<lower=2> n_occasions[n_periods];		    // Number of capture occasions on a subset of times
 	int<lower=1> n_oc_min1[n_periods];		
 	
-	int<lower=0> time[n_times[1]];		 	    		  // Vector indicating time
-	int<lower=0> sampling[n_times[1], n_periods]; 	    		  // Length of n_times; 1 if sampling, 0 if no sampling occurred
-	int<lower=0> sampling_events[n_occasions[1], n_periods]; 	  // Indices of times on which a sampling event occurred
-	int<lower=0> time_gaps[n_oc_min1[1], n_periods];  	 	  // Number of time n_periods in-between sampling events
+	int<lower=0> time[n_times];		 	    		  // Vector indicating time
+	int<lower=0> sampling[n_times, n_periods]; 	    		  // Length of n_times; 1 if sampling, 0 if no sampling occurred
+	int<lower=0> sampling_events[n_occasions, n_periods]; 	  	  // Indices of times on which a sampling event occurred
+	int<lower=0> time_gaps[n_oc_min1, n_periods];  	 		  // Number of time n_periods in-between sampling events
+
+	int<lower=0,upper=1> offseason;					  // Vector indicating which "sampling" period is the offseason
 	  
 	int y[n_ind, all_samps];		    		          // Capture-history observation matrix of bd-unmeasured individuals
   	int<lower=0> first[n_ind, n_periods];         			  // Capture time that each individual was first captured
   	int<lower=0> last[n_ind, n_periods];         			  // Capture time that each individual was last captured
 
-	matrix[n_ind, n_occasions[1]] X_bd[n_periods];	   		  // Covariate
-	matrix[n_ind, n_occasions[1]] X_measured[n_periods];    	  // Captures during which Bd was taken
-	matrix[n_ind, n_occasions[1]] periods[n_periods];
+	matrix[n_ind, n_occasions] X_bd[n_periods];	   		  // Covariate
+	matrix[n_ind, n_occasions] X_measured[n_periods];    		  // Captures during which Bd was taken
+	matrix[n_ind, n_occasions] periods[n_periods];
 
 }
 
@@ -70,11 +73,11 @@ parameters {
 transformed parameters {
 
 	// per sample * per individual mortality and detection probability
-	matrix<lower=0,upper=1>[n_ind, n_oc_min1[1]] phi[n_periods];
-	matrix<lower=0,upper=1>[n_ind, n_oc_min1[1]] p[n_periods];
-	matrix<lower=0,upper=1>[n_ind, n_occasions[1]] chi[n_periods];
+	matrix<lower=0,upper=1>[n_ind, n_oc_min1] phi;
+	matrix<lower=0,upper=1>[n_ind, n_oc_min1] p;
+	matrix<lower=0,upper=1>[n_ind, n_occasions] chi;
 
-	matrix[n_ind, n_times[1]] X[n_periods];	   	// Estimated "true" bd for all of the caught individuals with no bd measured		
+	matrix[n_ind, n_times] X[n_periods];	   	// Estimated "true" bd for all of the caught individuals with no bd measured		
 	real bd_ind[n_ind];                             // Individual random effect deviates
 
 	for (i in 1:n_ind) {

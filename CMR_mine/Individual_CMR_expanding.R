@@ -10,7 +10,7 @@
 ########
 
 ####
-## Notes as of SEP 27:
+## Notes as of SEP 28:
 ####
 
 ## 0A) Coming together, but I see that when n_occasions varies by period the model as currently 
@@ -19,15 +19,22 @@
    ## from being overly cumbersome with different named phi containers etc.
  ## For a single site over a few years with a different number of sampling days per year a single model with
   ## differently named phi's etc. could work even if it is a little ugly. It won't work for a much bigger model
+## !! -- By collapsing from array to matrices that are stuck end to end, can have different numbers of sampling periods
+ ## over time! At least solves one problem. Still not sure what to do about every site having different numbers of individuals and
+  ## periods etc.
 
-## 0B) All of that being said, it still isn't clear to me how to add the parameter for between-year survival
- ## probability
-  ## -- As it stands, I can probably just stick together the two sampling periods and model the whole
-   ## intervening time as a gap of a specified length and use that to estiamte beta_timegames, but I think
-    ## there is a fundamental difference in survival on and off season so this is not satisfying
-  ## -- The alternative (and classic way) is to have parameters that adjust the population between sampling windows
-   ## Need to think more about how to do this and also read some of the Robust Design models
-   ## -- I sort of think of these as derived quantities and not parameters, but need to rethink..
+## 0B) In-between year survival. 
+ ## -- My first thought for this (and what I am trying today) is to collapse the matrices for periods together so that
+  ## time is linear increasing across columns. For two periods:
+  ## -- phi will become c(n_occasions, n_oc_min1) such that the phi from the end of the first season to the start of the
+   ## second season is the probability of making it through the season given the status at the end of the season, the duration
+    ## in between those measures (and a new covaraiate to be estimated that stands in for offseason)
+  ## -- Hopefully then with just an index matrix of which times are which periods for the latent covaraite, all of
+   ## this will just work. 
+ ## ^^!!** I guess one concern is how to deal with immigration into the population, but maybe that is just a derived
+  ## quantity in this formulation? (i.e., by looking at population size between periods?) -- That is, if an individuals
+   ## first capture is in period 2, how do we infer whether that individual was there in the first period or not? (I guess
+    ## we cant?)
 
 ## 1) Stan models for this script begin with:
  ## CMR_ind_pat_bd-p-phi_multi
@@ -53,7 +60,7 @@ set.seed(10002)
 
 ## "Design" parameters
 nsim      <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 100                ## number of individuals in the population being modeled
+ind       <- 50                 ## number of individuals in the population being modeled
 periods   <- 2                  ## number of primary periods (years in most cases)
 times     <- 20                 ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
 if (periods > 1) {
@@ -92,7 +99,7 @@ bd_mort   <- c(decay = -0.3, offset = 6)       ## logistic response coefficients
 bd_detect <- c(decay = 0.1, offset = -0.5)     ## logistic response coefficients for detection across log(bd_load)
 
 ## Other parameters
-p_mort    <- c(0.40) ## mortality probability in-between periods
+p_mort    <- c(0.20) ## mortality probability in-between periods
 
 ## bd sampling sampling scheme
 bd_swabs  <- "PAT"  ## ALL = assume all captured individuals have their Bd swabbed on every capture
@@ -165,6 +172,10 @@ if (when_samp == "random") {
    )
  
  time_gaps <- time_gaps[-1, ]
+ 
+## collapse for the correct time gap.
+  ## ** SEP 28: For now am just using an arbitrary gap between seasons. Need to clean this up 
+ time_gaps <- c(time_gaps[, 1], 10, time_gaps[, 2])
 
 ## Now just sampling_days$sampling_days
  sampling_vec  <- matrix(data = sampling_days$sampling_days
@@ -241,8 +252,11 @@ expdat %<>%
   rbind(off_season, .) %>%
   group_by(ind) %>%
   arrange(periods, ind, times) %>%
-  mutate(cum_surv = cumprod(mort)) %>% 
-  filter(periods %in% seq(periods))  
+  mutate(cum_surv = cumprod(mort)) 
+
+## more debug checks
+# expdat.t <- expdat
+# expdat %>% filter(ind == 1) %>% as.data.frame()
 
 ####
 ## create the true state of the population from the simulated bd values
@@ -299,10 +313,21 @@ expdat.capt <- expdat %>% filter(sampling_days == 1)
 
 ## Filling in an array can be confusing, so do it manually for clarity
 for (i in seq_along(all_ind)) {
-    capture_matrix[i,,] <- matrix(data = (expdat.capt %>% filter(ind == all_ind[i]))$detected, nrow = samp[1], ncol = periods)
+  capture_matrix[i,,] <- matrix(data = (expdat.capt %>% filter(ind == all_ind[i]))$detected, nrow = samp[1], ncol = periods)
 }
 
-capture_range  <- expdat %>% 
+## Collapse time periods into one side by side matrix and add the off-season as one period in-between
+ ## currently non-dynamic. 
+capture_matrix <- cbind(
+  capture_matrix[,,1]
+, matrix(data = 0, nrow = ind, ncol = 1)    ## off season
+, capture_matrix[,,2]
+  )
+
+## The between-season parameter isn't needed for anything else, so drop this now
+expdat %<>% filter(periods != 1.5)
+
+capture_range <- expdat %>% 
   group_by(ind, periods) %>%
   filter(sampling_days == 1) %>%  
   summarize(
@@ -409,7 +434,7 @@ periods.cov <- array(
 
 ## Double check to make sure this produces sensible capture data
 if (ind <= 100) {
- expdat %>% {
+ expdat %>% filter(periods != 1.5) %>% {
    ggplot(., aes(times, ind, fill = as.factor(detected))) + 
      geom_tile(aes(alpha = sampling_days)) +
      scale_x_continuous(breaks = c(1, 5, 10)) +
@@ -420,8 +445,8 @@ if (ind <= 100) {
        , name   = "Detected?"
        , labels = c("No", "Yes")) +
      guides(alpha = FALSE) +
-     geom_line(data = expdat %>% filter(dead == 1), aes(x = times, y = ind, z = NULL), lwd= 0.5, alpha = 0.5) +
-     geom_point(data = expdat %>% filter(bd_swabbed == 1)
+     geom_line(data = expdat %>% filter(dead == 1, periods != 1.5), aes(x = times, y = ind, z = NULL), lwd= 0.5, alpha = 0.5) +
+     geom_point(data = expdat %>% filter(bd_swabbed == 1, periods != 1.5)
        , aes(x = times, y = ind, z = NULL), lwd = 0.5) +
      facet_wrap(~periods) +
      theme(
@@ -432,12 +457,6 @@ if (ind <= 100) {
      ggtitle("Lines show dead individuals; dots show bd swabbs")
  }
  }
-
-## Finally, inject the observation noise
-# par(mfrow = c(2, 1))
-# matplot(t(measured_bd)); matlines(t(measured_bd))
-# measured_bd <- t(apply(measured_bd, 1, FUN = function(x) x + rnorm(length(x), 0, obs_noise)))
-# matplot(t(measured_bd)); matlines(t(measured_bd))
 
 ####
 ## Run the model
@@ -451,13 +470,16 @@ stan_data     <- list(
   ## dimensional params
    n_periods       = periods
  , n_ind           = ind                  
- , n_times         = times
- , n_occasions     = samp
- , n_oc_min1       = samp - 1
+ , n_times         = times[1]         
+ , all_samps       = sum(samp) + 1
+ , all_samps_min1  = sum(samp - 1) + 1
+ , n_occasions     = samp[1]
+ , n_oc_min1       = samp[1] - 1
  , time            = seq(times[1])
  , sampling        = sampling_vec
  , sampling_events = sampling_times
  , time_gaps       = time_gaps
+ , offseason       = c(rep(0, samp[1]), 1, rep(0, samp[2]))
   ## Capture data
  , y               = capture_matrix
  , first           = capture_range.first
