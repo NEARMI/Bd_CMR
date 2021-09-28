@@ -13,6 +13,15 @@
 ## Notes as of SEP 28:
 ####
 
+## -- Model working [?]: output saved as "stan.fit_multi_season.Rds". Check tomorrow.
+ ## !! LOTS of the conversion of the simulated data into the stan structure has a lot of debugging junk to get removed
+
+## Tomorrow:
+  ## 1) Check to see if model is recovering sensible parameter estimates
+  ## 2) Clean up all of the simulation and simulation -> matrix structure gunk throughout the script
+  ## 3) Explore simulations
+
+## KEEPING NOTES FROM EARLIER TODAY UNTIL TOMORROW:
 ## 0A) Coming together, but I see that when n_occasions varies by period the model as currently 
  ## written is going to be hard to scale (especially since the number of samples and the number of years
   ## is going to vary by state and site). Will need to use a pretty tricky indexing scheme to keep the model
@@ -186,10 +195,20 @@ if (when_samp == "random") {
   ,  seq(periods)
    ))
  
- sampling_times  <- matrix(data = (sampling_days %>% filter(sampling_days == 1))$times
+ sampling_vec_within <- sampling_vec
+ 
+ sampling_vec_all    <- c(sampling_vec[, 1], 0, sampling_vec[, 2])
+ 
+ sampling_days %<>% mutate(all_times = interaction(times, periods)) %>% mutate(
+   all_times = as.numeric(all_times)
+ )
+ 
+ sampling_times_within  <- matrix(data = (sampling_days %>% filter(sampling_days == 1))$times
    , ncol = periods
    , nrow = samp[1]
   )
+ 
+ sampling_times_all <- (sampling_days %>% filter(sampling_days == 1))$all_times
  
 }
 
@@ -327,8 +346,15 @@ capture_matrix <- cbind(
 ## The between-season parameter isn't needed for anything else, so drop this now
 expdat %<>% filter(periods != 1.5)
 
+## expdat.t <- expdat
+
+## Also expand out the times so that they are not repeated within periods
+expdat %<>% mutate(all_times = as.numeric(as.factor(interaction(times, periods))))
+
 capture_range <- expdat %>% 
-  group_by(ind, periods) %>%
+  group_by(ind
+  #  , periods
+    ) %>%
   filter(sampling_days == 1) %>%  
   summarize(
     first = min(which(detected == 1))
@@ -354,17 +380,22 @@ capture_range.final <- with(capture_range, matrix(
   )
 
 capture_total <- expdat %>% 
-  group_by(times, periods) %>% 
+  group_by(
+    all_times
+  #  , periods
+    ) %>% 
   filter(sampling_days == 1) %>%
   summarize(total_capt = sum(detected)) %>%
-  arrange(periods, times)
+  arrange(periods
+    , all_times
+    )
 
-capture_total <- with(capture_total, matrix(
-  data = total_capt
-, nrow = samp[1]
-, ncol = length(unique(periods))
-  )
-)
+#capture_total <- with(capture_total, matrix(
+#  data = total_capt
+#, nrow = samp[1]
+#, ncol = length(unique(periods))
+#  )
+#)
   
 ####
 ## Set up the bd sampling data
@@ -470,29 +501,32 @@ stan_data     <- list(
   ## dimensional params
    n_periods       = periods
  , n_ind           = ind                  
- , n_times         = times[1]         
- , all_samps       = sum(samp) + 1
+ , n_times         = times[1]   
+ , all_times       = sum(times)
+ , all_samps       = sum(samp)
  , all_samps_min1  = sum(samp - 1) + 1
  , n_occasions     = samp[1]
  , n_oc_min1       = samp[1] - 1
- , time            = seq(times[1])
- , sampling        = sampling_vec
- , sampling_events = sampling_times
+ , time            = seq(sum(times))
+ , sampling_within = sampling_vec_within
+ , sampling_all    = sampling_vec_all
+ , sampling_events_within = sampling_times_within
+ , sampling_events_all    = sampling_times_all
  , time_gaps       = time_gaps
- , offseason       = c(rep(0, samp[1]), 1, rep(0, samp[2]))
+ , offseason       = c(rep(0, samp[1]-1), 1, rep(0, samp[2]-1))
   ## Capture data
- , y               = capture_matrix
- , first           = capture_range.first
- , last            = capture_range.final
+ , y               = capture_matrix[, -11]
+ , first           = capture_range.first[, 1]
+ , last            = capture_range.final[, 1]
  , n_captured      = capture_total
   ## Covariate associated parameters
- , X_bd            = measured_bd
- , X_measured      = bd.measured
- , periods         = periods.cov
+ , X_bd            = cbind(measured_bd[,,1], measured_bd[,,2])
+ , X_measured      = cbind(bd.measured[,,1], bd.measured[,,2])
+ , periods         = cbind(periods.cov[,,1], periods.cov[,,2])
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi_multi.stan"
+  file    = "CMR_ind_pat_bd-p-phi_multi2.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter

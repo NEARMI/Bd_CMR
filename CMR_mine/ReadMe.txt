@@ -31,7 +31,13 @@ A list of all models
 
 
 Currently important models being worked on (not as scratch as those further down) (to be updated regularly)
+Newest models being added to the top. Moving down the script in this top section goes to older models
 -----------------------------------------------------------------------------------------------------------
+
+
+CMR_ind_pat_bd-p-phi_multi 
+CMR_ind_pat_bd-p-phi_multi2 -- Converting the single season model into a multi-season model. Work in progress but seems to run
+
 
 CMR_ind_pat_bd-p-phi_no_timegap_covariate
 	- Random effect in bd intercept only
@@ -48,6 +54,8 @@ CMR_ind_pat_bd-p-phi_average_bd
 	- No individual variation in response to bd and no other random effects
 	- Sampling occasions collapsed, but a covariate added to try and control for how much time elapsed between sampling events
 	- Survival from one sampling event to the next, is based on average estimated bd over the period between the sampling events
+
+
 
 Models build on each other moving down this list
 
@@ -74,12 +82,6 @@ CMR_ind_pat_bd_empirical_red4 -- ^^ trying to debug. Problems with X as a transf
 	^^^^^ Will continue to just add a number to work on model development...
 
 CMR_ind_pat_bd_empirical_01 -- Step back and try and fit just a binary of infected or not since load has so many issues
-
-
-This is getting a bit unwieldy...
-
-Models being worked on As of SEP 24:
-	
 
 
 
