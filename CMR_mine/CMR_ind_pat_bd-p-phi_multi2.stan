@@ -24,39 +24,27 @@ functions {
 
 data {
 
-
-
-// Notes to myself: 1) Remember, off season doesn't exist as a separate entity. It just becomes part of the last sample for season 1
- // This is why keeping X as separate matrices works, because there doesn't need to be an extra entry for the offseason
-
-
-	int<lower=0> n_periods;				    // Total number of primary n_periods over which individuals are captured
-	int<lower=0> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=2> n_times;		    		    // Number of discrete time points in each season
-	int<lower=2> all_times;				
-	int<lower=2> all_samps;				    // sum of all within season sampling days 
-	int<lower=1> all_samps_min1;			    // sum of all within season sampling days (-1) + between seasons
-	int<lower=2> n_occasions;		    // Number of capture occasions on a subset of times
-	int<lower=1> n_oc_min1;		
+	int<lower=1> n_periods;				    // Total number of seasons/years (the "on" period where sampling occurs) over which individuals are captured
+	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
+	int<lower=n_periods> n_times;		    	    // Sum of total time points modeled within each season across all seasons/years  		
+	int<lower=n_periods> n_occasions;		    // Total number of sampling days (a subset of times) across all seasons/years 
+	int<lower=1> n_occ_min1;			    // ^^ just throwing out the very last sampling day
 	
-	int<lower=0> time[all_times];		 	    		  // Vector indicating time (within each season)
+	int<lower=0> time[n_times];		 	    // Vector indicating time (e.g., weeks) *!within each season!*
 
-	int<lower=0> sampling_within[n_times, n_periods]; 	    	  // Length of n_times * n_periods; 1 if sampling, 0 if no sampling occurred
+	int<lower=0> sampling_events[n_occasions]; 	    // Indices from 1:n_times on which a sampling event occurred
+	int<lower=0> time_gaps[n_occ_min1];  	 	    // Elapsed time between each sampling event 
 
-	int<lower=0> sampling_events_within[n_occasions, n_periods];	  // Indices of times on which a sampling event occurred
-	int<lower=0> sampling_events_all[all_samps]; 	  		  // Indices of times on which a sampling event occurred
-
-	int<lower=0> time_gaps[all_samps_min1];  	 		  // Number of time n_periods in-between sampling events
-
-	int<lower=0,upper=1> offseason[all_samps_min1];		          // Vector indicating which "sampling" period is the offseason
+	int<lower=0,upper=1> offseason[n_occ_min1];	    // Vector indicating the last sampling periods of each season 
+							    // which gains offseason characteristics 
 	  
-	int y[n_ind, all_samps];		    		          // Capture-history observation matrix of bd-unmeasured individuals
-  	int<lower=0> first[n_ind];         				  // Capture time that each individual was first captured
-  	int<lower=0> last[n_ind];         				  // Capture time that each individual was last captured
+	int y[n_ind, n_occasions];		    	    // Capture-history observation matrix of bd-unmeasured individuals
+  	int<lower=0> first[n_ind];         		    // Capture event in which each individual was first captured
+  	int<lower=0> last[n_ind];         		    // Capture event in which each individual was last captured
 
-	matrix[n_ind, all_samps] X_bd;	   		 		  // Covariate
-	matrix[n_ind, all_samps] X_measured;    		  	  // Captures during which Bd was taken
-	matrix[n_ind, all_times] periods;
+	matrix[n_ind, n_occasions] X_bd;	   	    // Covariate
+	matrix[n_ind, n_occasions] X_measured;    	    // Captures during which Bd was taken
+	int<lower=0> periods[n_times];			    // Vector designating periods
 
 }
 
@@ -84,13 +72,12 @@ parameters {
 
 transformed parameters {
 
-	// per sample * per individual mortality and detection probability
-	matrix<lower=0,upper=1>[n_ind, all_samps_min1] phi;
-	matrix<lower=0,upper=1>[n_ind, all_samps_min1] p;
-	matrix<lower=0,upper=1>[n_ind, all_samps] chi;
-
-	matrix[n_ind, all_times] X;	   		// Estimated "true" bd for all of the caught individuals with no bd measured		
-	real bd_ind[n_ind];                             // Individual random effect deviates
+	matrix<lower=0,upper=1>[n_ind, n_occ_min1] phi;   // survival from t to t+1
+	matrix<lower=0,upper=1>[n_ind, n_occasions] p;    // detection at time t
+	matrix<lower=0,upper=1>[n_ind, n_occasions] chi;  // probability an individual will never be seen again
+ 
+	matrix[n_ind, n_times] X;	   		  // Estimated "true" bd for all of the caught individuals with no bd measured		
+	real bd_ind[n_ind];                               // Individual random effect deviates
 
 
 	// bd submodel, contained to estimating within-season bd
@@ -98,8 +85,8 @@ transformed parameters {
 	for (i in 1:n_ind) {
   	  bd_ind[i]  = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];
 
-	 for (t in 1:all_times) {
-	  X[i, t] = bd_ind[i] + beta_period * periods[i, t] + beta_bd[2] * time[t] + beta_bd[3] * square(time[t]);
+	 for (t in 1:n_times) {
+	  X[i, t] = bd_ind[i] + beta_period * periods[t] + beta_bd[2] * time[t] + beta_bd[3] * square(time[t]);
 	 }
 	}
 
@@ -116,29 +103,34 @@ transformed parameters {
 		
          // linear predictor for survival for individual i and time t based on the covariate X. Prior to first capture (see above loop)
           // the probabilities are 0, after first capture the probabilities are determined by their covariates
-           for (t in first[i]:all_samps_min1) {
+           for (t in first[i]:n_occ_min1) {
           
 	  phi[i, t] = inv_logit(
 beta_phi[1]                   + 
 beta_timegaps  * time_gaps[t] +
 beta_offseason * offseason[t] +	
-beta_phi[2]    * X[i, sampling_events_all[t]]
+beta_phi[2]    * X[i, sampling_events[t]]
 );
+
+	}
+
+          for (t in first[i]:n_occasions) {
 
 	  p[i, t]   = inv_logit(
 beta_p[1] + 
-beta_p[2] * X[i, sampling_events_all[t]]
+beta_p[2] * X[i, sampling_events[t]]
 );
 
 	 }
 	}
 
-	chi = prob_uncaptured(n_ind, all_samps, p, phi);
+	chi = prob_uncaptured(n_ind, n_occasions, p, phi);
 }
 
 model {
 
 	// Priors
+
 	beta_phi[1] ~ normal(0, 5);
 	beta_phi[2] ~ normal(0, 5);
 	beta_p[1] ~ normal(0, 5);
@@ -151,18 +143,18 @@ model {
 	beta_offseason ~ normal(0, 5);
 
 	bd_delta_sigma ~ inv_gamma(1, 1);
-	bd_delta_eps ~ normal(0, 1);
+	bd_delta_eps ~ normal(0, 2);
 	bd_obs ~ inv_gamma(1, 1);
 
 
 	// Bd Process and Data Model
     
          for (i in 1:n_ind) {
-          for (t in 1:all_samps) {
+          for (t in 1:n_occasions) {
 
         // measured bd (X_bd) only informs latent bd (X) on those occasions where bd was sampled
            if (X_measured[i, t] == 1) {
-             X_bd[i, t] ~ normal(X[i, sampling_events_all[t]], bd_obs); 
+             X_bd[i, t] ~ normal(X[i, sampling_events[t]], bd_obs); 
 	   }          
 	 }
 	}
@@ -173,7 +165,7 @@ model {
 	  
 	  for (t in (first[i] + 1):last[i]) {
 	   1 ~ bernoulli(phi[i, t - 1]);
-           y[i, t] ~ bernoulli(p[i, t - 1]);
+           y[i, t] ~ bernoulli(p[i, t]);
 	  }
 	   1 ~ bernoulli(chi[i, last[i]]);
 

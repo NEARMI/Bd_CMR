@@ -500,9 +500,9 @@ data.frame(
 )
 
 stan.fit  <- stan(
-#   file    = "CMR_ind_pat_bd-p-phi_no_timegap_covariate.stan"
-  file    = "CMR_ind_pat_bd-p-phi_no_average_bd.stan"
-#    file    = "CMR_ind_pat_bd-p-phi_no_average_bd_all_times.stan"
+#  file    = "CMR_ind_pat_bd-p-phi_no_timegap_covariate.stan"
+   file    = "CMR_ind_pat_bd-p-phi_no_average_bd.stan"
+#  file    = "CMR_ind_pat_bd-p-phi_no_average_bd_all_times.stan"
 #  file    = "CMR_ind_pat_bd-p-phi_average_bd.stan"
 #  file    = "CMR_ind_pat_bd-p-phi_cumulative_bd.stan"
 , data    = stan_data

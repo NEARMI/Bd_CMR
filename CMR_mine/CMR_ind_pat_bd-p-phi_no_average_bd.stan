@@ -140,7 +140,7 @@ model {
 	  
 	  for (t in (first[i] + 1):last[i]) {
 	   1 ~ bernoulli(phi[i, t - 1]);
-           y[i, t] ~ bernoulli(p[i, t - 1]);
+           y[i, t] ~ bernoulli(p[i, t]);
 	  }
 	   1 ~ bernoulli(chi[i, last[i]]);
 

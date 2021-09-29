@@ -10,15 +10,14 @@
 ########
 
 ####
-## Notes as of SEP 28:
+## Notes as of SEP 29:
 ####
 
-## -- Model working [?]: output saved as "stan.fit_multi_season.Rds". Check tomorrow.
- ## !! LOTS of the conversion of the simulated data into the stan structure has a lot of debugging junk to get removed
-
-## Tomorrow:
+## Tomorrow (now today):
   ## 1) Check to see if model is recovering sensible parameter estimates
+    ## -- Seems to be working reasonably well. Also found a minor mistake with p which will help out
   ## 2) Clean up all of the simulation and simulation -> matrix structure gunk throughout the script
+    ## -- Starting on this but will take time
   ## 3) Explore simulations
 
 ## KEEPING NOTES FROM EARLIER TODAY UNTIL TOMORROW:
@@ -72,33 +71,22 @@ nsim      <- 1                  ## number of simulations (1 to check model, coul
 ind       <- 50                 ## number of individuals in the population being modeled
 periods   <- 2                  ## number of primary periods (years in most cases)
 times     <- 20                 ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-if (periods > 1) {
-times <- rep(times, periods)    ## for now assume same number of periods per year, but this likely wont be the case in the real data
-}
 samp      <- 10                 ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
 if (periods > 1) {
-samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this likely wont be the case in the real data
+samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
+between_season_duration <- 10   ## number of time periods that elapse between the on-season
 }
 when_samp <- "random"           ## random = sampling occurs on a random subset of possible days
 
 ## Two ways to simulated data
-  sim_opt <- "lme4"        ## Use the built in capabilities of lme4
-# sim_opt <- "manual"      ## Simple custom simulation ** SEP 27: lagging behind "lme4" -- hasn't caught up with all of the options
-  
-## Drop simulated individuals never caught (TRUE) or keep all simulated individuals (FALSE) (unrealistic)
-only_caught        <- TRUE
-
-## Use covaratiates until the last sampling time (TRUE) or one before (FALSE)? (because p and phi are hard to separate in the last time point)
-use_all_timepoints <- FALSE
+sim_opt <- "lme4"               ## Use the built in capabilities of lme4 to simulate bd loads
 
 ## Bd parameters 
- ## for lme4 simulation. 
-  ## ** SEP 27: for now dropping sim option manual, can add it back in later if we want a more complicated manual bd process model
 bd_beta   <- c(
-  7   ## Intercept
-, 2   ## Period effect
-, 30  ## Linear effect of time on bd
-, -50 ## Quadratic effect of time on bd
+  7     ## Intercept
+, 2     ## Period effect
+, 30    ## Linear effect of time on bd
+, -50   ## Quadratic effect of time on bd
 ) 
 bd_sigma  <- 2              ## observation noise
 bd_theta  <- c(2)           ## random effect variance covariance 
@@ -133,12 +121,13 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 
 ####
 ## Simulate bd response and relationship between bd and survival and detection
+## as well as create index vectors for when sampling is occurring 
 ####
 
 ## Simulate data using lme4 mixed model structure
 expdat <- expand.grid(
   periods = seq(periods)
-, times   = seq(times[1])     ## ** SEP 27: Update to allow variable times by period? Maybe not needed because this is just the simulate underlying "true" bd data?
+, times   = seq(times)     
 , ind     = factor(seq(ind))
   )
 
@@ -160,71 +149,43 @@ expdat %<>% mutate(
   log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
 )
 
-## On which days is sampling occurring
+## On which days is sampling occurring?
 if (when_samp == "random") {
+  
+ ## Allow different sampling days by period
  sampling_days <- expand.grid(
-  times   = seq(times[1]) ## ** SEP 27: Update to allow variable times by period? Maybe not needed because this is just the simulate underlying "true" bd data?
-                           ## Will no longer continue to make this comment
+  times   = seq(times)
 , periods = seq(periods)
    ) %>% group_by(periods) %>% 
    mutate(
      sampling_days = ifelse(times %in% sample(times, samp), 1, 0)
-       )
+       ) %>% 
+   mutate(all_times = interaction(times, periods)) %>% 
+   mutate(all_times = as.numeric(all_times))
  
-  # (sampling_days - lag(sampling_days, 1))[-1]
+ ## Determine the number of time periods that elapse between back to back samples
  time_gaps     <- sampling_days %>% filter(sampling_days == 1) %>%
-   group_by(periods) %>% mutate(time_gaps = (times - lag(times, 1)))
+   group_by(periods) %>% mutate(time_gaps = (times - lag(times, 1))) %>%
+   filter(!is.na(time_gaps)) %>% rbind(.
+     , {
+    expand.grid(
+     periods       = seq(from = periods - 0.5, to = periods, by = 1)
+   , times         = 1
+   , sampling_days = 1
+   , time_gaps     = between_season_duration
+    )
+     }) %>% arrange(periods)
+   
+  time_gaps <- time_gaps$time_gaps
+  
+  if (length(time_gaps) != (sum(samp) - 1)) {
+    print("time_gaps is an incorrect length, check parameters"); break
+  }
  
- time_gaps  <- matrix(data = time_gaps$time_gaps
-   , ncol = periods
-   , nrow = samp[1]
-   )
- 
- time_gaps <- time_gaps[-1, ]
- 
-## collapse for the correct time gap.
-  ## ** SEP 28: For now am just using an arbitrary gap between seasons. Need to clean this up 
- time_gaps <- c(time_gaps[, 1], 10, time_gaps[, 2])
-
-## Now just sampling_days$sampling_days
- sampling_vec  <- matrix(data = sampling_days$sampling_days
-   , ncol = periods
-   , nrow = times[1]
-   , dimnames = list(
-     seq(times[1])
-  ,  seq(periods)
-   ))
- 
- sampling_vec_within <- sampling_vec
- 
- sampling_vec_all    <- c(sampling_vec[, 1], 0, sampling_vec[, 2])
- 
- sampling_days %<>% mutate(all_times = interaction(times, periods)) %>% mutate(
-   all_times = as.numeric(all_times)
- )
- 
- sampling_times_within  <- matrix(data = (sampling_days %>% filter(sampling_days == 1))$times
-   , ncol = periods
-   , nrow = samp[1]
-  )
- 
+ ## Also need a vector of when sampling occurs
  sampling_times_all <- (sampling_days %>% filter(sampling_days == 1))$all_times
  
 }
-
-## For debugging, save the same simulated data set to compare alternative models
-expdat.sim <- expdat
-
-####
-## For debugging to compare models and sampling schemes -- can loop this or function this later if
-## we want something more formal
-####
-# samp          <- 10
-# sampling_days <- unique(expdat$times) %>% sample(samp) %>% sort(.)
-# time_gaps     <- (sampling_days - lag(sampling_days, 1))[-1]
-# sampling_vec  <- data.frame(times = seq(times), sampling = 0) 
-# sampling_vec[sampling_vec$times %in% sampling_days, ]$sampling <- 1
-# expdat        <- expdat.sim  ## retrieve the simulated data set to compare alternative models
 
 ## grab the log of the range of Bd load
 bd_range <- round(with(expdat, seq(min(log_bd_load), max(log_bd_load), by = .1)), 1)
@@ -255,15 +216,17 @@ bd_probs %>% pivot_longer(cols = c(2, 3)) %>% {
   theme(legend.key.size = unit(0.75, "cm"))
 }
 
-## Add to the simulated bd data for the individuals
+## Add the offseason survival probability to the simulated data for the individuals
+ ## (All we really need here is the mort column, but need the other ones to add it to the
+  ## other data frame to simulate cumulative survival)
 off_season <- expand.grid(
-     periods = seq(from = periods - 0.5, to = periods, by = 1)
-   , times   = 1
-   , ind     = seq(ind)
-   , bd_load = 0
+     periods     = seq(from = periods - 0.5, to = periods, by = 1)
+   , times       = 1
+   , ind         = seq(ind)
+   , bd_load     = 0
    , log_bd_load = 0
-   , mort    = 1 - p_mort
-   , detect  = 0
+   , mort        = 1 - p_mort
+   , detect      = 0
     )
 
 expdat %<>% 
@@ -272,10 +235,6 @@ expdat %<>%
   group_by(ind) %>%
   arrange(periods, ind, times) %>%
   mutate(cum_surv = cumprod(mort)) 
-
-## more debug checks
-# expdat.t <- expdat
-# expdat %>% filter(ind == 1) %>% as.data.frame()
 
 ####
 ## create the true state of the population from the simulated bd values
@@ -297,14 +256,13 @@ expdat %<>% left_join(., sampling_days) %>%
 ####
 
 ## Drop all individuals that were never caught and update parameters
-if (only_caught) {
 never_detected <- expdat %>% 
   group_by(ind) %>% 
   summarize(total_detection = sum(detected)) %>% 
   filter(total_detection == 0)
 new_ind <- seq(1, ind - nrow(never_detected))
 
-## store original simulated population for estimate diagnostics
+## store original simulated population for diagnostics (on population size for example)
 expdat.not_dropped <- expdat    
 ind.not_dropped    <- ind
 
@@ -314,47 +272,36 @@ expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>%
 
 ## total number of individuals ever captured
 ind <- length(unique(expdat$ind))
-}
-
-## Create the capture array in the correct structure for stan
-capture_matrix <- array(
-   dim = c(
-       ind
-     , samp[1]
-     , periods
-     )
-  , data = 0
-  )
-
-all_ind <- unique(expdat$ind)
 
 expdat.capt <- expdat %>% filter(sampling_days == 1)
 
-## Filling in an array can be confusing, so do it manually for clarity
-for (i in seq_along(all_ind)) {
-  capture_matrix[i,,] <- matrix(data = (expdat.capt %>% filter(ind == all_ind[i]))$detected, nrow = samp[1], ncol = periods)
+## Create the capture array in the correct structure for stan. To insure it gets populated correctly
+ ## jump through a couple of hoops
+capture_matrix <- matrix(
+  data = (expdat.capt %>% arrange(ind, all_times))$detected
+, nrow = ind
+, ncol = sum(samp)
+, byrow = T
+)
+
+## becuase of ind as a factor things could get messed up. Check to make sure order was retained
+if (sum(capture_matrix[2, ] == 
+    (expdat.capt %>% arrange(ind, all_times) %>% 
+        filter(ind == unique(expdat.capt$ind)[2]))$detected) != sum(samp)) {
+  print("capture_matrix filled in incorrectly"); break
 }
 
-## Collapse time periods into one side by side matrix and add the off-season as one period in-between
- ## currently non-dynamic. 
-capture_matrix <- cbind(
-  capture_matrix[,,1]
-, matrix(data = 0, nrow = ind, ncol = 1)    ## off season
-, capture_matrix[,,2]
-  )
-
-## The between-season parameter isn't needed for anything else, so drop this now
+## First create an index vector for the offseason and then drop the offseason from expdat
+ ## Note: offseason_vec is associated with the phi values, so offseason is 
+offseason_vec   <- rep(0, sum(samp))[-sum(samp)]
+which_offseason <- cumsum(samp)
+which_offseason <- which_offseason[-length(which_offseason)]
+offseason_vec[which_offseason] <- 1
 expdat %<>% filter(periods != 1.5)
 
-## expdat.t <- expdat
-
-## Also expand out the times so that they are not repeated within periods
-expdat %<>% mutate(all_times = as.numeric(as.factor(interaction(times, periods))))
-
+## Across all sampling_days across all seasons determine when each individual was first and last captured
 capture_range <- expdat %>% 
-  group_by(ind
-  #  , periods
-    ) %>%
+  group_by(ind) %>%
   filter(sampling_days == 1) %>%  
   summarize(
     first = min(which(detected == 1))
@@ -365,63 +312,36 @@ capture_range <- expdat %>%
   , final = ifelse(is.infinite(final), 0, final)
     )
 
-capture_range.first <- with(capture_range, matrix(
-  data = first
-, nrow = length(unique(ind))
-, ncol = length(unique(periods))
-, byrow = T)
-  )
-
-capture_range.final <- with(capture_range, matrix(
-  data = final
-, nrow = length(unique(ind))
-, ncol = length(unique(periods))
-, byrow = T)
-  )
-
+## Will be used eventually for generated quantities
 capture_total <- expdat %>% 
-  group_by(
-    all_times
-  #  , periods
-    ) %>% 
+  group_by(all_times) %>% 
   filter(sampling_days == 1) %>%
   summarize(total_capt = sum(detected)) %>%
   arrange(periods
     , all_times
     )
 
-#capture_total <- with(capture_total, matrix(
-#  data = total_capt
-#, nrow = samp[1]
-#, ncol = length(unique(periods))
-#  )
-#)
-  
 ####
 ## Set up the bd sampling data
 ####
 
-## full "true" bd values to be subset into "observed" bd values below
-measured_bd <- array(
-   dim = c(
-       ind
-     , samp[1]
-     , periods
-     )
-  , data = 0
-  )
+## full "true" bd values to be subset into bd values on the days in which sampling occurred (some of which
+ ## get to inform the model -- those that were actually sampled as determined below)
+temp_bd_dat <- (expdat.capt %>% arrange(ind, all_times))$log_bd_load
+temp_bd_dat <- rnorm(length(temp_bd_dat), temp_bd_dat, obs_noise)
 
-## Filling in an array can be confusing, so do it manually for clarity
-for (i in seq_along(all_ind)) {
-    temp_data <- (expdat.capt %>% filter(ind == all_ind[i]))$log_bd_load
-    ## Add the observation noise
-    temp_data <- rnorm(length(temp_data), temp_data, obs_noise)
-    measured_bd[i,,] <- matrix(data = temp_data, nrow = samp[1], ncol = periods)
-}
+measured_bd <- matrix(
+  data = temp_bd_dat
+, nrow = ind
+, ncol = sum(samp)
+, byrow = T
+)
 
-if (bd_swabs == "PAT") {
-  
-## Find the captures that included bd swabs
+## becuase of ind as a factor things could get messed up. Check to make sure order was retained
+bd_load_check <- (measured_bd[3, ] - (expdat.capt %>% arrange(ind, all_times) %>% filter(ind %in% unique(expdat.capt$ind)[3]))$log_bd_load)
+print(paste("This number should be pretty close to 0", round(sum(bd_load_check), 2), sep = ": "))
+
+## Establish which sampling days included bd swabs
 expdat %<>% left_join(.
   , {
     expdat %>% 
@@ -434,34 +354,25 @@ expdat %<>% mutate(
   bd_swabbed = ifelse(is.na(bd_swabbed), 0, bd_swabbed)
 )
   
-## Create a matrix of these samples
-bd.measured <- array(
-   dim = c(
-       ind
-     , samp[1]
-     , periods
-     )
-  , data = 0
-  )
-
 expdat.swabbed <- expdat %>% filter(sampling_days == 1)
 
-## Filling in an array can be confusing, so do it manually for clarity
-for (i in seq_along(all_ind)) {
-    bd.measured[i,,] <- matrix(data = (expdat.swabbed %>% filter(ind == all_ind[i]))$bd_swabbed, nrow = samp[1], ncol = periods)
+## And finally, the individuals on the sampling days that were swabbed for bd
+bd_measured <- matrix(
+  data = (expdat.swabbed %>% arrange(ind, all_times))$bd_swabbed
+, nrow = ind
+, ncol = sum(samp)
+, byrow = T
+)
+
+## Another check of another matrix
+if (sum(bd_measured[2, ] == 
+    (expdat.swabbed %>% arrange(ind, all_times) %>% 
+        filter(ind == unique(expdat.swabbed$ind)[2]))$bd_swabbed) != sum(samp)) {
+  print("measured_bd filled in incorrectly"); break
 }
 
-}
-
-## and finally for this piece create an array of covariate data to designate period
-periods.cov <- array(
-   dim = c(
-       ind
-     , times[1]
-     , periods
-     )
-  , data = expdat$periods
-  )
+## And finally, finally, a vector to designate periods
+periods.cov <- (expdat %>% filter(ind == unique(expdat$ind)[1]))$periods
 
 ## Double check to make sure this produces sensible capture data
 if (ind <= 100) {
@@ -493,36 +404,25 @@ if (ind <= 100) {
 ## Run the model
 ####
 
-if (bd_swabs == "PAT") {
-  
-## Possibly slightly confusing, but can keep all of the parameters needed for the most complicated model.
- ## The less complicated models that don't use these parameters will just ignore what they don't need
 stan_data     <- list(
   ## dimensional params
    n_periods       = periods
  , n_ind           = ind                  
- , n_times         = times[1]   
- , all_times       = sum(times)
- , all_samps       = sum(samp)
- , all_samps_min1  = sum(samp - 1) + 1
- , n_occasions     = samp[1]
- , n_oc_min1       = samp[1] - 1
- , time            = seq(sum(times))
- , sampling_within = sampling_vec_within
- , sampling_all    = sampling_vec_all
- , sampling_events_within = sampling_times_within
- , sampling_events_all    = sampling_times_all
+ , n_times         = times * periods
+ , n_occasions     = sum(samp)
+ , n_occ_min1      = sum(samp) - 1
+ , time            = rep(seq(times), periods)
+ , sampling_events = sampling_times_all
  , time_gaps       = time_gaps
- , offseason       = c(rep(0, samp[1]-1), 1, rep(0, samp[2]-1))
+ , offseason       = offseason_vec
   ## Capture data
- , y               = capture_matrix[, -11]
- , first           = capture_range.first[, 1]
- , last            = capture_range.final[, 1]
- , n_captured      = capture_total
+ , y               = capture_matrix
+ , first           = capture_range$first
+ , last            = capture_range$final
   ## Covariate associated parameters
- , X_bd            = cbind(measured_bd[,,1], measured_bd[,,2])
- , X_measured      = cbind(bd.measured[,,1], bd.measured[,,2])
- , periods         = cbind(periods.cov[,,1], periods.cov[,,2])
+ , X_bd            = measured_bd
+ , X_measured      = bd_measured
+ , periods         = periods.cov
   )
 
 stan.fit  <- stan(
@@ -535,17 +435,12 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-}
-
-stan.fit <- stan.fit.4
-
 # shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
-## Within all of these diagnostics see *NOTE* for some of my summaries for what I have seen
- ## from my work on this so far
+## Within all of these diagnostics see *NOTE* for some of my summaries for what I have seen from my work on this so far
 
 ####
 ## SEP 21 NOTE: some of the below *might* be broken with the newer model and will need updating
@@ -557,7 +452,7 @@ stan.fit.samples <- extract(stan.fit)
 ####
 
 ## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[1:4, c(4, 6, 8)])
+pred_coef        <- as.data.frame(stan.fit.summary[c(1:4), c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
@@ -566,7 +461,10 @@ pred_coef %>% {
     geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
     geom_point(data = data.frame(
       param = pred_coef$param
-    , mid   = c(rev(bd_mort), rev(bd_detect))
+    , mid   = c(
+      rev(bd_mort)
+    , rev(bd_detect)
+      )
     ), colour = "firebrick3") +
     xlab("Parameter") + ylab("Estimate") +
     scale_x_discrete(labels = c("Detection intercept", "Detection slope", "Survival intercept", "Survival slope")) +
@@ -591,7 +489,8 @@ stan.pred %>% {
   ggplot(., aes(log_bd_load, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line() +
-    geom_line(data = bd_probs, aes(log_bd_load, mort)
+    geom_line(data = (bd_probs %>% mutate(mort = mort ))
+      , aes(log_bd_load, mort)
       , colour = "dodgerblue4", lwd = 2) +
     xlab("Log of Bd Load") + ylab("Predicted mortality probability")
 }
@@ -633,7 +532,7 @@ pred_coef <- as.data.frame(stan.fit.summary[
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
-## Hard to directly compare coefficient estimates given the change in sccale, need to work on this
+## Hard to directly compare coefficient estimates given the change in scale, need to work on this
 pred_coef %>% filter(param != "start_mean") %>% {
   ggplot(., aes(param, mid)) + geom_point() +
     geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
@@ -654,8 +553,30 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
     mid = quantile(eps, 0.50)
   , lwr = quantile(eps, 0.025)
   , upr = quantile(eps, 0.975)
-  ) %>% arrange(mid) %>%
-  mutate(ind = factor(ind, levels = ind))
+  ) %>% mutate(ind = unique(expdat$ind)) %>%
+  arrange(mid) %>% 
+  mutate(order_pred = seq(n()))
+
+stan.ind_pred_var %<>% left_join(.
+    , {
+      expdat %>% group_by(ind) %>% summarize(ind_rand = sum(log_bd_load)) %>% 
+        arrange(ind_rand) %>%
+        mutate(order_real = seq(n()))
+    })
+
+stan.ind_pred_var %>% mutate(ind_rand = (ind_rand - mean(ind_rand))/sd(ind_rand)) %>% {
+  ggplot(., aes(mid, ind_rand)) + 
+    geom_point() +
+    xlab("Random effect deviate") + ylab("Raw cumulative bd load") +
+    geom_abline(intercept = 0, slope = 1)
+}
+
+stan.ind_pred_var %>% {
+  ggplot(., aes(order_real, order_pred)) + 
+    geom_point() +
+    xlab("Simulated bd rank") +
+    ylab("Estimated bd rank")
+}
 
 ## Not doing a very good job of making these look different than 0
 stan.ind_pred_var %>% {
@@ -671,8 +592,6 @@ stan.ind_pred_var %>% {
     #ggtitle("thin dashed lines are the 20 left out of the model. It is at least nice to say the estimates are all different")
 }
  
-## Do we at least get the extreme two individuals correct?
- ## Not terrible! Model is at least somewhat working!
 data.frame(
   simulated = order(bd_ind)
 , real      = stan.ind_pred_var$ind
@@ -713,6 +632,21 @@ estimated_bd %>% {
 }
 
 ####
+## Recovery of off-season mortality? 
+####
+
+between_season_test <- apply(stan.fit.samples$phi, 2:3, FUN = function(x) mean(x))
+between_season_test <- reshape2::melt(between_season_test)
+names(between_season_test) <- c("ind", "time", "phi")
+between_season_test %>% mutate(phi = ifelse(phi == 0, NA, phi)) %>% {
+  ggplot(., aes(time, phi)) + 
+    geom_line(aes(group = ind)) +
+    xlab("Time") + 
+    ylab("Survival Probability") +
+   geom_hline(yintercept = 0.8)
+}
+
+####
 ## Generated quantities: 
 ##  1) Population size
 ##  2) Population distribution of infection (for now just total)
@@ -727,13 +661,6 @@ names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.)) %>% 
   mutate(param = as.numeric(factor(param, levels = param)))
 
-if (!only_caught) {
-  pop_alive <- expdat %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead))
-  pop_alive <- pop_alive %>% rbind(data.frame(samp = 0, pop_size = ind.not_dropped), .)
-} else {
-  pop_alive <- expdat.not_dropped %>% group_by(samp) %>% summarize(pop_size = n() - sum(dead)) 
-  pop_alive <- pop_alive %>% rbind(data.frame(samp = 0, pop_size = ind.not_dropped), .)
-}
 
 ## SEP 9: Something a bit fishy going on here in my predictions and real pop as a function of time
 pred_coef %>% mutate(param = param - 1) %>%  {
