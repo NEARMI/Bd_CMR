@@ -9,6 +9,8 @@
  ## to multiple seasons and multiple sites
 ########
 
+
+
 ####
 ## Notes as of SEP 29:
 ####
@@ -17,8 +19,13 @@
   ## 1) Check to see if model is recovering sensible parameter estimates
     ## -- Seems to be working reasonably well. Also found a minor mistake with p which will help out
   ## 2) Clean up all of the simulation and simulation -> matrix structure gunk throughout the script
-    ## -- Starting on this but will take time
+    ## -- Done. Looks good.
   ## 3) Explore simulations
+   ## -- Recovering parameters well for the few I have run, need to explore more
+
+## Primary to do
+ ## 1) Need to make a conditional infection model, where individuals become infected and then their load responds
+  ## Need to allow individuals to _get_ infected at some point in time in each season
 
 ## KEEPING NOTES FROM EARLIER TODAY UNTIL TOMORROW:
 ## 0A) Coming together, but I see that when n_occasions varies by period the model as currently 
