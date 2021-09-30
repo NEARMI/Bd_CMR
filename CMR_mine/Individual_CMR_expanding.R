@@ -12,18 +12,21 @@
 
 
 ####
-## Notes as of SEP 29:
+## Notes as of SEP 30:
 ####
 
-## Tomorrow (now today):
-  ## 1) Check to see if model is recovering sensible parameter estimates
-    ## -- Seems to be working reasonably well. Also found a minor mistake with p which will help out
-  ## 2) Clean up all of the simulation and simulation -> matrix structure gunk throughout the script
-    ## -- Done. Looks good.
-  ## 3) Explore simulations
-   ## -- Recovering parameters well for the few I have run, need to explore more
+## Spent today looking at previously published JAGS CMR models. The short of it is that I think everything I have done 
+ ## --so far-- is sensible. The big issue that is raised though is that because the stan models do not have a discrete latent
+  ## state, it seems like it could be hard to model recruitment.
+   ## That is, because individuals only contribute to the likelihood once they are seen, it is hard to picture how we can try and
+    ## infer if __specific__ individuals were in the population in a previous season.
+  ## However! Do we care? If we can get reasonable estimates by only relying on individuals from the first time they are seen
+   ## forward, and can get derived quantities such as population sizes at each time point, can we still recover the population
+    ## dyamics etc. that we care about?
+ ## The new first goal is to think more deeply about this and try and figure out if recruitment can be coded and fit
 
 ## Primary to do
+ ## 0) Figure out how to code an open population with recruitment in the stan version
  ## 1) Need to make a conditional infection model, where individuals become infected and then their load responds
   ## Need to allow individuals to _get_ infected at some point in time in each season
 
