@@ -95,8 +95,7 @@ transformed parameters {
 
 	// for all events prior to the first catch set individuals mortality and detection to 0
 	 for (t in 1:(first[i] - 1)) {
-	  phi[i, t] = 0;
-          p[i, t] = 0;      
+	  phi[i, t] = 0;   
 	 }
 		
          // linear predictor for survival for individual i and time t based on the covariate X. Prior to first capture (see above loop)
@@ -112,7 +111,7 @@ beta_phi[2]    * X[i, sampling_events[t]]
 
 	}
 
-          for (t in first[i]:n_occasions) {
+          for (t in 1:n_occasions) {
 
 	  p[i, t]   = inv_logit(
 beta_p[1] + 
@@ -168,8 +167,12 @@ model {
 	  
 	  for (t in (first[i] + 1):last[i]) {
 	   1 ~ bernoulli(phi[i, t - 1]);     // survived (the one) ~ bernoulli[phi] -- because we saw an individual again in the future we know it survived this period
+	  }
+
+          for (t in 1:last[i]) {
            y[i, t] ~ bernoulli(p[i, t]);
 	  }
+
 	   1 ~ bernoulli(chi[i, last[i]]);  // the probability of an animal never being seen again after the last time it was captured
 
 	  }

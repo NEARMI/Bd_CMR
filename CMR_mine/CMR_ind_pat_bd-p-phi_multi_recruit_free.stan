@@ -43,8 +43,15 @@ data {
 
 	matrix[n_ind, n_occasions] X_bd;	   	    // Covariate
 	matrix[n_ind, n_occasions] X_measured;    	    // Captures during which Bd was taken
-	int<lower=0> periods[n_times];			    // Vector designating periods
+	int<lower=0> periods[n_times];			    // Vector designating periods for bd model (all times)
+	int<lower=0> periods_occ[n_occasions];		    // Vector designating periods for observational model (all occasions)
 
+	int<lower=0> not_seen;				    // number of individuals not seen in the first period
+	int<lower=0> seen;				    // n_ind - ^^
+ 	int<lower=0> ind_seen[seen];			    // vector indicating the period in which each individual was first seen
+ 	int<lower=0> ind_not_seen[not_seen];		    // opposite of ^^
+
+	vector[n_periods] alpha;			    // Values for the dirichlet prior for the simplex of recruitment for individuals not seen in the first round
 }
 
 transformed data {
@@ -67,17 +74,18 @@ parameters {
 
 	real<lower=0> bd_obs;    			// observation noise for observed Bd compared to underlying state
 
+	simplex[n_periods] gamma[not_seen];		// probability of each individual seen in subsequent periods actually having been in the population in the previous period
+
 }
 
 transformed parameters {
 
-	matrix<lower=0,upper=1>[n_ind, n_occ_min1] phi;    // survival from t to t+1
-	matrix<lower=0,upper=1>[n_ind, n_occasions] p;     // detection at time t
-	matrix<lower=0,upper=1>[n_ind, n_occasions] chi;   // probability an individual will never be seen again
+	matrix<lower=0,upper=1>[n_ind, n_occ_min1] phi;      // survival from t to t+1
+	matrix<lower=0,upper=1>[n_ind, n_occasions] p;       // detection at time t
+	matrix<lower=0,upper=1>[n_ind, n_occasions] chi;     // probability an individual will never be seen again
  
-	matrix[n_ind, n_times] X;	   		   // Estimated "true" bd for all of the caught individuals with no bd measured		
-	real bd_ind[n_ind];                                // Individual random effect deviates
-
+	matrix[n_ind, n_times] X;	   		     // Estimated "true" bd for all of the caught individuals with no bd measured		
+	real bd_ind[n_ind];                                  // Individual random effect deviates
 
 	// bd submodel, contained to estimating within-season bd
 
@@ -93,14 +101,13 @@ transformed parameters {
 
 	for (i in 1:n_ind) {
 
-	// for all events prior to the first catch set individuals mortality and detection to 0
+	// for all events prior to the first catch set individuals mortality to 0
 	 for (t in 1:(first[i] - 1)) {
-	  phi[i, t] = 0;
-          p[i, t] = 0;      
+	  phi[i, t] = 0; 
 	 }
 		
-         // linear predictor for survival for individual i and time t based on the covariate X. Prior to first capture (see above loop)
-          // the probabilities are 0, after first capture the probabilities are determined by their covariates
+        // for all events after the first time an individual was caught, estimate its mortality probability
+
            for (t in first[i]:n_occ_min1) {
           
 	  phi[i, t] = inv_logit(
@@ -112,15 +119,18 @@ beta_phi[2]    * X[i, sampling_events[t]]
 
 	}
 
-          for (t in first[i]:n_occasions) {
+}
 
-	  p[i, t]   = inv_logit(
-beta_p[1] + 
-beta_p[2] * X[i, sampling_events[t]]
-);
-
-	 }
-	}
+        // for all events estimate an individuals detection probability -- conditional on whether the individual was thought to be present at that time or not
+	
+          for (t in 1:n_occasions) {
+	   for (i in 1:seen) {
+            p[ind_seen[i], t]       = inv_logit(beta_p[1] + beta_p[2] * X[ind_seen[i], sampling_events[t]]);
+	   }
+	   for (i in 1:not_seen) {
+            p[ind_not_seen[i], t]   = inv_logit(beta_p[1] + beta_p[2] * X[ind_not_seen[i], sampling_events[t]]) * gamma[i][periods_occ[t]];
+	   }
+	  }
 
 	chi = prob_uncaptured(n_ind, n_occasions, p, phi);
 }
@@ -144,6 +154,9 @@ model {
 	bd_delta_eps ~ normal(0, 2);
 	bd_obs ~ inv_gamma(1, 1);
 
+	for (i in 1:not_seen) {
+          gamma[i] ~ dirichlet(alpha);
+	}
 
 	// Bd Process and Data Model
     
@@ -158,27 +171,27 @@ model {
 	}
 
 	// Capture model
-         // Is there a way to add an additional process here that is the probability the individual was in the population?
-         // i.e., pres[n_ind, n_times] 
-         // 1 ~ bernoulli(pres[i, t])
-         // where pres is informed by _something_
 
 	 for (i in 1:n_ind) {
-	  if (first[i] > 0) {
 	  
 	  for (t in (first[i] + 1):last[i]) {
 	   1 ~ bernoulli(phi[i, t - 1]);     // survived (the one) ~ bernoulli[phi] -- because we saw an individual again in the future we know it survived this period
-           y[i, t] ~ bernoulli(p[i, t]);
 	  }
+
+	  for (t in 1:last[i]) {
+   	   y[i, t] ~ bernoulli(p[i, t]);    // detection can inform y up until the last time the individual was caught, and then it is inseparable from chi
+	  }
+
 	   1 ~ bernoulli(chi[i, last[i]]);  // the probability of an animal never being seen again after the last time it was captured
 
 	  }
-	 }
 
 }
 
 generated quantities {
-           
+ 
+
+          
 }
 
 
