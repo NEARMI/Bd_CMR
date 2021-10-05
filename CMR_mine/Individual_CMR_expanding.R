@@ -10,9 +10,74 @@
 ########
 
 ####
-## Notes as of OCT 1:
+## Notes as of OCT 5 (afternoon):
 ####
 
+## 1) JAGS using STANs within-season Chi and no latent state recovers within season survival and detection  
+ ## The trick is going to be to figure out how to run the within season conditional on a latent presence absence matrix
+  ## which is needed to help determine if an individual was present in season 1 and not seen or immigrated in inbetween seasons
+ ## ** A real difficulty is that the within-season survival as STAN writes it uses first through last detection periods to inform
+  ## the model --> Need to figure out how to inform if we think the individual is there but never caught (which doesn't seem possible with this formulation[?])
+
+## 2) The real difficulty is trying to figure out how to use the latent presence/absence matrix to constrain the matrix for the within
+ ## season mortality calculations. For example, if we catch an individual in period 2 and we think its alive in period 1 then all entries of living period 1 must be 1   
+ ## but if we catch an individual in period 1 and not in period 2, did the indiviudal die when we were not observing it in period one or at some future date?
+  ## !! I feel like when writing it out this way, it is harder to imagine how to do it without the full time course...
+
+## ALTERNATIVELY: What if I just do it exaclty like I have been doing it in stan by just modeling the full time series with Chi, but in JAGS
+ ## there will be more flexibility for latent disease states. A few worries:
+  ## A) Still not clear how to model the latent state of arrival (which I think should be a latent 0, 1 at each time immigration point)
+  ## B) 
+
+## Nice to step back and remember that I am trying to jump through these hoops because of potential issues with biased detection with the STAN
+ ## model because of:
+  ## -- incomplete modeling of individuals prior to showing up in the population (which could minorly affect survival and ... [?])
+  ## -- potentially too vague of a disease model because of the inability to model discrete latent states (conditioning on infected or not)
+  ## -- confusing modeling of individuals that haven't shown up in the population yet (but this won't impact the likelihood so I guess fine?)
+## But the JAGS version seems really confusing TBH.
+
+####
+## Notes as of OCT 5 (morning):
+####
+
+## As written the model isn't going to work in JAGS because of the discrete latent state -- the irony! 
+ ## Because you can't have dbern(0) the survival within a year, the latent state z cant ever be 0.
+## So while the model in STAN can be written with periods crunched together over time, it can't be in JAGS. In JAGS
+ ## need a different style of within-season survival model stuck together with a gain in individuals in each offseason
+## This *I think* points to the power of the STAN model, but if sticking with STAN, need to really get to the bottom of the
+ ## invasion simplex and if it can match individuals in really poor data. Also there could still be a problem about disease state
+
+## STAN issues:
+ ## 1) gamma in the probability is more of a patch for whether we think an individual is present or not than a true fix 
+  ## ** Unclear how big of a deal this is. Possibly not much of a big deal
+ ## 2) with the current formulation latent bd is modled in all periods, which is a bit weird for individuals that don't appear until
+  ## after the first period
+   ## -- in JAGS I think this could be written where bd is only modeled where the latent state has a one
+  ## ** Maybe only a problem for generated quantities (but could just multiply by gamma?)
+ ## 3) Because of the no latent states, it could be tricky to write out the conditional probability of load | infection
+  ## Maybe each individual has some probability of infection in each season?
+   ## For example, each individual --if infected-- have an infection profile unique to them, but there is also a probability
+    ## that each individual in each season was infected in the first place (some kind of conditional probability). 
+     ## ** It does seem however, that it can't all be pulled into the random effect because an individual might have a high load
+      ## on year and never get infected the next
+ ## 4) Because we think some indiviudals may have been around last year, the survival of those individuals should probably be lower
+  ## in the next season (i.e., older)
+   ## To add this could imagine a covaraite in phi that is scaled by gamma
+
+## Moving to JAGS:
+ ## 1) I think the plan is to have a latent discrete state matrix that is the individual existing at each period with transition
+  ## in this latent state determined by survival throughout that state (which is in itself a whole submodel) and migration. 
+   ## That is, if the indiviudal is thought to be alive at period X, it enters into the within-season submodel, which is where
+    ## the latent bd is measured and the relationship between latent bd and survival is determined. Then, the whole survival over
+     ## the whole season as a function of instantaneous survival given latent bd becomes a derived quantitiy for making it to the next year
+      ## for that individual
+ ## ** The tricky part is to try and figure out how to code that internal bit without any latent state but which is informed by 
+  ## all of the captures within that season (i.e., if an indivdual is captured at the end of the season we know it survived)
+  ## 2) The question then becomes how to begin? I guess:
+   ## A) Get the internal -classic survival- model working and then next it in two seasons? The question is how to fit the within-season
+    ## survival model without any latent state because dbern() can't have a zero inside
+
+## Other debugging steps still needed:
 ## I think I have done something sensible --- The model does a good job of recovering the simulated parameters for at least 
  ## pretty good numbers of individuals, bd swabs, and not too many new individuals arriving between seasons
   ## -- However, it is still unclear:
@@ -21,27 +86,18 @@
      ## detected in the first season
    ## 2) if the population sample sizes that are returned are sensible
   
-## If this ends up working and I continue developing this model, one clear caveat that 
- ## EITHER needs to be adjusted or talked about is that (at least at present) survival is only informed 
-  ## once an individual has been seen. That is, the survival of an individual
-   ## is independent (and not some weighted thing) of if we think it was around last season. Thus if we think
-    ## cumulative bd infection burden is important for survival and we maybe think the individual was around
-     ## last season and maybe infected, that info won't affect their survival estimates moving forward
- ## I think this *could* be changed by adding a scaling parameter into the phi that controls for the hypothetical
-  ## age of the individual (e.g. if we think that individual was around last year)
-  
 ## Primary to do
  ## 1) Try fewer sampling periods to check if certain individuals that are in the population in the first season
   ## that are not captured are able to be estimated as being in the population in that time period
    ## -- my feeling is that this is going to be really hard. I think the only sensible way for this to be resolved is
     ## to have individual-level covariates that help determine if specific individuals are more easily captured or not
-     ## or individual season covaraties that control overal capture probability within specific seasons. For now, I do
+     ## or individual season covaraties that control overall capture probability within specific seasons. For now, I do
       ## not expect much success because all that impacts probability is bd -- so for an individual to be estimated correctly
        ## they probably need some outlier level of bd that would cause them to have a low overall detection probability. I think
         ## this (low individual-level detection probability) + season covaraties will be necessary:
       ## OTHERWISE -- how in the world can we tell apart an individual arriving from an individual not detected?
  ## 2) In the multi-season model need to check to make sure that the CI on the individual deviates for the bd
-  ## infection load for indiviuals caught in multiple seasons is narrower than the CI of individuals caught in one season
+  ## infection load for individuals caught in multiple seasons is narrower than the CI of individuals caught in one season
  ## 3) ^^ --BIG IF-- all of the above works, need to make the model general for multiple seasons
   ## And try to incorporate the gamma into the survival for individuals to get the probability that we think
    ## the individual was around last season into the survival model for this season
@@ -374,6 +430,19 @@ measured_bd <- matrix(
 , byrow = T
 )
 
+## Or if trying JAGS
+#temp_bd_dat <- (expdat %>% arrange(ind, all_times))$log_bd_load
+#temp_bd_dat <- rnorm(length(temp_bd_dat), temp_bd_dat, obs_noise)
+
+#measured_bd <- matrix(
+#  data = temp_bd_dat
+#, nrow = all_ind
+#, ncol = times * periods
+#, byrow = T
+#)
+
+#measured_bd[, seq(1, times * periods)[-sampling_times_all]] <- NA
+
 ## becuase of ind as a factor things could get messed up. Check to make sure order was retained
 bd_load_check <- (measured_bd[3, ] - (expdat.capt %>% arrange(ind, all_times) %>% filter(ind %in% unique(expdat.capt$ind)[3]))$log_bd_load)
 print(paste("This number should be pretty close to 0", round(sum(bd_load_check), 2), sep = ": "))
@@ -400,6 +469,20 @@ bd_measured <- matrix(
 , ncol = sum(samp)
 , byrow = T
 )
+
+## Or if trying in JAGS
+#bd_measured <- matrix(
+#  data = (expdat %>% arrange(ind, all_times))$bd_swabbed
+#, nrow = all_ind
+#, ncol = times * periods
+#, byrow = T
+#)
+
+#measured_bd[, seq(1, times * periods)[-sampling_times_all]] <- NA
+
+#for (i in 1:nrow(measured_bd)) {
+#measured_bd[i, which(bd_measured[i, ] != 1)] <- NA
+#}
 
 ## Another check of another matrix
 if (sum(bd_measured[2, ] == 
@@ -439,10 +522,24 @@ if (ind <= 100) {
      ) +
      ggtitle("Lines show dead individuals; dots show bd swabbs")
  }
- }
+}
+
+## Also take a second look at what data is being used to inform the bd submodel
+bd.long <- data.frame(
+  latent_bd = c(measured_bd)
+, measured  = c(bd_measured)
+, ind       = rep(seq(1, all_ind), sum(samp))
+, weeks     = rep(sampling_times_all, each = all_ind)
+)
+
+bd.long %>% filter(measured == 1) %>% {
+  ggplot(., aes(weeks, latent_bd)) + 
+    geom_point() +
+    facet_wrap(~ind)
+}
 
 ####
-## Run the model
+## Run the model in Stan
 ####
 
 stan_data     <- list(
@@ -483,6 +580,79 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+
+saveRDS(stan.fit, "stan.fit_multi.Rds")
+
+####
+## Run the model in JAGS. Very broken as of OCT 5
+####
+{
+
+stan_data     <- list(
+  ## dimensional params
+   n_periods       = periods
+ , n_ind           = all_ind                  
+ , n_times         = times * periods
+ , n_occasions     = sum(samp)
+ , n_occ_min1      = sum(samp) - 1
+ , time            = rep(seq(times), periods)
+ , time_sq         = rep(seq(times), periods) ^ 2
+ , sampling_events = sampling_times_all
+ , time_gaps       = time_gaps
+ , offseason_phi   = offseason_vec
+ , offseason_imm   = c(0, offseason_vec)
+  ## Capture data
+ , y               = capture_matrix
+ , imm_ind         = which(rowSums(capture_matrix[, 1:10]) == 0)
+ , imm_og          = which(rowSums(capture_matrix[, 1:10]) != 0)
+  ## Covariate associated parameters
+ , X_bd            = measured_bd
+ , periods         = periods.cov
+ , periods_occ     = periods.cov[c(1:samp[1], (times + 1):(times + samp[2]))]
+ , alpha           = matrix(data = rep(rep(1/periods, periods), all_ind), nrow = all_ind, ncol = periods)
+  )
+
+nadapt <-40000 # adaption phase
+nburn <- 15000 # discard these draws
+niter <- 40000 # length of MCMC chains
+nsamp <- 1000  # number of samples to take from each MCMC chains
+thin_ <-  10   #round(niter/nsamp) # only
+
+params <- c(
+  "beta_phi"
+, "beta_p"
+, "beta_timegaps"
+, "beta_offseason"
+, "beta_bd"
+, "beta_period"
+, "bd_delta_sigma"
+, "db_delta_eps"
+, "bd_obs"
+, "gamma"
+, "phi"
+, "p"
+, "X"
+  )
+
+library(rjags)
+library(jagsUI)
+
+time_elapse <- Sys.time({
+  
+ralu.Bd <- jags(
+  data       = stan_data
+, model.file = "CMR_ind_pat_bd-p-phi_multi_recruit_free2.txt"
+, parameters.to.save = params
+, n.iter     = niter
+, n.chains   = 1
+, n.burnin   = nburn
+, n.thin     = thin_
+, parallel   = TRUE
+, verbose = T)
+
+})
+
+}
 
 # stan.fit <- stan.fit.1   ## restricted detection probability
 # stan.fit <- stan.fit.2   ## unrestricted detection probability

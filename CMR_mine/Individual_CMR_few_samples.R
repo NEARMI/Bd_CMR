@@ -515,8 +515,6 @@ stan.fit  <- stan(
 
 }
 
-stan.fit <- stan.fit.4
-
 # shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]

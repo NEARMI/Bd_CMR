@@ -1,0 +1,75 @@
+model {
+
+####
+## Priors
+####
+
+beta_phi[1]    ~ dnorm(0, 0.368)
+beta_phi[2]    ~ dnorm(0, 0.368)
+beta_p[1]      ~ dnorm(0, 0.368)
+beta_p[2]      ~ dnorm(0, 0.368)
+beta_timegaps  ~ dnorm(0, 0.368)
+gamma[1]       ~ dunif(0, 1)
+gamma[2]       ~ dunif(0, 1)
+
+
+####
+## Survival and Detection
+####
+
+for (i in 1:n_ind) {
+
+ for (t in 1:n_occ_min1) {
+          
+  logit(phi[i, t]) = beta_phi[1] + beta_timegaps * time_gaps[t] + beta_phi[2] * X_bd[i, sampling_events[t]]
+
+  phi.b[i, t] = max(0.00000001, min(0.999999, phi[i, t]))
+
+ }
+
+ for (t in 1:n_occasions) {
+
+  logit(p[i, t]) = beta_p[1] + beta_p[2] * X_bd[i, sampling_events[t]]
+
+  p.b[i, t] = max(0.00000001, min(0.999999, p[i, t]))
+ 
+ }
+
+}
+
+
+####
+## Capture Model
+####
+
+ for (i in 1:n_ind) {
+
+  z[i, 1] ~ dbern(gamma[1])
+  recruitable[i, 1] = 1
+
+   for (t in 2:n_occasions) {
+  
+      survived[i, t]    = z[i, t-1] * phi.b[i, t-1]
+      recruitable[i, t] = (1 - z[i, t-1]) * recruitable[i, t-1] * gamma[2]
+
+      z[i, t] ~ dbern(survived[i, t] + recruitable[i, t])
+
+    }
+  }
+
+
+####
+## Observation Model
+####
+
+ for (i in 1:n_ind) {
+   for (t in 1:n_occasions) {
+
+ y[i, t]  ~ dbern(z[i, t] * p.b[i, t])
+
+ }
+}
+
+
+}
+

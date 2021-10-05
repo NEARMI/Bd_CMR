@@ -1,0 +1,101 @@
+model {
+
+####
+## Priors
+####
+
+beta_phi[1]    ~ dnorm(0, 1/25)
+beta_phi[2]    ~ dnorm(0, 1/25)
+beta_p[1]      ~ dnorm(0, 1/25)
+beta_p[2]      ~ dnorm(0, 1/25)
+beta_bd[1]     ~ dnorm(0, 1/25)
+beta_bd[2]     ~ dnorm(0, 1/25)
+beta_bd[3]     ~ dnorm(0, 1/25)
+beta_timegaps  ~ dnorm(0, 1/25)
+
+tau[1]         ~ dgamma(1.0E-3, 1.0E-3)
+tau[2]         ~ dgamma(1.0E-3, 1.0E-3)
+bd_obs         = 1.0/sqrt(tau[1])
+bd_delta_sigma = 1.0/sqrt(tau[2])
+
+for (i in 1:n_ind) {
+  bd_delta_eps[i] ~ dnorm(0, 1/4)
+ }
+
+
+####
+## Bd Submodel
+####
+
+for (i in 1:n_ind) {
+   bd_ind[i] = beta_bd[1] + bd_delta_sigma * bd_delta_eps[i]
+  
+  for (t in 1:n_times) {
+    X[i, t] = bd_ind[i] + beta_bd[2] * time[t] + beta_bd[3] * time_sq[t]
+   }
+ }
+
+
+####
+## Survival and Detection
+####
+
+for (i in 1:n_ind) {
+
+ for (t in 1:n_occ_min1) {
+          
+  phi[i, t] = ilogit(beta_phi[1] + beta_timegaps * time_gaps[t] + beta_phi[2] * X[i, sampling_events[t]])
+
+ }
+
+ for (t in 1:n_occasions) {
+
+  p[i, t] = ilogit(beta_p[1] + beta_p[2] * X[i, sampling_events[t]])
+ 
+ }
+
+}
+
+
+####
+## Bd Process and Data Model
+####
+
+ for (i in 1:n_ind) {
+  for (t in 1:n_times) {
+      X_bd[i, t] ~ dnorm(X[i, t], bd_obs)       
+    }
+   }
+ 
+
+####
+## Capture Model
+####
+
+ for (i in 1:n_ind) {
+
+  z[i, 1] = 1
+
+   for (t in 2:n_occasions) {
+  
+      z[i, t] ~ dbern(z[i, t-1] * phi[i, t-1])
+
+    }
+  }
+
+
+####
+## Observation Model
+####
+
+ for (i in 1:n_ind) {
+   for (t in 1:n_occasions) {
+
+ y[i, t]  ~ dbern(z[i, t] * p[i, t])
+
+ }
+}
+
+
+}
+

@@ -61,20 +61,22 @@ transformed data {
 
 parameters {
 
-	vector[2] beta_phi;                  		// intercept and slope coefficient for survival
-        vector[2] beta_p;				// intercept and slope coefficient for detection
-	real beta_timegaps;				// coefficient to control for the variable time between sampling events
-	real beta_offseason;				// season survival probability
+	vector[2] beta_phi;                  			// intercept and slope coefficient for survival
+        vector[2] beta_p;					// intercept and slope coefficient for detection
+	real beta_timegaps;					// coefficient to control for the variable time between sampling events
+	real beta_offseason;					// season survival probability
 
-	vector[3] beta_bd;				// intercept and two slope coefficients for grand mean change in bd over time
-	real beta_period;				// difference in load between primary n_periods (years)
+	vector[3] beta_bd;					// intercept and two slope coefficients for grand mean change in bd over time
+	real beta_period;					// difference in load between primary n_periods (years)
 
-	real<lower=0> bd_delta_sigma;			// change in Bd by individual (normal random effect variance)
-	real bd_delta_eps[n_ind];			// the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_delta_sigma;				// change in Bd by individual (normal random effect variance)
+	real bd_delta_eps[n_ind];				// the conditions modes of the random effect (each individual's intercept (for now))
 
-	real<lower=0> bd_obs;    			// observation noise for observed Bd compared to underlying state
+	real<lower=0> bd_obs;    				// observation noise for observed Bd compared to underlying state
 
-	simplex[n_periods] gamma[not_seen];		// probability of each individual seen in subsequent periods actually having been in the population in the previous period
+	simplex[n_periods] gamma[not_seen];			// probability of each individual seen in subsequent periods actually having been in the population in the previous period
+
+	real<lower=0, upper=1> cond_inf[n_ind, n_periods];
 
 }
 
@@ -90,7 +92,7 @@ transformed parameters {
 	// bd submodel, contained to estimating within-season bd
 
 	for (i in 1:n_ind) {
-  	  bd_ind[i]  = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];
+  	  bd_ind[i]  = beta_bd[1] + bd_delta_sigma * bd_delta_eps[i];
 
 	 for (t in 1:n_times) {
 	  X[i, t] = bd_ind[i] + beta_period * periods[t] + beta_bd[2] * time[t] + beta_bd[3] * square(time[t]);
@@ -114,7 +116,7 @@ transformed parameters {
 beta_phi[1]                   + 
 beta_timegaps  * time_gaps[t] +
 beta_offseason * offseason[t] +	
-beta_phi[2]    * X[i, sampling_events[t]]
+beta_phi[2]    * X[i, sampling_events[t]] * cond_inf[i, periods_occ[t]]
 );
 
 	}
