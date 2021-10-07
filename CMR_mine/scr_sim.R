@@ -102,3 +102,57 @@ expdat %>% {
     scale_y_log10() +
     facet_wrap(~periods)
 }
+
+####
+## Simulate a more complicated environment with temp variation 
+####
+
+## Bd parameters 
+bd_beta   <- c(
+  1     ## Intercept
+, .1     ## Time effect
+, .3     ## Linear effect of temp on bd
+) 
+bd_sigma  <- 2              ## observation noise
+bd_theta  <- c(5)           ## random effect variance covariance 
+
+## Simulate data using lme4 mixed model structure
+expdat <- expand.grid(
+  periods = seq(periods)
+, times   = seq(times)     
+, ind     = factor(seq(all_ind))
+  )
+
+expdat %<>% mutate(
+  temp = rlnorm(n()
+  ,   (scale(times, center = T, scale = F)[, 1] * .05) - 
+    .05 * scale(times, center = T, scale = F)[, 1]^2 + 3.5
+  , .2)
+)
+
+expdat %<>% mutate(
+  bd_load   = simulate(~times + temp + (1 | ind)
+  , nsim    = nsim
+  , family  = Gamma(link = "log")
+  , newdata = expdat
+  , newparams = list(
+      beta  = bd_beta
+    , sigma = bd_sigma
+    , theta = bd_theta
+    )
+  )$sim_1
+) %>% mutate(
+  bd_load     = round(bd_load, digits = 0)
+, log_bd_load = round(log(bd_load), digits = 0)
+) %>% mutate(
+  log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
+)
+
+expdat %>% {
+  ggplot(., aes(times, bd_load)) + 
+    geom_line(aes(group = ind)) +
+    scale_y_log10() +
+    facet_wrap(~periods)
+}
+
+

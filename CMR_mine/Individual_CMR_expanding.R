@@ -10,104 +10,48 @@
 ########
 
 ####
-## Notes as of OCT 5 (afternoon):
+## Notes as of OCT 7:
 ####
 
-## 1) JAGS using STANs within-season Chi and no latent state recovers within season survival and detection  
- ## The trick is going to be to figure out how to run the within season conditional on a latent presence absence matrix
-  ## which is needed to help determine if an individual was present in season 1 and not seen or immigrated in inbetween seasons
- ## ** A real difficulty is that the within-season survival as STAN writes it uses first through last detection periods to inform
-  ## the model --> Need to figure out how to inform if we think the individual is there but never caught (which doesn't seem possible with this formulation[?])
+## 1) Gamma working ok to scale probability, but it isn't exactly what I want. Also, because the prior is sampled
+ ## from for all individuals on all days in which we know that individual is present, I wonder if it is slowing down computation
+## 2) Max and Cumulative seems to work ok when the effect is big...
+## 3) Working on getting the temp parameter working. Interesting if we will be able to distinguish it
+  ## from time effect (maybe we don't care) -- START FROM HERE TOMORROW
+## 4) Also working to get a multi-pop model working, but lots of steps to work through here...
 
-## 2) The real difficulty is trying to figure out how to use the latent presence/absence matrix to constrain the matrix for the within
- ## season mortality calculations. For example, if we catch an individual in period 2 and we think its alive in period 1 then all entries of living period 1 must be 1   
- ## but if we catch an individual in period 1 and not in period 2, did the indiviudal die when we were not observing it in period one or at some future date?
-  ## !! I feel like when writing it out this way, it is harder to imagine how to do it without the full time course...
+### Continued concerns from the other day:
+ ## A) simplex to control for entry into the population and biased detection -- can we also use the estimated parameter
+  ## to scale survival of individuals we think are a year older?
+ ## B) modeling of bd in all periods is probably ok because unmeasured individuals don't affect the likelihood
+ ## C) no latent states could make it tricky to build a better model of disease states, but that is probably ok if we can get intercepts really
+  ## low because we are on a log scale 
 
-## ALTERNATIVELY: What if I just do it exaclty like I have been doing it in stan by just modeling the full time series with Chi, but in JAGS
- ## there will be more flexibility for latent disease states. A few worries:
-  ## A) Still not clear how to model the latent state of arrival (which I think should be a latent 0, 1 at each time immigration point)
-  ## B) 
+### Before the CMR meeting, need to simulate with:
+ ## A) Very high within-season survival
+ ## B) Very sparse data collection for a subset of individuals
 
-## Nice to step back and remember that I am trying to jump through these hoops because of potential issues with biased detection with the STAN
- ## model because of:
-  ## -- incomplete modeling of individuals prior to showing up in the population (which could minorly affect survival and ... [?])
-  ## -- potentially too vague of a disease model because of the inability to model discrete latent states (conditioning on infected or not)
-  ## -- confusing modeling of individuals that haven't shown up in the population yet (but this won't impact the likelihood so I guess fine?)
-## But the JAGS version seems really confusing TBH.
+## The short term plan in advance of the CMR modeling meeting on the 14th will be to:
+ ## -- MODELING --
+ # 3) Expand the model to consider individuals from a second population that are barely measured
+ # 4) Figure out what happens when some individuals don't get infected
+ # 5) Add other covaraties into the model to create/control for some other sources of variation 
 
 ####
-## Notes as of OCT 5 (morning):
+## Quick notes about next steps
 ####
 
-## As written the model isn't going to work in JAGS because of the discrete latent state -- the irony! 
- ## Because you can't have dbern(0) the survival within a year, the latent state z cant ever be 0.
-## So while the model in STAN can be written with periods crunched together over time, it can't be in JAGS. In JAGS
- ## need a different style of within-season survival model stuck together with a gain in individuals in each offseason
-## This *I think* points to the power of the STAN model, but if sticking with STAN, need to really get to the bottom of the
- ## invasion simplex and if it can match individuals in really poor data. Also there could still be a problem about disease state
+##### Second population #####
+## 1) First write the simulation code into a function, and then run that function twice with different parameters and stick
+ ## the result together 
+## 2) In the model add a loop for population? -- Need to give some serious thought to this step because it is going to be what is
+ ## really important for scaling the model to all of the data: how to allow n_occasions to vary by population, how to allow n_times
+  ## to vary by location (because the on-season may differ by place etc.) -- It would be great to add all of this into the same
+   ## array structure, but it may be difficult to time??? (maybe not if times all line up)
 
-## STAN issues:
- ## 1) gamma in the probability is more of a patch for whether we think an individual is present or not than a true fix 
-  ## ** Unclear how big of a deal this is. Possibly not much of a big deal
- ## 2) with the current formulation latent bd is modled in all periods, which is a bit weird for individuals that don't appear until
-  ## after the first period
-   ## -- in JAGS I think this could be written where bd is only modeled where the latent state has a one
-  ## ** Maybe only a problem for generated quantities (but could just multiply by gamma?)
- ## 3) Because of the no latent states, it could be tricky to write out the conditional probability of load | infection
-  ## Maybe each individual has some probability of infection in each season?
-   ## For example, each individual --if infected-- have an infection profile unique to them, but there is also a probability
-    ## that each individual in each season was infected in the first place (some kind of conditional probability). 
-     ## ** It does seem however, that it can't all be pulled into the random effect because an individual might have a high load
-      ## on year and never get infected the next
- ## 4) Because we think some indiviudals may have been around last year, the survival of those individuals should probably be lower
-  ## in the next season (i.e., older)
-   ## To add this could imagine a covaraite in phi that is scaled by gamma
-
-## Moving to JAGS:
- ## 1) I think the plan is to have a latent discrete state matrix that is the individual existing at each period with transition
-  ## in this latent state determined by survival throughout that state (which is in itself a whole submodel) and migration. 
-   ## That is, if the indiviudal is thought to be alive at period X, it enters into the within-season submodel, which is where
-    ## the latent bd is measured and the relationship between latent bd and survival is determined. Then, the whole survival over
-     ## the whole season as a function of instantaneous survival given latent bd becomes a derived quantitiy for making it to the next year
-      ## for that individual
- ## ** The tricky part is to try and figure out how to code that internal bit without any latent state but which is informed by 
-  ## all of the captures within that season (i.e., if an indivdual is captured at the end of the season we know it survived)
-  ## 2) The question then becomes how to begin? I guess:
-   ## A) Get the internal -classic survival- model working and then next it in two seasons? The question is how to fit the within-season
-    ## survival model without any latent state because dbern() can't have a zero inside
-
-## Other debugging steps still needed:
-## I think I have done something sensible --- The model does a good job of recovering the simulated parameters for at least 
- ## pretty good numbers of individuals, bd swabs, and not too many new individuals arriving between seasons
-  ## -- However, it is still unclear:
-   ## 1A) if this will work for poorer samples etc. / holds up to real data
-    ## 1B) and if it correctly can identify individuals that actually were in the population even if they never were
-     ## detected in the first season
-   ## 2) if the population sample sizes that are returned are sensible
-  
-## Primary to do
- ## 1) Try fewer sampling periods to check if certain individuals that are in the population in the first season
-  ## that are not captured are able to be estimated as being in the population in that time period
-   ## -- my feeling is that this is going to be really hard. I think the only sensible way for this to be resolved is
-    ## to have individual-level covariates that help determine if specific individuals are more easily captured or not
-     ## or individual season covaraties that control overall capture probability within specific seasons. For now, I do
-      ## not expect much success because all that impacts probability is bd -- so for an individual to be estimated correctly
-       ## they probably need some outlier level of bd that would cause them to have a low overall detection probability. I think
-        ## this (low individual-level detection probability) + season covaraties will be necessary:
-      ## OTHERWISE -- how in the world can we tell apart an individual arriving from an individual not detected?
- ## 2) In the multi-season model need to check to make sure that the CI on the individual deviates for the bd
-  ## infection load for individuals caught in multiple seasons is narrower than the CI of individuals caught in one season
- ## 3) ^^ --BIG IF-- all of the above works, need to make the model general for multiple seasons
-  ## And try to incorporate the gamma into the survival for individuals to get the probability that we think
-   ## the individual was around last season into the survival model for this season
- ## 4) Need to make a conditional infection model, where individuals become infected and then their load responds
-  ## Need to allow individuals to _get_ infected at some point in time in each season
- ## 5) To correspond to the real data, the model will also need
- ## A) Additional site-level covariates that affect bd and affect phi and p directly
- ## B) Ability to recover parameters with fewer secondary periods within primary periods 
- ## E) Multiple sites and sites nested in state, with random effects for each location
- ## D) Possibly a reduced model for just inf/not instead of a full latent model for bd load
+##### Other covaraites #####
+## 1) After adding different locations add a covariate of temperature that varies differently over the season and by location
+ ## -- This will be a key step in determining how to model the random effect of individual bd vs other covaratie
 
 ####
 ## Packages and functions
@@ -123,13 +67,14 @@ set.seed(10002)
 ####
 
 ## "Design" parameters
-nsim      <- 1                  ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 50                 ## number of individuals in the population being modeled
-new_ind   <- 20                 ## individuals added in each new period
-periods   <- 2                  ## number of primary periods (years in most cases)
-all_ind   <- ind + new_ind * (periods - 1)  ## number of individuals ever to exist in the population
-times     <- 20                 ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-samp      <- 10                  ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
+nsim      <- 1                    ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
+ind       <- 30                   ## number of individuals in the population being modeled
+periods   <- 3                    ## number of primary periods (years in most cases)
+new_ind   <- rep(8, periods - 1) ## individuals added in each new period
+inbetween <- seq(1.5, periods, by = 1)
+all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
+times     <- 20                   ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
+samp      <- 10                   ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
 if (periods > 1) {
 samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 between_season_duration <- 10   ## number of time periods that elapse between the on-season
@@ -139,23 +84,24 @@ when_samp <- "random"           ## random = sampling occurs on a random subset o
 ## Two ways to simulated data
 sim_opt <- "lme4"               ## Use the built in capabilities of lme4 to simulate bd loads
 
-## Bd parameters 
-bd_beta   <- c(
-  7     ## Intercept
-, 2     ## Period effect
-, 30    ## Linear effect of time on bd
-, -50   ## Quadratic effect of time on bd
-) 
-bd_sigma  <- 2              ## observation noise
-bd_theta  <- c(2)           ## random effect variance covariance 
+## Type of simulation
+sim_type <- "temp"              ## Time or temp available so far BUT (OCT 7: Temp just starting)
 
 ## Response of individuals to Bd load
-bd_mort   <- c(decay = -0.3, offset = 6)       ## logistic response coefficients for mortality across log(bd_load)
+bd_mort   <- c(decay = -0.2, offset = 6)       ## logistic response coefficients for mortality across log(bd_load)
 bd_detect <- c(decay = 0.1, offset = -0.5)     ## logistic response coefficients for detection across log(bd_load)
-#bd_detect <- c(decay = 0.1, offset = -1)
 
 ## Other parameters
-p_mort    <- c(0.20) ## mortality probability in-between periods
+
+## mortality probability in-between periods
+p_mort_type <- "max" ## con = single value; max = based on max bd; cum = based on cumulative bd
+if (p_mort_type == "con") {
+p_mort    <- c(0.30) 
+} else if (p_mort_type == "max") {
+p_mort    <- 0.02
+} else if (p_mort_type == "cum") {
+p_mort    <- 0.0001  
+}
 
 ## bd sampling sampling scheme
 bd_swabs  <- "PAT"  ## ALL = assume all captured individuals have their Bd swabbed on every capture
@@ -183,6 +129,18 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 ## as well as create index vectors for when sampling is occurring 
 ####
 
+if (sim_type == "time") {
+  
+## Bd parameters 
+bd_beta   <- c(
+  7     ## Intercept
+, 1     ## Period effect
+, 30    ## Linear effect of time on bd
+, -50   ## Quadratic effect of time on bd
+) 
+bd_sigma  <- 2              ## observation noise
+bd_theta  <- c(2)           ## random effect variance covariance 
+
 ## Simulate data using lme4 mixed model structure
 expdat <- expand.grid(
   periods = seq(periods)
@@ -207,13 +165,74 @@ expdat %<>% mutate(
 ) %>% mutate(
   log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
 )
+  
+} else if (sim_type == "temp") {
+  
+## Bd parameters 
+bd_beta   <- c(
+  1     ## Intercept
+, .1     ## Time effect
+, .3     ## Linear effect of temp on bd
+) 
+bd_sigma  <- 2              ## observation noise
+bd_theta  <- c(5)           ## random effect variance covariance 
+  
+## Simulate data using lme4 mixed model structure
+expdat <- expand.grid(
+  periods = seq(periods)
+, times   = seq(times)     
+, ind     = factor(seq(all_ind))
+  )
+
+expdat %<>% mutate(
+  temp = rlnorm(n()
+  ,   (scale(times, center = T, scale = F)[, 1] * .05) - 
+    .05 * scale(times, center = T, scale = F)[, 1]^2 + 3.5
+  , .2)
+)
+
+expdat %<>% mutate(
+  bd_load   = simulate(~times + temp + (1 | ind)
+  , nsim    = nsim
+  , family  = Gamma(link = "log")
+  , newdata = expdat
+  , newparams = list(
+      beta  = bd_beta
+    , sigma = bd_sigma
+    , theta = bd_theta
+    )
+  )$sim_1
+) %>% mutate(
+  bd_load     = round(bd_load, digits = 0)
+, log_bd_load = round(log(bd_load), digits = 0)
+) %>% mutate(
+  log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
+)
+
+}
 
 ## drop new_ind random individuals from each prior period
-which_new_ind <- sample(seq(all_ind), new_ind)
+which_new_ind <- vector("list", length(new_ind))
+temp_ind      <- seq(all_ind)
+for (i in seq_along(new_ind)) {
+  temp_samp          <- sort(sample(temp_ind, new_ind[i]))
+  which_new_ind[[i]] <- temp_samp
+  temp_ind           <- temp_ind[-which(temp_ind %in% temp_samp)]
+}
+
+which_new_ind            <- reshape2::melt(which_new_ind)
+names(which_new_ind)     <- c("ind", "ind_gained")
+which_new_ind$ind_gained <- which_new_ind$ind_gained + 1
+which_new_ind            <- rbind(
+  data.frame(
+   ind    = temp_ind
+ ,ind_gained = 1
+)
+, which_new_ind
+)
 
 ## Not dynamic yet, need to update for periods > 2
-expdat %<>% mutate(ind_gained = 1)
-expdat[expdat$ind %in% which_new_ind, ]$ind_gained <- 2
+expdat %<>% mutate(ind = as.numeric(ind)) %>% left_join(., which_new_ind) 
 
 ## On which days is sampling occurring?
 if (when_samp == "random") {
@@ -235,7 +254,7 @@ if (when_samp == "random") {
    filter(!is.na(time_gaps)) %>% rbind(.
      , {
     expand.grid(
-     periods       = seq(from = periods - 0.5, to = periods, by = 1)
+     periods       = inbetween
    , times         = 1
    , sampling_days = 1
    , time_gaps     = between_season_duration
@@ -285,28 +304,67 @@ bd_probs %>% pivot_longer(cols = c(2, 3)) %>% {
 ## Add the offseason survival probability to the simulated data for the individuals
  ## (All we really need here is the mort column, but need the other ones to add it to the
   ## other data frame to simulate cumulative survival)
+expdat %<>% 
+  left_join(., bd_probs) %>%
+  group_by(ind) %>%
+  arrange(periods, ind, times)
+
+## calculate a summary of the bd load within a period for mortality between periods
+expdat.bd_sum <- expdat %>% 
+  group_by(periods, ind) %>%
+  summarize(
+    max_bd = max(log_bd_load)
+  , cum_bd = sum(log_bd_load)
+  )
+
+## if using temp drop it for now -- OCT 7: come back to this later
+if (sim_type == "temp") {
+  expdat %<>% dplyr::select(-temp)
+}
+
 off_season <- expand.grid(
-     periods     = seq(from = periods - 0.5, to = periods, by = 1)
+     periods     = inbetween
    , times       = 1
    , ind         = seq(all_ind)
    , bd_load     = 0
    , log_bd_load = 0
-   , ind_gained  = 1 
    , mort        = 1 - p_mort
    , detect      = 0
     )
 
-off_season[off_season$ind %in% which_new_ind, ]$ind_gained <- 2
+off_season %<>% left_join(., which_new_ind)
 
-expdat %<>% 
-  left_join(., bd_probs) %>%
-  rbind(off_season, .) %>%
-  group_by(ind) %>%
-  arrange(periods, ind, times)
+for (i in 1:nrow(off_season)) {
+  temp_per <- off_season[i, ]$periods
+  temp_ind <- off_season[i, ]$ind
+  
+  temp_row <- expdat.bd_sum[
+    expdat.bd_sum$periods == temp_per - 0.5 &
+    expdat.bd_sum$ind     == temp_ind
+  , 
+  ]
+  
+  if (p_mort_type == "max") {
+  off_season[i, ]$log_bd_load <- temp_row$max_bd
+  off_season[i, ]$mort        <- with(off_season[i, ]
+    , 1 - ((1 - mort) * log_bd_load))
+  } else if (p_mort_type == "cum") {
+  off_season[i, ]$log_bd_load <- temp_row$cum_bd  
+  off_season[i, ]$mort        <- with(off_season[i, ]
+    , 1 - ((1 - mort) * log_bd_load))
+  } else {
+  ## do nothing
+  }
+  
+}
 
-expdat[(expdat$ind_gained == 2 & expdat$periods == 1), ]$detect <- 0
-expdat[(expdat$ind_gained == 2 & expdat$periods == 1), ]$mort   <- 1
-expdat[(expdat$ind_gained == 2 & expdat$periods == 1.5), ]$mort <- 1
+expdat %<>% rbind(off_season, .)
+
+## For all individuals in periods prior to when they were gained set their detection to 0
+expdat[(expdat$ind_gained > expdat$periods), ]$detect <- 0
+expdat[(expdat$ind_gained > expdat$periods), ]$mort   <- 1
+
+expdat %<>% arrange(periods, ind, times)
 
 expdat %<>% mutate(cum_surv = cumprod(mort)) 
 
@@ -321,7 +379,7 @@ expdat %<>%
     dead = cumsum(dead)
   , dead = ifelse(dead > 1, 1, dead)) 
 
-expdat %<>% filter(periods != 1.5)
+expdat %<>% filter(periods %notin% inbetween)
 
 ## On sampling days check for detection
 expdat %<>% left_join(., sampling_days) %>%
@@ -341,11 +399,10 @@ never_detected <- expdat %>%
 expdat.not_dropped <- expdat    
 ind.not_dropped    <- all_ind
 
-expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>%
-  droplevels()#  %>% mutate(ind = as.numeric(ind), ind = as.factor(ind))
+expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>% droplevels()
 
 ## total number of individuals ever captured
-all_ind <- length(unique(expdat$ind))
+all_ind     <- length(unique(expdat$ind))
 
 expdat.capt <- expdat %>% filter(sampling_days == 1)
 
@@ -358,19 +415,20 @@ ind_seen <- expdat.capt %>%
   group_by(ind) %>%
   slice(1)
 
-recruited <- matrix(
-  data = 1
+present <- matrix(
+  data = 0
 , ncol = periods
 , nrow = all_ind)
 
 recruited_inds <- (expdat %>% 
   group_by(ind) %>% 
   summarize(new_ind = mean(ind_gained)))$new_ind
-recruited_inds <- abs(recruited_inds - periods)
-recruited[, 1] <- recruited_inds
 
-## Create the capture array in the correct structure for stan. To insure it gets populated correctly
- ## jump through a couple of hoops
+for (i in seq_along(recruited_inds)) {
+ present[i, recruited_inds[i]:periods] <- 1
+}
+
+## Create the capture array in the correct structure for stan.
 capture_matrix <- matrix(
   data = (expdat.capt %>% arrange(ind, all_times))$detected
 , nrow = all_ind
@@ -386,7 +444,7 @@ if (sum(capture_matrix[2, ] ==
 }
 
 ## First create an index vector for the offseason and then drop the offseason from expdat
- ## Note: offseason_vec is associated with the phi values, so offseason is 
+ ## Note: offseason_vec is associated with the phi values, so offseason is the last entry of each on-season
 offseason_vec   <- rep(0, sum(samp))[-sum(samp)]
 which_offseason <- cumsum(samp)
 which_offseason <- which_offseason[-length(which_offseason)]
@@ -430,19 +488,6 @@ measured_bd <- matrix(
 , byrow = T
 )
 
-## Or if trying JAGS
-#temp_bd_dat <- (expdat %>% arrange(ind, all_times))$log_bd_load
-#temp_bd_dat <- rnorm(length(temp_bd_dat), temp_bd_dat, obs_noise)
-
-#measured_bd <- matrix(
-#  data = temp_bd_dat
-#, nrow = all_ind
-#, ncol = times * periods
-#, byrow = T
-#)
-
-#measured_bd[, seq(1, times * periods)[-sampling_times_all]] <- NA
-
 ## becuase of ind as a factor things could get messed up. Check to make sure order was retained
 bd_load_check <- (measured_bd[3, ] - (expdat.capt %>% arrange(ind, all_times) %>% filter(ind %in% unique(expdat.capt$ind)[3]))$log_bd_load)
 print(paste("This number should be pretty close to 0", round(sum(bd_load_check), 2), sep = ": "))
@@ -470,20 +515,6 @@ bd_measured <- matrix(
 , byrow = T
 )
 
-## Or if trying in JAGS
-#bd_measured <- matrix(
-#  data = (expdat %>% arrange(ind, all_times))$bd_swabbed
-#, nrow = all_ind
-#, ncol = times * periods
-#, byrow = T
-#)
-
-#measured_bd[, seq(1, times * periods)[-sampling_times_all]] <- NA
-
-#for (i in 1:nrow(measured_bd)) {
-#measured_bd[i, which(bd_measured[i, ] != 1)] <- NA
-#}
-
 ## Another check of another matrix
 if (sum(bd_measured[2, ] == 
     (expdat.swabbed %>% arrange(ind, all_times) %>% 
@@ -491,8 +522,10 @@ if (sum(bd_measured[2, ] ==
   print("measured_bd filled in incorrectly"); break
 }
 
-## And finally, finally, a vector to designate periods
-periods.cov <- (expdat %>% filter(ind == unique(expdat$ind)[1]))$periods
+## And finally, finally, vectors to designate periods for times and sampling occasions
+periods_time <- (expdat %>% filter(ind == unique(expdat$ind)[1]))$periods
+periods_occ  <- (expdat %>% filter(ind == unique(expdat$ind)[1]
+  , sampling_days == 1))$periods
 
 ## Double check to make sure this produces sensible capture data
 expdat.plottest     <- expdat %>% arrange(ind_gained)
@@ -524,19 +557,22 @@ if (ind <= 100) {
  }
 }
 
-## Also take a second look at what data is being used to inform the bd submodel
-bd.long <- data.frame(
-  latent_bd = c(measured_bd)
-, measured  = c(bd_measured)
-, ind       = rep(seq(1, all_ind), sum(samp))
-, weeks     = rep(sampling_times_all, each = all_ind)
-)
+####
+## WORK ON A TWO POP MODEL ____ SEE TOP NOTES FOR THE WAY TO ACTUALLY GO
+## BUT:::for now just manually stick together two simulations
 
-bd.long %>% filter(measured == 1) %>% {
-  ggplot(., aes(weeks, latent_bd)) + 
-    geom_point() +
-    facet_wrap(~ind)
-}
+all_ind.1            <- all_ind
+n_occasions.1        <- sum(samp)
+n_occ_min1.1         <- sum(samp) - 1
+sampling_times_all.1 <- sampling_times_all
+time_gaps.1          <- time_gaps
+offseason_vec.1      <- offseason_vec
+capture_matrix.1     <- capture_matrix
+capture_range.1      <- capture_range
+present.1            <- present
+measured_bd.1        <- measured_bd
+bd_measured.1        <- bd_measured
+periods_occ.1        <- periods_occ
 
 ####
 ## Run the model in Stan
@@ -547,9 +583,11 @@ stan_data     <- list(
    n_periods       = periods
  , n_ind           = all_ind                  
  , n_times         = times * periods
+ , times_within    = times
  , n_occasions     = sum(samp)
  , n_occ_min1      = sum(samp) - 1
  , time            = rep(seq(times), periods)
+ , time_per_period = matrix(data = seq(times * periods), nrow = times, ncol = periods)
  , sampling_events = sampling_times_all
  , time_gaps       = time_gaps
  , offseason       = offseason_vec
@@ -558,17 +596,12 @@ stan_data     <- list(
  , first           = capture_range$first
  , last            = capture_range$final
   ## Recruitment
- , seen            = length(which(ind_seen$periods == 1))
- , not_seen        = length(which(ind_seen$periods == 2))
- , ind_seen        = which(ind_seen$periods == 1)
- , ind_not_seen    = which(ind_seen$periods == 2)
- , recruited       = recruited
+ , present         = present
   ## Covariate associated parameters
  , X_bd            = measured_bd
  , X_measured      = bd_measured
- , periods         = periods.cov
- , periods_occ     = periods.cov[c(1:samp[1], (times + 1):(times + samp[2]))]
- , alpha           = rep(1/periods, periods)
+ , periods         = periods_time
+ , periods_occ     = periods_occ
   )
 
 stan.fit  <- stan(
@@ -583,85 +616,15 @@ stan.fit  <- stan(
 
 saveRDS(stan.fit, "stan.fit_multi.Rds")
 
-####
-## Run the model in JAGS. Very broken as of OCT 5
-####
-{
-
-stan_data     <- list(
-  ## dimensional params
-   n_periods       = periods
- , n_ind           = all_ind                  
- , n_times         = times * periods
- , n_occasions     = sum(samp)
- , n_occ_min1      = sum(samp) - 1
- , time            = rep(seq(times), periods)
- , time_sq         = rep(seq(times), periods) ^ 2
- , sampling_events = sampling_times_all
- , time_gaps       = time_gaps
- , offseason_phi   = offseason_vec
- , offseason_imm   = c(0, offseason_vec)
-  ## Capture data
- , y               = capture_matrix
- , imm_ind         = which(rowSums(capture_matrix[, 1:10]) == 0)
- , imm_og          = which(rowSums(capture_matrix[, 1:10]) != 0)
-  ## Covariate associated parameters
- , X_bd            = measured_bd
- , periods         = periods.cov
- , periods_occ     = periods.cov[c(1:samp[1], (times + 1):(times + samp[2]))]
- , alpha           = matrix(data = rep(rep(1/periods, periods), all_ind), nrow = all_ind, ncol = periods)
-  )
-
-nadapt <-40000 # adaption phase
-nburn <- 15000 # discard these draws
-niter <- 40000 # length of MCMC chains
-nsamp <- 1000  # number of samples to take from each MCMC chains
-thin_ <-  10   #round(niter/nsamp) # only
-
-params <- c(
-  "beta_phi"
-, "beta_p"
-, "beta_timegaps"
-, "beta_offseason"
-, "beta_bd"
-, "beta_period"
-, "bd_delta_sigma"
-, "db_delta_eps"
-, "bd_obs"
-, "gamma"
-, "phi"
-, "p"
-, "X"
-  )
-
-library(rjags)
-library(jagsUI)
-
-time_elapse <- Sys.time({
-  
-ralu.Bd <- jags(
-  data       = stan_data
-, model.file = "CMR_ind_pat_bd-p-phi_multi_recruit_free2.txt"
-, parameters.to.save = params
-, n.iter     = niter
-, n.chains   = 1
-, n.burnin   = nburn
-, n.thin     = thin_
-, parallel   = TRUE
-, verbose = T)
-
-})
-
-}
-
-# stan.fit <- stan.fit.1   ## restricted detection probability
-# stan.fit <- stan.fit.2   ## unrestricted detection probability
-
-# stan.fit <- readRDS("stan.fit_multi_season.Rds")
-# shinystan::launch_shinystan(stan.fit)
-
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
+
+data.frame(
+  capture_matrix[2, -30]
+, apply(stan.fit.samples$phi, 2:3, mean)[2, ]
+)
+
+apply(stan.fit.samples$phi, 2:3, mean)
 
 ## Within all of these diagnostics see *NOTE* for some of my summaries for what I have seen from my work on this so far
 
@@ -806,8 +769,7 @@ stan.ind_pred_var %<>% left_join(.
 stan.ind_pred_var %>% mutate(ind_rand = (ind_rand - mean(ind_rand))/sd(ind_rand)) %>% {
   ggplot(., aes(mid, ind_rand)) + 
     geom_point() +
-    xlab("Random effect deviate") + ylab("Raw cumulative bd load") +
-    geom_abline(intercept = 0, slope = 1)
+    xlab("Random effect deviate") + ylab("Raw cumulative bd load") 
 }
 
 stan.ind_pred_var %>% {
@@ -857,9 +819,11 @@ length(which(tail(stan.ind_pred_var$ind, 20) %in% tail(order(bd_ind), 20)) ) / 2
 
 test_recruit        <- apply(stan.fit.samples$gamma, 2:3, mean)
 test_recruit        <- as.data.frame(test_recruit)
-names(test_recruit) <- c("period_1", "period_2", "truth")
+names(test_recruit) <- c("period_1", "period_2", "period 3")
+present
 
-ggplot(test_recruit, aes(truth, period_1)) + geom_point()
+ggplot(test_recruit, aes(truth, period_1)) + 
+  geom_point()
 
 ####
 ## Recovery of the Bd profile of the individuals left out of the 
