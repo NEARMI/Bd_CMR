@@ -10,15 +10,26 @@
 ########
 
 ####
-## Notes as of OCT 7:
+## Notes as of OCT 8:
 ####
 
-## 1) Gamma working ok to scale probability, but it isn't exactly what I want. Also, because the prior is sampled
- ## from for all individuals on all days in which we know that individual is present, I wonder if it is slowing down computation
-## 2) Max and Cumulative seems to work ok when the effect is big...
-## 3) Working on getting the temp parameter working. Interesting if we will be able to distinguish it
-  ## from time effect (maybe we don't care) -- START FROM HERE TOMORROW
-## 4) Also working to get a multi-pop model working, but lots of steps to work through here...
+## 1) Generalizing the model for multiple populations with different sampling schemes is a bit of a disaster
+ ## -- Need to write the whole model is long / database form with indexes for everything
+  ## There are lots of difficulties with this however, because of:
+   ## A) different sizes of phi and p, confusing chi calculation
+   ## B) lots of values of phi and p that must be constrained 
+ ## --> All of the indexing becomes very difficult when things when the entries of each vector for each individual
+  ## are different but they are all stuck together. 
+
+## I have a model that compiles but generates "Log probability evaluates to log(0), i.e. negative infinity"
+ ## which means that all of the vectors are of the correct length and compatible with one another
+  ## -BUT- the model is not equivalent to the more intuitive matrix parameterization.
+## Which means I need to reduce the model to its simplest form and work up from there
+ ## First check with one period with the other script, then add a period, then add covariates etc.
+  ## -- But this will start on Tuesday, app materials to work on until then
+
+## 2) Temp working fine for single population model
+
 
 ### Continued concerns from the other day:
  ## A) simplex to control for entry into the population and biased detection -- can we also use the estimated parameter
@@ -74,7 +85,7 @@ new_ind   <- rep(8, periods - 1) ## individuals added in each new period
 inbetween <- seq(1.5, periods, by = 1)
 all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
 times     <- 20                   ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-samp      <- 10                   ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
+samp      <- 10                    ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
 if (periods > 1) {
 samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 between_season_duration <- 10   ## number of time periods that elapse between the on-season
@@ -317,20 +328,20 @@ expdat.bd_sum <- expdat %>%
   , cum_bd = sum(log_bd_load)
   )
 
-## if using temp drop it for now -- OCT 7: come back to this later
-if (sim_type == "temp") {
-  expdat %<>% dplyr::select(-temp)
-}
-
-off_season <- expand.grid(
+ off_season <- expand.grid(
      periods     = inbetween
    , times       = 1
    , ind         = seq(all_ind)
+   , temp        = 0
    , bd_load     = 0
    , log_bd_load = 0
    , mort        = 1 - p_mort
    , detect      = 0
     )
+ 
+if (sim_type != "temp") {
+ off_season %<>% dplyr::select(-temp)
+} 
 
 off_season %<>% left_join(., which_new_ind)
 
@@ -574,38 +585,65 @@ measured_bd.1        <- measured_bd
 bd_measured.1        <- bd_measured
 periods_occ.1        <- periods_occ
 
+all_ind.2            <- all_ind
+n_occasions.2        <- sum(samp)
+n_occ_min1.2         <- sum(samp) - 1
+sampling_times_all.2 <- sampling_times_all
+time_gaps.2          <- time_gaps
+offseason_vec.2      <- offseason_vec
+capture_matrix.2     <- capture_matrix
+capture_range.2      <- capture_range
+present.2            <- present
+measured_bd.2        <- measured_bd
+bd_measured.2        <- bd_measured
+periods_occ.2        <- periods_occ
+
+all_ind            <- c(all_ind.1, all_ind.2)
+n_occasions        <- c(n_occasions.1, n_occasions.2)
+n_occ_min1         <- c(n_occ_min1.1, n_occ_min1.2)
+sampling_times_all <- c(sampling_times_all.1, sampling_times_all.2)
+time_gaps          <- c(time_gaps.1, time_gaps.2)
+offseason_vec      <- c(offseason_vec.1, offseason_vec.2)
+capture_matrix     <- capture_matrix
+capture_range      <- rbind(capture_range.1, capture_range.2)
+present            <- rbind(present.1, present.2)
+measured_bd        <- measured_bd
+bd_measured        <- bd_measured
+periods_occ        <- c(periods_occ.1, periods_occ.2)
+
 ####
 ## Run the model in Stan
 ####
 
 stan_data     <- list(
-  ## dimensional params
+  ## dimensional indexes 
    n_periods       = periods
  , n_ind           = all_ind                  
  , n_times         = times * periods
  , times_within    = times
  , n_occasions     = sum(samp)
  , n_occ_min1      = sum(samp) - 1
+  ## vector indexes 
  , time            = rep(seq(times), periods)
  , time_per_period = matrix(data = seq(times * periods), nrow = times, ncol = periods)
  , sampling_events = sampling_times_all
- , time_gaps       = time_gaps
  , offseason       = offseason_vec
+ , periods         = periods_time
+ , periods_occ     = periods_occ
+  ## covariates
+ , X_bd            = measured_bd
+ , X_measured      = bd_measured
+ , temp            = (expdat %>% group_by(all_times) %>% summarize(mean_temp = mean(temp)))$mean_temp
+ , time_gaps       = time_gaps
   ## Capture data
  , y               = capture_matrix
  , first           = capture_range$first
  , last            = capture_range$final
-  ## Recruitment
  , present         = present
-  ## Covariate associated parameters
- , X_bd            = measured_bd
- , X_measured      = bd_measured
- , periods         = periods_time
- , periods_occ     = periods_occ
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free.stan"
+  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -619,22 +657,8 @@ saveRDS(stan.fit, "stan.fit_multi.Rds")
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
-data.frame(
-  capture_matrix[2, -30]
-, apply(stan.fit.samples$phi, 2:3, mean)[2, ]
-)
-
-apply(stan.fit.samples$phi, 2:3, mean)
-
-## Within all of these diagnostics see *NOTE* for some of my summaries for what I have seen from my work on this so far
-
-####
-## SEP 21 NOTE: some of the below *might* be broken with the newer model and will need updating
-####
-
 ####
 ## Recovery of simulated coefficients?
-##  *NOTE*: High success with keeping all individuals, only moderate success with dropping individuals
 ####
 
 ## Primary Bd effects
@@ -727,6 +751,17 @@ pred_coef %>% filter(param != "start_mean") %>% {
 }
 
 ####
+## Looking at individual phi values
+####
+
+data.frame(
+  capture_matrix[2, -30]
+, apply(stan.fit.samples$phi, 2:3, mean)[2, ]
+)
+
+apply(stan.fit.samples$phi, 2:3, mean)
+
+####
 ## Individual random effect estimates
 ####
 
@@ -739,7 +774,7 @@ test_compare <- cbind(
         summarize(ind_rand = sum(log_bd_load))
 )
 
-ggplot(test_compare, aes(ind_rand, est)) + geom_point()
+ggplot(test_compare, aes(ind_rand, mean)) + geom_point()
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value)
@@ -779,8 +814,6 @@ stan.ind_pred_var %>% {
     ylab("Width of CI") 
 }
 
-stan.ind_pred_var 
-
 stan.ind_pred_var %>% {
   ggplot(., aes(order_real, order_pred)) + 
     geom_point() +
@@ -789,7 +822,7 @@ stan.ind_pred_var %>% {
 }
 
 ## Not doing a very good job of making these look different than 0
-stan.ind_pred_var %>%  {
+stan.ind_pred_var %>% arrange(mid) %>% mutate(ind = factor(ind, levels = ind)) %>%  {
   ggplot(., aes(as.factor(ind), mid)) + geom_point() +
     geom_errorbar(aes(ymin = lwr, ymax = upr)) +
     xlab("Individual") + 

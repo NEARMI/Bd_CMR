@@ -109,7 +109,7 @@ expdat %>% {
 
 ## Bd parameters 
 bd_beta   <- c(
-  1     ## Intercept
+  1      ## Intercept
 , .1     ## Time effect
 , .3     ## Linear effect of temp on bd
 ) 
