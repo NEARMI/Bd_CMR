@@ -348,8 +348,8 @@ capture_total <- expdat %>% group_by(times) %>% summarize(total_capt = sum(detec
 if (use_all_timepoints) {
 measured_bd   <- matrix(
   nrow = ind
-, ncol = samp
-, data = (expdat %>% filter(sampling_day == 1))$log_bd_load
+ , ncol = samp
+ , data = (expdat %>% filter(sampling_day == 1))$log_bd_load
 , byrow = T)
 } else {
 measured_bd   <- matrix(nrow = ind, ncol = times, data = expdat$log_bd_load, byrow = T)[, -samp] 
@@ -478,6 +478,7 @@ stan_data     <- list(
  , time            = seq(times)
  , sampling        = sampling_vec$sampling
  , sampling_events = sort(sampling_days)
+ , which_samples   = sort(sampling_days)
  , no_sampling     = which(seq(times) %notin% sampling_days)
   ## Capture data
  , y               = capture_matrix
@@ -487,7 +488,7 @@ stan_data     <- list(
   ## Covariate associated parameters
  , X_bd            = measured_bd
  , X_measured      = bd.measured
- , time_gaps       = time_gaps
+ , time_gaps       = time_gaps 
  , bd_after_gap    = c(sort(sampling_days)[-samp] + (time_gaps - 1), times)
   )
 
@@ -502,6 +503,7 @@ data.frame(
 stan.fit  <- stan(
 #  file    = "CMR_ind_pat_bd-p-phi_no_timegap_covariate.stan"
    file    = "CMR_ind_pat_bd-p-phi_no_average_bd.stan"
+#  file    = "CMR_ind_pat_bd-p-phi_no_average_bd_full.stan"
 #  file    = "CMR_ind_pat_bd-p-phi_no_average_bd_all_times.stan"
 #  file    = "CMR_ind_pat_bd-p-phi_average_bd.stan"
 #  file    = "CMR_ind_pat_bd-p-phi_cumulative_bd.stan"

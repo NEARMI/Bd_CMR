@@ -10,27 +10,19 @@
 ########
 
 ####
-## Notes as of OCT 8:
+## Notes as of OCT 12:
 ####
 
-## 1) Generalizing the model for multiple populations with different sampling schemes is a bit of a disaster
- ## -- Need to write the whole model is long / database form with indexes for everything
-  ## There are lots of difficulties with this however, because of:
-   ## A) different sizes of phi and p, confusing chi calculation
-   ## B) lots of values of phi and p that must be constrained 
- ## --> All of the indexing becomes very difficult when things when the entries of each vector for each individual
-  ## are different but they are all stuck together. 
+## 1) Finally have a long form model that is equivalent to the matrix model
+## 2A) Next need to clean up the simulation code so that it is obvious what form the data needs to be in for the model
+## 2B) Then need to add in a second population... (the main required step for which will be n_occasions[pop] and another loop
+ ## and more indexing vectors)
 
-## I have a model that compiles but generates "Log probability evaluates to log(0), i.e. negative infinity"
- ## which means that all of the vectors are of the correct length and compatible with one another
-  ## -BUT- the model is not equivalent to the more intuitive matrix parameterization.
-## Which means I need to reduce the model to its simplest form and work up from there
- ## First check with one period with the other script, then add a period, then add covariates etc.
-  ## -- But this will start on Tuesday, app materials to work on until then
-
-## 2) Temp working fine for single population model
-
-
+## After ^^ 
+ ## 1) Simulate with a few different data structures and quantities for Thursday meeting
+ ## 2) Then more deeply explore data requirements and borrowing for a second or third minimally measured population
+ ## 3) Then add other covariates and afterwards move to real data!
+ 
 ### Continued concerns from the other day:
  ## A) simplex to control for entry into the population and biased detection -- can we also use the estimated parameter
   ## to scale survival of individuals we think are a year older?
@@ -44,9 +36,7 @@
 
 ## The short term plan in advance of the CMR modeling meeting on the 14th will be to:
  ## -- MODELING --
- # 3) Expand the model to consider individuals from a second population that are barely measured
- # 4) Figure out what happens when some individuals don't get infected
- # 5) Add other covaraties into the model to create/control for some other sources of variation 
+ # 1) Figure out what happens when some individuals don't get infected
 
 ####
 ## Quick notes about next steps
@@ -80,7 +70,7 @@ set.seed(10002)
 ## "Design" parameters
 nsim      <- 1                    ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
 ind       <- 30                   ## number of individuals in the population being modeled
-periods   <- 3                    ## number of primary periods (years in most cases)
+periods   <- 2                    ## number of primary periods (years in most cases)
 new_ind   <- rep(8, periods - 1) ## individuals added in each new period
 inbetween <- seq(1.5, periods, by = 1)
 all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
