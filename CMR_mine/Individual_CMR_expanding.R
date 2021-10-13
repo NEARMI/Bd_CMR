@@ -10,18 +10,19 @@
 ########
 
 ####
-## Notes as of OCT 12:
+## Notes as of OCT 13:
 ####
 
-## 1) Finally have a long form model that is equivalent to the matrix model
-## 2A) Next need to clean up the simulation code so that it is obvious what form the data needs to be in for the model
-## 2B) Then need to add in a second population... (the main required step for which will be n_occasions[pop] and another loop
- ## and more indexing vectors)
+## Second population fully working. Now just need to clean up the simulation code so that it is obvious
+ ## what form the real data needs to be in for the model and for easier simulations for design and power analyses
+## Also need to do some more extensive debugging and exploration of parameter values to make sure that the CI sensibly
+ ## match how much info each individual contains
 
 ## After ^^ 
- ## 1) Simulate with a few different data structures and quantities for Thursday meeting
- ## 2) Then more deeply explore data requirements and borrowing for a second or third minimally measured population
- ## 3) Then add other covariates and afterwards move to real data!
+ ## 1) Simulate with a few different data structures and quantities for a few slides for Thursday meeting
+ ## 2) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
+  ## -- will need a "population" index vector to index all of the covariate vectors
+ ## 3) Work on exapanding the complexity of the bd submodel
  
 ### Continued concerns from the other day:
  ## A) simplex to control for entry into the population and biased detection -- can we also use the estimated parameter
@@ -69,13 +70,13 @@ set.seed(10002)
 
 ## "Design" parameters
 nsim      <- 1                    ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 30                   ## number of individuals in the population being modeled
-periods   <- 2                    ## number of primary periods (years in most cases)
-new_ind   <- rep(8, periods - 1) ## individuals added in each new period
+ind       <- 20                   ## number of individuals in the population being modeled
+periods   <- 3                    ## number of primary periods (years in most cases)
+new_ind   <- rep(4, periods - 1) ## individuals added in each new period
 inbetween <- seq(1.5, periods, by = 1)
 all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
 times     <- 20                   ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-samp      <- 10                    ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
+samp      <- 3                    ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
 if (periods > 1) {
 samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 between_season_duration <- 10   ## number of time periods that elapse between the on-season
@@ -557,49 +558,6 @@ if (ind <= 100) {
      ggtitle("Lines show dead individuals; dots show bd swabbs")
  }
 }
-
-####
-## WORK ON A TWO POP MODEL ____ SEE TOP NOTES FOR THE WAY TO ACTUALLY GO
-## BUT:::for now just manually stick together two simulations
-
-all_ind.1            <- all_ind
-n_occasions.1        <- sum(samp)
-n_occ_min1.1         <- sum(samp) - 1
-sampling_times_all.1 <- sampling_times_all
-time_gaps.1          <- time_gaps
-offseason_vec.1      <- offseason_vec
-capture_matrix.1     <- capture_matrix
-capture_range.1      <- capture_range
-present.1            <- present
-measured_bd.1        <- measured_bd
-bd_measured.1        <- bd_measured
-periods_occ.1        <- periods_occ
-
-all_ind.2            <- all_ind
-n_occasions.2        <- sum(samp)
-n_occ_min1.2         <- sum(samp) - 1
-sampling_times_all.2 <- sampling_times_all
-time_gaps.2          <- time_gaps
-offseason_vec.2      <- offseason_vec
-capture_matrix.2     <- capture_matrix
-capture_range.2      <- capture_range
-present.2            <- present
-measured_bd.2        <- measured_bd
-bd_measured.2        <- bd_measured
-periods_occ.2        <- periods_occ
-
-all_ind            <- c(all_ind.1, all_ind.2)
-n_occasions        <- c(n_occasions.1, n_occasions.2)
-n_occ_min1         <- c(n_occ_min1.1, n_occ_min1.2)
-sampling_times_all <- c(sampling_times_all.1, sampling_times_all.2)
-time_gaps          <- c(time_gaps.1, time_gaps.2)
-offseason_vec      <- c(offseason_vec.1, offseason_vec.2)
-capture_matrix     <- capture_matrix
-capture_range      <- rbind(capture_range.1, capture_range.2)
-present            <- rbind(present.1, present.2)
-measured_bd        <- measured_bd
-bd_measured        <- bd_measured
-periods_occ        <- c(periods_occ.1, periods_occ.2)
 
 ####
 ## Run the model in Stan

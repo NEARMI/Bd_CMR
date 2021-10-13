@@ -29,34 +29,37 @@ data {
 	// -----
 	// Given long comments, this model is best read in full screen on an external monitor
 
+
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_periods;				    // Total number of seasons/years (the "on" period where sampling occurs) over which individuals are captured
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
 	int<lower=n_periods> n_times;		    	    // Sum of total time points modeled within each season across all seasons/years  
 	int<lower=1> times_within;			    // number of time periods in each season		
 	
-	int<lower=n_periods> n_occasions;		    // Total number of sampling days (a subset of times) across all seasons/years 
-	int<lower=1> n_occ_min1;			    // ^^ just throwing out the very last sampling day
-	
-	int<lower=0> ind_occ;				    // n_ind * n_occasions
-	int<lower=0> ind_occ_min1;			    // n_ind * n_occ_min1
+	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
+	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
 	
   // dimensional and bookkeeping params (vectors)
 	int<lower=0> time[n_times];		 	                          // Vector indicating time (e.g., weeks) *!within each season!*
 	int<lower=0, upper=n_times> time_per_period[times_within, n_periods];     // Matrix of indices of time per period for subsetting X			 
 	int<lower=0> periods[n_times];			                          // Vector designating periods for bd model (all times)
-
+	
+	int<lower=1> ind_occ_size[n_ind];					  // Number of sampling periods for all individuals
+	int<lower=1> ind_occ_min1_size[n_ind];					  // Number of sampling periods -1 for all individuals
+	int<lower=1> phi_first_index[n_ind];				          // The indexes of phi corresponding to the first entry for each individual
+	int<lower=1> p_first_index[n_ind];				          // The indexes of p corresponding to the first entry for each individual
+	
   // long vector indices for observation model (p)
-	int<lower=0> ind_occ_rep[ind_occ];
-	int<lower=0> sampling_events_p[ind_occ]; 
+	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
+	int<lower=0> sampling_events_p[ind_occ];  	    // The date on which each sampling event occurred for each individual
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
-	int<lower=0> p_zeros[ind_occ];
-
+	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
+  
   // long vector indices for survival model (phi)
-	int<lower=0> ind_occ_min1_rep[ind_occ_min1];
-	int<lower=0> sampling_events_phi[ind_occ_min1]; 
+	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
+	int<lower=0> sampling_events_phi[ind_occ_min1];     // The date on which each sampling event occurred (minus the last one) for each individual
 	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
-	int<lower=0> phi_zeros[ind_occ_min1];
+	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	  
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
@@ -98,7 +101,7 @@ parameters {
 
 transformed parameters {
 
-	real<lower=0,upper=1> phi[ind_occ_min1];   // survival from t to t+1, each individual repeated n_occ_min1 times 
+	real<lower=0,upper=1> phi[ind_occ_min1];   // survival from t to t+1, each individual repeated the number of times its population was measured
 	real<lower=0,upper=1> p[ind_occ];          // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
  
@@ -107,20 +110,19 @@ transformed parameters {
 		
 	real bd_ind[n_ind];                        // Individual random effect deviates
 
-
 	// -----
 	// bd submodel, contained to estimating within-season bd
 	// -----
 
 	for (i in 1:n_ind) {
-  	  bd_ind[i] = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];
+  	  bd_ind[i] = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];		                   // individual random deviates in bd load		
 
 	 for (t in 1:n_times) {
-	  X[i, t]   = bd_ind[i] + beta_bd[2] * time[t] + beta_bd[3] * temp[t];
+	  X[i, t]   = bd_ind[i] + beta_bd[2] * time[t] + beta_bd[3] * temp[t];			   // "deterministic" piece of the latent bd model
 	 }
 
 	 for (tp in 1:n_periods) {
-          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);
+          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	   // 
 	 }
 
         }
@@ -163,8 +165,8 @@ transformed parameters {
 	// -----
 
 	for (i in 1:n_ind) {
-	  chi[((i - 1) * n_occasions + 1):(i * n_occasions)] = prob_uncaptured(n_occasions, 
-                   segment(p, (i-1)*n_occasions + 1, n_occasions), segment(phi, (i-1)*n_occ_min1 + 1, n_occ_min1));
+	chi[p_first_index[i]:(p_first_index[i] + ind_occ_size[i] - 1)] = prob_uncaptured(ind_occ_size[i], 
+              segment(p, p_first_index[i], ind_occ_size[i]), segment(phi, phi_first_index[i], ind_occ_min1_size[i]));
 	}
 
 }
@@ -209,17 +211,15 @@ model {
 
 	 for (i in 1:n_ind) {
 	  for (t in (first[i] + 1):last[i]) {			
-	   1 ~ bernoulli(phi[(((i - 1) * n_occ_min1) + t - 1)]);    // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
+	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
 	  }
-
 	  for (t in 1:last[i]) {
-	   y[((i - 1) * n_occasions) + t] ~ bernoulli(p[((i - 1) * n_occasions) + t]);
-
+	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);
 	  }
 
-	   1 ~ bernoulli(chi[((i - 1) * n_occasions) + last[i]]);  // the probability of an animal never being seen again after the last time it was captured
+	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  // the probability of an animal never being seen again after the last time it was captured
 
-	 }
+	  }
 
 }
 
