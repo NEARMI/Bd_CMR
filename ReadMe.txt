@@ -1,6 +1,9 @@
-Simulation-based work on CMR models with a latent disease process.
+CMR models with a latent disease process
 
-Real data from CMR study on amphibians across the US from USGS
+This folder: Real data from CMR study on amphibians across the US from USGS
+	-- OCT 14: Little progress here yet, mostly just data exploration (note, data not publicly available yet)
 
-Simulation model first (see CMR_mine) to explore sampling schemes and model fits with simulated data to assist model development
+CMR_simulation: Working with simulated data for model development and to explore sampling schemes
+
+
 
