@@ -84,14 +84,10 @@ chi[i, n_occasions - t, p] =
  }
 }
 
-## ^^ could this be done in stan with a simplex for gamma for when we think the individual recruited?
-
 ## fill in which seasons we think the individual is alive?
  ## if we catch it in period 2 and we think its alive in period 1 then all entries of living period 1 must be 1
  ## if we catch it in period 1 but not period 2, did the individual die in period 1 or sometime in the future
 ## --> Want to consider both of these possibilities to appropriately constrain both survival and detection 
-
-
 
 
 ####
