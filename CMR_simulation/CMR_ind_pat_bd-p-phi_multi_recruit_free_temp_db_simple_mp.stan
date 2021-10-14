@@ -122,7 +122,7 @@ transformed parameters {
 	 }
 
 	 for (tp in 1:n_periods) {
-          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	   // 
+          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	   // calculation of the maximum bd load experienced in a year (could also be cumulative)
 	 }
 
         }
@@ -133,7 +133,7 @@ transformed parameters {
 
 	for (t in 1:ind_occ_min1) {
 
-	 if (phi_zeros[t] == 1) {
+	 if (phi_zeros[t] == 1) {			// phi_zeros is = 1 before an individual is caught for the first time
            phi[t] = 0;
 	 } else {
            phi[t] = inv_logit(
@@ -152,7 +152,9 @@ transformed parameters {
 	
 	for (t in 1:ind_occ) {
 
-	 if (p_zeros[t] == 1) {
+						// p_zeros is = 1 in each season prior to an individual being caught for the first time
+						// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
+	 if (p_zeros[t] == 1) {				
           p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t], sampling_events_p[t]]);
 	 } else {
           p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t], sampling_events_p[t]]) * gamma[ind_occ_rep[t], periods_occ[t]];
@@ -164,6 +166,7 @@ transformed parameters {
 	// Probability of never detecting an individual again after time t
 	// -----
 
+						// For each individual calculate the probability that that individual would not be re-caught
 	for (i in 1:n_ind) {
 	chi[p_first_index[i]:(p_first_index[i] + ind_occ_size[i] - 1)] = prob_uncaptured(ind_occ_size[i], 
               segment(p, p_first_index[i], ind_occ_size[i]), segment(phi, phi_first_index[i], ind_occ_min1_size[i]));
@@ -201,6 +204,7 @@ model {
 	// Bd Process and Data Model
 	// -----
 
+						// observed bd is the linear predictor + some observation noise
 	for (t in 1:N_bd) {
           X_bd[t] ~ normal(X[ii_bd[t], tt_bd[t]], bd_obs); 
 	} 
@@ -211,13 +215,13 @@ model {
 
 	 for (i in 1:n_ind) {
 	  for (t in (first[i] + 1):last[i]) {			
-	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
+	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    			// Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
 	  }
 	  for (t in 1:last[i]) {
-	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);
+	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);	// Capture given detection
 	  }
 
-	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  // the probability of an animal never being seen again after the last time it was captured
+	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  			// the probability of an animal never being seen again after the last time it was captured
 
 	  }
 
@@ -225,7 +229,8 @@ model {
 
 generated quantities {
  
-
+	
+	// to be added soon
           
 }
 
