@@ -10,50 +10,19 @@
 ########
 
 ####
-## Notes as of OCT 13:
+## Notes as of OCT 15:
 ####
 
-## Second population fully working. Now just need to clean up the simulation code so that it is obvious
- ## what form the real data needs to be in for the model and for easier simulations for design and power analyses
-## Also need to do some more extensive debugging and exploration of parameter values to make sure that the CI sensibly
- ## match how much info each individual contains
+## moved over to CMR_simulations.R and moving this script to scratch
+ ## simulations in functions now working well, no reason to be with this long script anymore
+  ## THOUGH still need to move the diagnostics to its own script
 
-## After ^^ 
- ## 1) Simulate with a few different data structures and quantities for a few slides for Thursday meeting
- ## 2) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
-  ## -- will need a "population" index vector to index all of the covariate vectors
- ## 3) Work on exapanding the complexity of the bd submodel
- 
 ### Continued concerns from the other day:
  ## A) simplex to control for entry into the population and biased detection -- can we also use the estimated parameter
   ## to scale survival of individuals we think are a year older?
  ## B) modeling of bd in all periods is probably ok because unmeasured individuals don't affect the likelihood
  ## C) no latent states could make it tricky to build a better model of disease states, but that is probably ok if we can get intercepts really
   ## low because we are on a log scale 
-
-### Before the CMR meeting, need to simulate with:
- ## A) Very high within-season survival
- ## B) Very sparse data collection for a subset of individuals
-
-## The short term plan in advance of the CMR modeling meeting on the 14th will be to:
- ## -- MODELING --
- # 1) Figure out what happens when some individuals don't get infected
-
-####
-## Quick notes about next steps
-####
-
-##### Second population #####
-## 1) First write the simulation code into a function, and then run that function twice with different parameters and stick
- ## the result together 
-## 2) In the model add a loop for population? -- Need to give some serious thought to this step because it is going to be what is
- ## really important for scaling the model to all of the data: how to allow n_occasions to vary by population, how to allow n_times
-  ## to vary by location (because the on-season may differ by place etc.) -- It would be great to add all of this into the same
-   ## array structure, but it may be difficult to time??? (maybe not if times all line up)
-
-##### Other covaraites #####
-## 1) After adding different locations add a covariate of temperature that varies differently over the season and by location
- ## -- This will be a key step in determining how to model the random effect of individual bd vs other covaratie
 
 ####
 ## Packages and functions
