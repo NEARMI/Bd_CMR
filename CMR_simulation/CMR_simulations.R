@@ -6,124 +6,277 @@
  ## populations for the more complicated CMR model
 
 ####
-## Packages and functions
+## Notes as of OCT 15:
+####
+
+## Now the main script; inherited from individual_CMR_expanding.R
+ ## Streamlined simulations broken into functions seems to be working though more debugging is probably needed
+
+## Some things to still work on in the long run:
+ ## 1) Still doesn't allow number of periods to vary by population --- that shouldn't be too hard -- just tedious
+ ## 2) Doesn't allow times to vary by population -- this will be harder because X_bd is fit with a matrix and will have to be melted --
+
+## Next steps:
+ ## 1) Some exploration of multiple populations and a bit of debugging to see if anything breaks
+ ## 2A) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
+  ## -- will need a "population" index vector to index all of the covariate vectors
+  ## -- start with temp which already exists, and then add some other population-specific parameters
+ ## 2B) Allow fundamental bd process to vary by population, THEN...
+ ## 3) ...work on expanding the complexity of the bd submodel
+ ## 4) More deeply explore random effects structure
+ ## 5) Move to real data
+
+####
+## Packages and misc
 ####
 needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
 lapply(needed_packages, require, character.only = TRUE)
 source("../../ggplot_theme.R")
 set.seed(10002)
-'%notin%' <- Negate('%in%')
 
 ####
-## "Design" parameters
+## Parameters 
 ####
-nsim      <- 1                    ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 60                   ## number of individuals in the population being modeled
-periods   <- 3                    ## number of primary periods (years in most cases)
-new_ind   <- rep(10, periods - 1) ## individuals added in each new period
-inbetween <- seq(1.5, periods, by = 1)
-all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
-times     <- 20                   ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-samp      <- 10                   ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
-if (periods > 1) {
-samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-between_season_duration <- 10   ## number of time periods that elapse between the on-season
-}
-when_samp <- "random"           ## random = sampling occurs on a random subset of possible days
+source("CMR_parameters.R")
 
 ####
-## bd_parameters
+## Functions for simulation
 ####
-bd_beta <- c(
-    1             ## Intercept
-  , 0.1           ## Time effect
-  , 0.3           ## Linear effect of temp on bd
+source("CMR_functions.R")
+
+####
+## Run the sim to create the data
+####
+
+for (pop_ind in 1:n_pop) {
+
+expdat  <- bd.simulate(
+  periods   = periods[pop_ind, ]
+, times     = times[pop_ind, ]
+, all_ind   = all_ind[pop_ind, ]
+, bd_beta   = bd_beta[pop_ind, ]
+, bd_sigma  = bd_sigma[pop_ind, ]
+, bd_theta  = bd_theta[pop_ind, ]
+, obs_noise = obs_noise[pop_ind, ]
 )
-bd_sigma  <- 2  ## observation noise
-bd_theta  <- 5  ## random effect variance covariance
-bd_mort   <- c(decay = -0.2, offset = 6)         ## logistic response coefficients for mortality across log(bd_load)
-bd_detect <- c(decay = 0.1, offset = -0.5)       ## logistic response coefficients for detection across log(bd_load)
 
-## bd sampling sampling scheme
-bd_swabs  <- "PAT"  ## ALL = assume all captured individuals have their Bd swabbed on every capture
-                    ## IND = assume specific captured individuals always have their Bd swabbed while others are never swabbed
-                    ## PAT = assume patchy bd swabbing among all captured individuals 
+# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line(aes(group = ind))}
 
-       if (bd_swabs == "IND") {
-bd_drop <- 20       ## number of individuals we will assume didn't have their Bd measured
-} else if (bd_swabs == "PAT") {
-bd_perc <- .50      ## proportion of all captures with bd swabs taken
-bd_drop <- ind * samp * (1 - bd_perc)
+one_pop <- bd.sampling(
+  expdat    = expdat
+, all_ind   = all_ind[pop_ind, ]
+, new_ind   = new_ind[pop_ind, ]
+, times     = times[pop_ind, ]
+, periods   = periods[pop_ind, ]
+, when_samp = when_samp[pop_ind, ]
+, samp      = samp[pop_ind, ]
+, inbetween = inbetween[pop_ind, ]
+, between_season_duration = between_season_duration[pop_ind, ]
+, bd_mort   = bd_mort[pop_ind, ]
+, bd_detect = bd_detect[pop_ind, ]
+, p_mort    = p_mort[pop_ind, ]
+)
+
+one_pop.long <- bd.stan_org(
+  one_pop  = one_pop
+, pop_ind  = pop_ind
+, times    = times[pop_ind, ]
+, periods  = periods[pop_ind, ]
+, samp     = samp[pop_ind, ]
+)
+
+print(paste("Population", pop_ind, "Simulated", sep = " "))
+
+### Put the pops together
+if (pop_ind == 1) {
+ind_occ_phi.all   <- one_pop.long$ind_occ_phi
+ind_occ_p.all     <- one_pop.long$ind_occ_p
+X_bd.m.all        <- one_pop.long$X_bd.m
+capture_range.all <- one_pop.long$one_pop$capture_range
+present.all       <- one_pop.long$one_pop$present
+ind_occ_size.all  <- one_pop.long$one_pop$ind_occ_size
+all_ind.all       <- one_pop.long$one_pop$all_ind
+ind_occ.all       <- one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
+ind_occ_min1.all  <- one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
+} else  {
+ind_occ_phi.all   <- rbind(ind_occ_phi.all, one_pop.long$ind_occ_phi)
+ind_occ_p.all     <- rbind(ind_occ_p.all, one_pop.long$ind_occ_p)
+X_bd.m.all        <- rbind(X_bd.m.all, one_pop.long$X_bd.m)
+capture_range.all <- rbind(capture_range.all, one_pop.long$one_pop$capture_range)
+present.all       <- rbind(present.all, one_pop.long$one_pop$present)
+ind_occ_size.all  <- c(ind_occ_size.all, one_pop.long$one_pop$ind_occ_size)
+all_ind.all       <- all_ind.all + one_pop.long$one_pop$all_ind
+ind_occ.all       <- ind_occ.all + one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
+ind_occ_min1.all  <- ind_occ_min1.all + one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
 }
 
-####
-## other parameters
-####
-
-## mortality probability in-between periods
-p_mort_type <- "max" ## con = single value; max = based on max bd; cum = based on cumulative bd
-if (p_mort_type == "con") {
-p_mort    <- c(0.30) 
-} else if (p_mort_type == "max") {
-p_mort    <- 0.02
-} else if (p_mort_type == "cum") {
-p_mort    <- 0.0001  
 }
 
-## observation noise in bd (** SEPT 21: yes, on the log scale so this is weird to have the same var across log bd load, will clean this up later)
-obs_noise <- 0.25   
+## And the last few pieces outside of the loop
+ind_occ_min1_size.all <- ind_occ_size.all - 1
 
-## Stan model parameters
-stan.iter     <- 1500
-stan.burn     <- 500
-stan.thin     <- 1
-stan.length   <- (stan.iter - stan.burn) / stan.thin
+## Fix the individual numbers in X_bd.m.all
+for (i in 2:n_pop) {
+  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
+}
 
+## convert ind_pop interaction column to individuals
+ind_occ_phi.all %<>% mutate(ind = as.numeric(ind))
+ind_occ_p.all   %<>% mutate(ind = as.numeric(ind))
 
-## Simulate bd for a population
-bd.simulate <- function (
-  periods, times, all_ind
-, bd_beta, bd_sigma, bd_theta
-) {
+## Index vector for the first entry of phi and p that correspond to a new individual
+phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
+  summarize(first_index = min(index)))$first_index
 
-## Simulate data using lme4 mixed model structure
-expdat <- expand.grid(
-  periods = seq(periods)
-, times   = seq(times)     
-, ind     = factor(seq(all_ind))
+p_first_index <- (ind_occ_p.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
+  summarize(first_index = min(index)))$first_index
+
+####
+## Finally, run the stan model
+####
+
+## NOTE: OCT 15: Will need to seriously think about what to do if we want times and periods to vary by population
+
+stan_data     <- list(
+  
+  ## dimensional indexes 
+   n_periods       = periods[1, ] 
+ , n_ind           = all_ind.all               
+ , n_times         = times[1, ] * periods[1, ]
+ , times_within    = times[1, ]
+ , ind_occ         = ind_occ.all
+ , ind_occ_min1    = ind_occ_min1.all
+  
+  ## short vector indexes 
+ , time              = rep(seq(times[1, ]), periods[1, ])
+ , time_per_period   = matrix(data = seq(times[1, ] * periods[1, ]), nrow = times, ncol = periods[1, ])
+ , periods           = one_pop$periods_time
+ , ind_occ_size      = ind_occ_size.all
+ , ind_occ_min1_size = ind_occ_min1_size.all
+
+ , phi_first_index   = phi_first_index
+ , p_first_index     = p_first_index
+  
+  ## long vector indexes
+ , ind_occ_min1_rep    = ind_occ_phi.all$ind
+ , sampling_events_phi = ind_occ_phi.all$sampling_events_phi
+ , offseason           = ind_occ_phi.all$offseason
+  
+ , ind_occ_rep       = ind_occ_p.all$ind
+ , sampling_events_p = ind_occ_p.all$sampling_events_p
+ , periods_occ       = ind_occ_p.all$periods_occ
+
+  ## covariates
+ , N_bd            = nrow(X_bd.m.all)
+ , X_bd            = X_bd.m.all$bd  
+ , ii_bd           = X_bd.m.all$ind
+ , tt_bd           = X_bd.m.all$times
+ , temp            = one_pop.long$one_pop$temp
+ , time_gaps       = ind_occ_phi.all$time_gaps
+  
+  ## Capture data
+ , N_y             = nrow(ind_occ_p.all)
+ , y               = ind_occ_p.all$captures
+  
+ , first           = capture_range.all$first
+ , last            = capture_range.all$final
+  
+ , phi_zeros       = ind_occ_phi.all$phi_zeros
+ , p_zeros         = ind_occ_p.all$p_zeros
+  
+ , present         = present.all
   )
 
-## ** Make dynamic later
-expdat %<>% mutate(
-  temp = rlnorm(n()
-  ,   (scale(times, center = T, scale = F)[, 1] * .05) - 
-    .05 * scale(times, center = T, scale = F)[, 1]^2 + 3.5
-  , .2)
-)
+stan.fit  <- stan(
+  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp.stan"
+, data    = stan_data
+, chains  = 1
+, iter    = stan.iter
+, warmup  = stan.burn
+, thin    = stan.thin
+, control = list(adapt_delta = 0.92, max_treedepth = 12)
+  )
 
-expdat %<>% mutate(
-  bd_load   = simulate(~times + temp + (1 | ind)
-  , nsim    = nsim
-  , family  = Gamma(link = "log")
-  , newdata = expdat
-  , newparams = list(
-      beta  = bd_beta
-    , sigma = bd_sigma
-    , theta = bd_theta
-    )
-  )$sim_1
-) %>% mutate(
-  bd_load     = round(bd_load, digits = 0)
-, log_bd_load = round(log(bd_load), digits = 0)
-) %>% mutate(
-  log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
-)
+####
+## CMR Diagnostics
+####
 
-return(expdat)
-  
+## NOTE: OCT 15: just a tiny bit moved from Individual_CRM_expanding.R
+ ## need to more thoroughly clean this up to accommodate "long" form
+  ## will also need quite a bit of cleanup when bd parameters start varying by population
+stan.fit.summary <- summary(stan.fit)[[1]]
+stan.fit.samples <- extract(stan.fit)
+
+####
+## Recovery of simulated coefficients?
+####
+
+## Primary Bd effects
+pred_coef        <- as.data.frame(stan.fit.summary[c(1:4), c(4, 6, 8)])
+names(pred_coef) <- c("lwr", "mid", "upr")
+pred_coef        %<>% mutate(param = rownames(.))
+
+pred_coef %>% {
+  ggplot(., aes(param, mid)) + 
+    geom_point() +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
+    geom_point(data = data.frame(
+      param = pred_coef$param
+    , mid   = c(
+      rev(bd_mort[1, ])
+    , rev(bd_detect[1, ])
+      )
+    ), colour = "firebrick3") +
+    xlab("Parameter") + ylab("Estimate") +
+    scale_x_discrete(labels = c("Detection intercept", "Detection slope", "Survival intercept", "Survival slope")) +
+    theme(axis.text.x = element_text(size = 11))
 }
 
+## survival over Bd load
+stan.pred        <- apply(stan.fit.samples$beta_phi, 1
+  , FUN = function(x) plogis(x[1] + x[2] * one_pop$bd_probs$log_bd_load)) %>%
+  reshape2::melt(.)
+names(stan.pred) <- c("log_bd_load", "sample", "mortality")
+stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+  , from = unique(log_bd_load), to = one_pop$bd_probs$log_bd_load))
+stan.pred        %<>% group_by(log_bd_load) %>% 
+  summarize(
+    lwr = quantile(mortality, c(0.025))
+  , mid = quantile(mortality, c(0.5))
+  , upr = quantile(mortality, c(0.975))
+  )
 
+stan.pred %>% {
+  ggplot(., aes(log_bd_load, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    geom_line(data = (one_pop$bd_probs %>% mutate(mort = mort ))
+      , aes(log_bd_load, mort)
+      , colour = "dodgerblue4", lwd = 2) +
+    xlab("Log of Bd Load") + ylab("Predicted mortality probability")
+}
 
-## List of parameters
+## detection over Bd load
+stan.pred        <- apply(stan.fit.samples$beta_p, 1
+  , FUN = function(x) plogis(x[1] + x[2] * one_pop$bd_probs$log_bd_load)) %>%
+  reshape2::melt(.)
+names(stan.pred) <- c("log_bd_load", "sample", "detect")
+stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
+  , from = unique(log_bd_load), to = one_pop$bd_probs$log_bd_load))
+stan.pred        %<>% group_by(log_bd_load) %>% 
+  summarize(
+    lwr = quantile(detect, c(0.10))
+  , mid = quantile(detect, c(0.5))
+  , upr = quantile(detect, c(0.90))
+  )
+
+stan.pred %>% {
+  ggplot(., aes(log_bd_load, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    geom_line(data = one_pop$bd_probs, aes(log_bd_load, detect)
+      , colour = "dodgerblue4", lwd = 2) +
+    xlab("Log of Bd Load") + ylab("Predicted detection probability")
+}
+
 
