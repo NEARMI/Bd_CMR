@@ -8,7 +8,7 @@
 bd.simulate <- function (
   periods, times, all_ind
 , bd_beta, bd_sigma, bd_theta
-, obs_noise
+, bd_noinf, obs_noise
 ) {
 
 ## Simulate data using lme4 mixed model structure
@@ -27,7 +27,7 @@ expdat %<>% mutate(
 )
 
 expdat %<>% mutate(
-  bd_load   = simulate(~times + temp + (1 | ind)
+  bd_load   = simulate(~times + temp + (1 + times | ind)
   , nsim    = 1
   , family  = Gamma(link = "log")
   , newdata = expdat
@@ -40,7 +40,17 @@ expdat %<>% mutate(
 ) %>% mutate(
   bd_load     = rlnorm(n(), log(bd_load), obs_noise)
 , bd_load     = round(bd_load, digits = 0)
-, log_bd_load = log(bd_load)
+)
+
+## pick a random subset of individuals to never have gotten infected 
+nev_inf <- sample(seq(all_ind), round(bd_noinf * all_ind))
+
+if (length(nev_inf) > 0) {
+ expdat[expdat$ind %in% nev_inf, ]$bd_load <- 0
+}
+
+expdat %<>% mutate(
+  log_bd_load = log(bd_load)
 , log_bd_load = round(log_bd_load, digits = 1)
 ) %>% mutate(
   log_bd_load = ifelse(is.infinite(log_bd_load), 0, log_bd_load)
@@ -425,6 +435,7 @@ ind_occ_phi <- data.frame(
  , offseason           = rep(one_pop$offseason_vec, one_pop$all_ind)
  , time_gaps           = rep(one_pop$time_gaps, one_pop$all_ind)
  , phi_zeros           = phi_zeros
+ , pop                 = rep(pop_ind, length(phi_zeros))
 ) %>% mutate(pop = pop_ind, ind = interaction(ind_occ_min1_rep, pop))
 
 ind_occ_p <- data.frame(
@@ -433,6 +444,7 @@ ind_occ_p <- data.frame(
  , periods_occ       = rep(one_pop$periods_occ, one_pop$all_ind)
  , captures          = y.m$value
  , p_zeros           = p_zeros
+ , pop               = rep(pop_ind, length(p_zeros))
 ) %>% mutate(pop = pop_ind, ind = interaction(ind_occ_rep, pop))
 
 X_bd.m %<>% mutate(pop = pop_ind)
@@ -443,10 +455,17 @@ ind_occ_size <- rep(sum(samp), one_pop$all_ind)
 
 ## Add the extra tracked items to one_pop
 one_pop      <- c(one_pop, ind_occ_size = list(ind_occ_size))
-one_pop      <- c(one_pop, temp = list(temp))
+
+## Population-specific convariates
+pop_cov.bd  <- data.frame(
+  temp = temp
+, time = seq(times * periods)
+, pop  = rep(pop_ind, length(temp))
+)
   
 return(list(
   one_pop     = one_pop
+, pop_cov.bd  = pop_cov.bd
 , ind_occ_phi = ind_occ_phi
 , ind_occ_p   = ind_occ_p
 , ind_time    = ind_time

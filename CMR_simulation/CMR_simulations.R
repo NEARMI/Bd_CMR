@@ -6,25 +6,40 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of OCT 15:
+## Notes as of OCT 18:
 ####
 
-## Now the main script; inherited from individual_CMR_expanding.R
- ## Streamlined simulations broken into functions seems to be working though more debugging is probably needed
+## Current and Next steps:
+ ## [x] 1) Some exploration of multiple populations and a bit of debugging to see if anything breaks
+  ## -- two, three, and four populations work. A few different parameters works
+ ## [x] 2) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
+  ## -- now have population specific temperatures, bd_intercepts, and survival responses to bd load
+  ##   -- model seems to be able to recover these reasonably well if each population is well sampled. Otherwise,
+  ##      population specific parameters are not recovered very well
+   ##   -- Speaks to wanting to use random effects for individual population parameter deviations and not separate actual estimates 
+  ## -- [ ] May want to work on the simulation piece a little to streamline covariates?
+ ## [ ] 3) Work on expanding the complexity of the bd submodel
+  ##  -- A) Add individuals that are not sick and see what happens to the current random effect model
+    ##     -- Seems to maybe be fine enough for individuals that never get sick. 
+    ##         i.e. an individual with 0ed bd load has an upper ci in the range of exp(2) which is still really low
+    ##              so could be a pretty reasonable stand in
+   ##      -- However, I am particularly worried about individuals that vary year to year a lot 
+    ##         May need some interesting random effect structure to allow individuals to vary by year???
+  ##  -- B) Allow individuals to vary in their slope
+    ##      -- Added, but it causes difficulty in estimating the intercept variation -- 0's are no longer predicted well and CI are much larger
+  ##  -- C) Can temp and time parameters that vary by population make up for variable dynamics by location?
+   ##      -- I think what will be needed are parameters that directly adjust time for each location. Maybe times
+    ##         can be the same _length_ but just have different times? (i.e., by adding a time_adj parameter)
+ ## [ ] 4) Build an example simulated dataset and adjusted function to parse that dataset into the structure needed for the stan model
+   ##        as an example when real data is eventually obtained. i.e. from X to Y exactly what steps are needed to run the model?
+ ## [ ] 5) Try say 15 populations with random effects in their parameters instead of fixed parameters by location
+   ##      -- Just a note that this is going to be really slow
+ ## [ ] 6) Move to real data
+  ## -- A bit part of this will be deeper exploration of random effect structure
 
 ## Some things to still work on in the long run:
  ## 1) Still doesn't allow number of periods to vary by population --- that shouldn't be too hard -- just tedious
  ## 2) Doesn't allow times to vary by population -- this will be harder because X_bd is fit with a matrix and will have to be melted --
-
-## Next steps:
- ## 1) Some exploration of multiple populations and a bit of debugging to see if anything breaks
- ## 2A) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
-  ## -- will need a "population" index vector to index all of the covariate vectors
-  ## -- start with temp which already exists, and then add some other population-specific parameters
- ## 2B) Allow fundamental bd process to vary by population, THEN...
- ## 3) ...work on expanding the complexity of the bd submodel
- ## 4) More deeply explore random effects structure
- ## 5) Move to real data
 
 ####
 ## Packages and misc
@@ -58,9 +73,10 @@ expdat  <- bd.simulate(
 , bd_sigma  = bd_sigma[pop_ind, ]
 , bd_theta  = bd_theta[pop_ind, ]
 , obs_noise = obs_noise[pop_ind, ]
+, bd_noinf  = bd_noinf[pop_ind, ]
 )
 
-# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line(aes(group = ind))}
+# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line() + facet_wrap(~ind)}
 
 one_pop <- bd.sampling(
   expdat    = expdat
@@ -98,6 +114,8 @@ ind_occ_size.all  <- one_pop.long$one_pop$ind_occ_size
 all_ind.all       <- one_pop.long$one_pop$all_ind
 ind_occ.all       <- one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
 ind_occ_min1.all  <- one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
+pop_cov.bd.all    <- one_pop.long$pop_cov.bd
+ind_in_pop.all    <- rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind)))
 } else  {
 ind_occ_phi.all   <- rbind(ind_occ_phi.all, one_pop.long$ind_occ_phi)
 ind_occ_p.all     <- rbind(ind_occ_p.all, one_pop.long$ind_occ_p)
@@ -108,6 +126,8 @@ ind_occ_size.all  <- c(ind_occ_size.all, one_pop.long$one_pop$ind_occ_size)
 all_ind.all       <- all_ind.all + one_pop.long$one_pop$all_ind
 ind_occ.all       <- ind_occ.all + one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
 ind_occ_min1.all  <- ind_occ_min1.all + one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
+pop_cov.bd.all    <- rbind(pop_cov.bd.all, one_pop.long$pop_cov.bd)
+ind_in_pop.all    <- c(ind_in_pop.all, rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind))))
 }
 
 }
@@ -117,7 +137,7 @@ ind_occ_min1_size.all <- ind_occ_size.all - 1
 
 ## Fix the individual numbers in X_bd.m.all
 for (i in 2:n_pop) {
-  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
+  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
 }
 
 ## convert ind_pop interaction column to individuals
@@ -131,6 +151,18 @@ phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(in
 p_first_index <- (ind_occ_p.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
   summarize(first_index = min(index)))$first_index
 
+## Adjust population-specific convariates into the correct structure
+
+## for bd
+temp <- pop_cov.bd.all %>% pivot_wider(., values_from = temp, names_from = pop)
+temp <- as.matrix(temp[, -1])
+
+## for phi
+
+
+## for p
+
+
 ####
 ## Finally, run the stan model
 ####
@@ -140,8 +172,9 @@ p_first_index <- (ind_occ_p.all %>% mutate(index = seq(n())) %>% group_by(ind) %
 stan_data     <- list(
   
   ## dimensional indexes 
-   n_periods       = periods[1, ] 
- , n_ind           = all_ind.all               
+   n_pop           = n_pop
+ , n_periods       = periods[1, ] 
+ , n_ind           = all_ind.all        
  , n_times         = times[1, ] * periods[1, ]
  , times_within    = times[1, ]
  , ind_occ         = ind_occ.all
@@ -153,6 +186,7 @@ stan_data     <- list(
  , periods           = one_pop$periods_time
  , ind_occ_size      = ind_occ_size.all
  , ind_occ_min1_size = ind_occ_min1_size.all
+ , ind_in_pop        = ind_in_pop.all
 
  , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index
@@ -161,17 +195,19 @@ stan_data     <- list(
  , ind_occ_min1_rep    = ind_occ_phi.all$ind
  , sampling_events_phi = ind_occ_phi.all$sampling_events_phi
  , offseason           = ind_occ_phi.all$offseason
-  
+ , pop_phi             = ind_occ_phi.all$pop
+
  , ind_occ_rep       = ind_occ_p.all$ind
  , sampling_events_p = ind_occ_p.all$sampling_events_p
  , periods_occ       = ind_occ_p.all$periods_occ
+ , pop_p             = ind_occ_p.all$pop
 
   ## covariates
  , N_bd            = nrow(X_bd.m.all)
  , X_bd            = X_bd.m.all$bd  
  , ii_bd           = X_bd.m.all$ind
  , tt_bd           = X_bd.m.all$times
- , temp            = one_pop.long$one_pop$temp
+ , temp            = temp
  , time_gaps       = ind_occ_phi.all$time_gaps
   
   ## Capture data
@@ -188,12 +224,13 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp.stan"
+  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp_cv.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
 , warmup  = stan.burn
 , thin    = stan.thin
+, refresh = 10
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
@@ -212,7 +249,7 @@ stan.fit.samples <- extract(stan.fit)
 ####
 
 ## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[c(1:4), c(4, 6, 8)])
+pred_coef        <- as.data.frame(stan.fit.summary[c(1:9), c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
@@ -280,3 +317,61 @@ stan.pred %>% {
 }
 
 
+####
+## Individual random effect estimates
+####
+
+stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
+  reshape2::melt(.) %>% rename(ind = Var2, type = Var3, eps = value)
+stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
+  reshape2::melt(.) %>% rename(type = Var2, sd = value) %>%
+  left_join(., stan.ind_pred_eps) %>%
+  mutate(eps = eps * sd) %>% 
+  group_by(ind, type) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% ungroup()
+#  %>% left_join(., expdat %>% group_by(ind) %>% summarize(total_capt = sum(bd_swabbed))) %>% 
+#  left_join(., expdat %>% group_by(ind, periods) %>% summarize(total_detect = sum(detected)) %>% 
+#      filter(total_detect > 0) %>% summarize(total_periods = n())) %>% 
+#  mutate(CI_width = upr - lwr) %>% 
+#  mutate(order_pred = seq(n()))
+
+### Need to make this functioning given the new multi-population structure
+
+stan.ind_pred_var %>% 
+  filter(type == 1) %>% 
+  arrange(mid) %>% 
+  mutate(ind = factor(ind, levels = ind)) %>% {
+  ggplot(., aes(ind, mid)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+    xlab("Individual") + 
+    ylab("Random Effect Deviate") +
+    geom_hline(yintercept = 0, linetype = "dashed", lwd = 1, colour = "firebrick3") +
+    scale_colour_brewer(palette = "Dark2") +
+    theme(axis.text.x = element_text(size = 8))
+}
+
+## the most extreme individual
+most_extreme <- reshape2::melt(stan.fit.samples$X[
+  , 55
+  , ])
+names(most_extreme) <- c("samp", "time", "value")
+most_extreme %<>% 
+  group_by(time) %>% 
+summarize(
+  lwr = quantile(value, 0.025)
+, mid = quantile(value, 0.500)
+, upr = quantile(value, 0.975)
+) %>% mutate(
+  period = rep(seq(3), each = 20)
+, time   = rep(seq(20), 3))
+
+most_extreme %>% {
+  ggplot(., aes(time, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line() +
+    facet_wrap(~period)
+}

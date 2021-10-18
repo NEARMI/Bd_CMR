@@ -11,7 +11,7 @@ n_pop      <- 2
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = c(40, 20)
+ind       <- matrix(data = c(40, 40)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases). AS OF OCT 14 must be the same for all populations. To be updated later
@@ -19,7 +19,7 @@ periods   <- matrix(data = rep(3, n_pop)
   , ncol = 1, nrow = n_pop)
 
 ## individuals added in each new period.
-new_ind   <- matrix(data = rep(c(7, 4), periods - 1)
+new_ind   <- matrix(data = rep(c(7, 7), periods - 1)
   , ncol = periods - 1, nrow = n_pop, byrow = T)
 
 ## number of individuals ever to exist in each population
@@ -33,7 +33,7 @@ times     <- matrix(data = rep(20, n_pop)
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp      <- matrix(data = c(10, 3)
+samp      <- matrix(data = c(10, 10)
   , ncol = 1, nrow = n_pop)
 samp      <- mapply(rep, samp, periods) %>% t()
 
@@ -54,39 +54,42 @@ inbetween <- apply(periods, 1, FUN = function(x) seq(1.5, x, by = 1)) %>% t()
 
 ## intercept and slope coefficients
 bd_beta <- matrix(
-  data = rep(
-  c(
-    1             ## Intercept
-  , 0.1           ## Time effect
-  , 0.3           ## Linear effect of temp on bd
-)
-, n_pop), nrow = n_pop, ncol = 3, byrow = T)
+  data = c(
+    c(-1, 1)   ## Intercept
+  , rep(-0.2, n_pop) ## Time effect
+  , rep(0.3, n_pop) ## Linear effect of temp on bd
+), nrow = n_pop, ncol = 3, byrow = F)
 
 ## error
-bd_sigma  <- matrix(data = rep(2, n_pop)
+bd_sigma  <- matrix(data = rep(20, n_pop)
   , ncol = 1, nrow = n_pop)  
 
 ## random effect variance covariance
-bd_theta  <- matrix(data = rep(5, n_pop)
-  , ncol = 1, nrow = n_pop)  
+bd_theta  <- matrix(
+  data = c(
+    rep(1, n_pop)    ## Intercept
+  , rep(0.3, n_pop) ## Time effect
+  , rep(0.2, n_pop)  ## Linear effect of temp on bd
+), nrow = n_pop, ncol = 3, byrow = F)
 
 ## logistic response coefficients for mortality across log(bd_load)
 bd_mort <- matrix(
-  data = rep(
-  c(
-   -0.2  ## logistic slope
-  , 6    ## intercept
-)
-, n_pop), nrow = n_pop, ncol = 2, byrow = T)
+  data = c(
+    c(-0.15, -0.10)      ## logistic slope
+  , rep(6, n_pop)        ## intercept
+), nrow = n_pop, ncol = 2, byrow = F)
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
-  data = rep(
-  c(
-    0.1   ## logistic slope
-  , -0.5  ## intercept
-)
-, n_pop), nrow = n_pop, ncol = 2, byrow = T)
+  data = c(
+    rep(0.1, n_pop)   ## logistic slope
+  , rep(-0.5, n_pop)  ## intercept
+), nrow = n_pop, ncol = 2, byrow = F)
+
+bd_noinf <- matrix(
+  data = c(
+    0.2, 0.2
+  ), nrow = n_pop, ncol = 1, byrow = F)
 
 ## OCT 14 NOTE: bd sampling sampling scheme (see Individual_CMR_expanding.R for various sampling schemes,
  ## for now just using PAT here (assume patchy bd swabbing among all captured individuals))

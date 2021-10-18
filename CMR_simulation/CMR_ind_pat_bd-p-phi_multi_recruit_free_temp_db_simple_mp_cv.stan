@@ -31,13 +31,13 @@ data {
 
 
   // dimensional and bookkeeping params (single vals)
-	
+	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_periods;				    // Total number of seasons/years (the "on" period where sampling occurs) over which individuals are captured
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=n_periods> n_times;		    	    // Sum of total time points modeled within each season across all seasons/years  
-	
+	int<lower=n_periods> n_times;		    	    // Sum of total time points modeled within each season across all seasons/years 
+ 
 	int<lower=1> times_within;			    // number of time periods in each season		
-	
+
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
 	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
 	
@@ -49,7 +49,7 @@ data {
 	int<lower=1> ind_occ_size[n_ind];					  // Number of sampling periods for all individuals
 	int<lower=1> ind_occ_min1_size[n_ind];					  // Number of sampling periods -1 for all individuals
 	
-	
+	int<lower=1> ind_in_pop[n_ind];						  // population in which each individual resides	
 
 	int<lower=1> phi_first_index[n_ind];				          // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];				          // The indexes of p corresponding to the first entry for each individual
@@ -59,21 +59,21 @@ data {
 	int<lower=0> sampling_events_p[ind_occ];  	    // The date on which each sampling event occurred for each individual
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
+	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
   
-
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
 	int<lower=0> sampling_events_phi[ind_occ_min1];     // The date on which each sampling event occurred (minus the last one) for each individual
 	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
+	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	  
-
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
   	int<lower=1, upper=n_ind> ii_bd[N_bd];	            // individual index that defines each bd entry
   	int<lower=1, upper=n_times> tt_bd[N_bd];            // occasion index that defines each bd entry
-	real temp[n_times];				    // Temperature covariate
+	matrix[n_times, n_pop] temp;			    // Temperature covariate in each population
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
   // captures
@@ -90,18 +90,18 @@ transformed data {
 
 parameters {
 
-	vector[3] beta_bd;				 // intercept and two slope coefficients for grand mean change in bd over time
+	vector[2] beta_bd;				 // intercept and two slope coefficients for grand mean change in bd over time
+	vector[n_pop] beta_bd_int_pop;			 // population-specific intercepts in bd load	 
 
-	
-	vector[2] beta_phi;                  		 // intercept and slope coefficient for survival
+	real beta_phi;       	          	 	 // grand intercept and slope for survival
+	vector[n_pop] beta_phi_slope_pop;	         // population specific slopes for survival
         
-	
 	vector[2] beta_p;				 // intercept and slope coefficient for detection
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
 	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
 
-	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)
-	real bd_delta_eps[n_ind];			 // the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_delta_sigma[2];		 // change in Bd by individual (normal random effect variance)
+	real bd_delta_eps[n_ind, 2];			 // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state
 
@@ -118,17 +118,26 @@ transformed parameters {
 	matrix[n_ind, n_times] X;	   	   // Estimated "true" bd for all of the caught individuals with no bd measured
 	matrix[n_ind, n_periods] X_max; 	   // summaries of X	
 		
-	real bd_ind[n_ind];                        // Individual random effect deviates
+	real bd_ind[n_ind, 2];                     // Individual random effect deviates
 
 	// -----
 	// bd submodel, contained to estimating within-season bd
 	// -----
 
 	for (i in 1:n_ind) {
-  	  bd_ind[i] = beta_bd[1] + bd_delta_sigma  * bd_delta_eps[i];		                   // individual random deviates in bd load		
+	    
+		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
+
+  	  bd_ind[i, 1] = bd_delta_sigma[1] * bd_delta_eps[i, 1];  
+	  bd_ind[i, 2] = bd_delta_sigma[2] * bd_delta_eps[i, 2];
+
+
+		// latent bd model before obs error
 
 	 for (t in 1:n_times) {
-	  X[i, t]   = bd_ind[i] + beta_bd[2] * time[t] + beta_bd[3] * temp[t];			   // "deterministic" piece of the latent bd model
+	  X[i, t]   = (beta_bd_int_pop[ind_in_pop[i]] + bd_ind[i, 1]) +
+		      (beta_bd[1] + bd_ind[i, 2]) * time[t]           + 
+		      beta_bd[2] * temp[t, ind_in_pop[i]];      
 	 }
 
 	 for (tp in 1:n_periods) {
@@ -147,10 +156,10 @@ transformed parameters {
            phi[t] = 0;
 	 } else {
            phi[t] = inv_logit(
-                      beta_phi[1]                   + 
-                      beta_timegaps  * time_gaps[t] +
-                      beta_offseason * offseason[t] +	
-                      beta_phi[2]    * X[ind_occ_min1_rep[t], sampling_events_phi[t]]
+                      beta_phi                       + 
+                      beta_timegaps  * time_gaps[t]  +
+                      beta_offseason * offseason[t]  +	
+                      beta_phi_slope_pop[pop_phi[t]] * X[ind_occ_min1_rep[t], sampling_events_phi[t]]
                     );
 	 }  
 
@@ -162,8 +171,9 @@ transformed parameters {
 	
 	for (t in 1:ind_occ) {
 
-						// p_zeros is = 1 in each season prior to an individual being caught for the first time
-						// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
+		// p_zeros is = 1 in each season prior to an individual being caught for the first time
+		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
+
 	 if (p_zeros[t] == 1) {				
           p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t], sampling_events_p[t]]);
 	 } else {
@@ -176,9 +186,10 @@ transformed parameters {
 	// Probability of never detecting an individual again after time t
 	// -----
 
-						// For each individual calculate the probability that that individual would not be re-caught
+		// For each individual calculate the probability that that individual would not be re-caught
+
 	for (i in 1:n_ind) {
-	chi[p_first_index[i]:(p_first_index[i] + ind_occ_size[i] - 1)] = prob_uncaptured(ind_occ_size[i], 
+	 chi[p_first_index[i]:(p_first_index[i] + ind_occ_size[i] - 1)] = prob_uncaptured(ind_occ_size[i], 
               segment(p, p_first_index[i], ind_occ_size[i]), segment(phi, phi_first_index[i], ind_occ_min1_size[i]));
 	}
 
@@ -190,21 +201,28 @@ model {
 	// Priors
 	// -----
 
-	beta_phi[1] ~ normal(0, 5);
-	beta_phi[2] ~ normal(0, 5);
-	beta_p[1] ~ normal(0, 5);
-	beta_p[2] ~ normal(0, 5);
+	beta_phi ~ normal(0, 5);
+
+	for (pp in 1:n_pop) {
+	 beta_phi_slope_pop[pp] ~ normal(0, 5);
+	 beta_bd_int_pop[pp]    ~ normal(0, 5);
+	}
+
+	beta_p[1]  ~ normal(0, 5);
+	beta_p[2]  ~ normal(0, 5);
 	beta_bd[1] ~ normal(0, 5);
 	beta_bd[2] ~ normal(0, 5);
-	beta_bd[3] ~ normal(0, 5);
-	beta_timegaps ~ normal(0, 5);
+	beta_timegaps  ~ normal(0, 5);
 	beta_offseason ~ normal(0, 5);
 
-	bd_delta_sigma ~ inv_gamma(1, 1);
-	bd_delta_eps ~ normal(0, 2);
-	bd_obs ~ inv_gamma(1, 1);
+	bd_delta_sigma[1] ~ inv_gamma(1, 1);
+	bd_delta_sigma[2] ~ inv_gamma(1, 1);
+
+	bd_obs         ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
+	  bd_delta_eps[i, 1]  ~ normal(0, 3);
+	  bd_delta_eps[i, 2]  ~ normal(0, 3);
          for (j in 1:n_periods) {
           gamma[i, j] ~ uniform(0, 1);
 	 }
@@ -214,7 +232,8 @@ model {
 	// Bd Process and Data Model
 	// -----
 
-						// observed bd is the linear predictor + some observation noise
+		// observed bd is the linear predictor + some observation noise
+
 	for (t in 1:N_bd) {
           X_bd[t] ~ normal(X[ii_bd[t], tt_bd[t]], bd_obs); 
 	} 
@@ -225,13 +244,13 @@ model {
 
 	 for (i in 1:n_ind) {
 	  for (t in (first[i] + 1):last[i]) {			
-	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    			// Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
+	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    		   // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
 	  }
 	  for (t in 1:last[i]) {
-	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);	// Capture given detection
+	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);   // Capture given detection
 	  }
 
-	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  			// the probability of an animal never being seen again after the last time it was captured
+	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
 
 	  }
 
