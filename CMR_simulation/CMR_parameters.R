@@ -6,12 +6,12 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 3
+n_pop      <- 1
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rep(30, n_pop)
+ind       <- matrix(data = rep(200, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases). AS OF OCT 14 must be the same for all populations. To be updated later
@@ -19,7 +19,7 @@ periods   <- matrix(data = rep(3, n_pop)
   , ncol = 1, nrow = n_pop)
 
 ## individuals added in each new period.
-new_ind   <- matrix(data = rep(rep(5, n_pop), periods - 1)
+new_ind   <- matrix(data = rep(rep(20, n_pop), periods - 1)
   , ncol = periods - 1, nrow = n_pop, byrow = T)
 
 ## number of individuals ever to exist in each population
@@ -33,9 +33,10 @@ times     <- matrix(data = rep(20, n_pop)
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp      <- matrix(data = rep(10, n_pop)
-  , ncol = 1, nrow = n_pop)
-samp      <- mapply(rep, samp, periods) %>% t()
+samp      <- matrix(data = 10
+    # rpois(periods[1, ] * n_pop, 8)
+  , ncol = periods[1, ], nrow = n_pop)
+# samp      <- mapply(rep, samp, periods) %>% t()
 
 ## number of time periods that elapse between the on-season
 between_season_duration <- matrix(data = rep(20, n_pop)

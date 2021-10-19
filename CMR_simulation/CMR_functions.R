@@ -105,23 +105,20 @@ if (when_samp == "random") {
 , periods = seq(periods)
    ) %>% group_by(periods) %>% 
    mutate(
-     sampling_days = ifelse(times %in% sample(times, samp), 1, 0)
+     sampling_days = ifelse(times %in% sample(times, samp[periods[1]]), 1, 0)
        ) %>% 
    mutate(all_times = interaction(times, periods)) %>% 
    mutate(all_times = as.numeric(all_times))
  
  ## Determine the number of time periods that elapse between back to back samples
- time_gaps     <- sampling_days %>% filter(sampling_days == 1) %>%
-   group_by(periods) %>% mutate(time_gaps = (times - lag(times, 1))) %>%
-   filter(!is.na(time_gaps)) %>% rbind(.
-     , {
-    expand.grid(
-     periods       = inbetween
-   , times         = 1
-   , sampling_days = 1
-   , time_gaps     = between_season_duration
-    )
-     }) %>% arrange(periods)
+ time_gaps   <- sampling_days %>% filter(sampling_days == 1) %>%
+   ungroup() %>% mutate(time_gaps = (all_times - lag(all_times, 1))) %>%
+   group_by(periods) %>%  
+   mutate(last_sample = min(times)) %>%
+   filter(!is.na(time_gaps))
+ 
+ time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps <- 
+   time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps + between_season_duration
    
   time_gaps <- time_gaps$time_gaps
   

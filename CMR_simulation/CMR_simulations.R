@@ -6,40 +6,33 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of OCT 18:
+## Notes as of OCT 19:
 ####
 
-## Current and Next steps:
- ## [x] 1) Some exploration of multiple populations and a bit of debugging to see if anything breaks
-  ## -- two, three, and four populations work. A few different parameters works
- ## [x] 2) Add in other covariates and make sure the model can easily accommodate multiple covariates that vary by population
-  ## -- now have population specific temperatures, bd_intercepts, and survival responses to bd load
-  ##   -- model seems to be able to recover these reasonably well if each population is well sampled. Otherwise,
-  ##      population specific parameters are not recovered very well
-   ##   -- Speaks to wanting to use random effects for individual population parameter deviations and not separate actual estimates 
-  ## -- [ ] May want to work on the simulation piece a little to streamline covariates?
- ## [ ] 3) Work on expanding the complexity of the bd submodel
-  ##  -- A) Add individuals that are not sick and see what happens to the current random effect model
-    ##     -- Seems to maybe be fine enough for individuals that never get sick. 
-    ##         i.e. an individual with 0ed bd load has an upper ci in the range of exp(2) which is still really low
-    ##              so could be a pretty reasonable stand in
-   ##      -- However, I am particularly worried about individuals that vary year to year a lot 
-    ##         May need some interesting random effect structure to allow individuals to vary by year???
-  ##  -- B) Allow individuals to vary in their slope
-    ##      -- Added, but it causes difficulty in estimating the intercept variation -- 0's are no longer predicted well and CI are much larger
-  ##  -- C) Can temp and time parameters that vary by population make up for variable dynamics by location?
-   ##      -- I think what will be needed are parameters that directly adjust time for each location. Maybe times
-    ##         can be the same _length_ but just have different times? (i.e., by adding a time_adj parameter)
- ## [ ] 4) Build an example simulated dataset and adjusted function to parse that dataset into the structure needed for the stan model
-   ##        as an example when real data is eventually obtained. i.e. from X to Y exactly what steps are needed to run the model?
- ## [ ] 5) Try say 15 populations with random effects in their parameters instead of fixed parameters by location
-   ##      -- Just a note that this is going to be really slow
- ## [ ] 6) Move to real data
-  ## -- A bit part of this will be deeper exploration of random effect structure
+## Notes:
+ ## -- Covariates by population can be recovered -ok- with well sampled populations.
+   ## * Random effects model with 12 populations, rpois(20) indv per population taks about 1.2 h to run:
+    ##   -- recovers mean bd response, survival, and detection quite well
+    ##   -- recovers individual random effects no worse
+    ##   -- questionable recovery of population-specific survival parameters
+      ##     * HOWEVER, I am more confident that this will work better when population-specific parameters are added
+    ##   ^^ Can check better sampled populations to see what it takes to recover these parameters
+ ## -- Latent bd could maybe get more complicated, but worried about identifiability in poorly sampled populations
+   ## * Model does reasonably fine recovering very low bd-loads for individuals that never get infected
+   ## * Worried about individuals that only get infected some years -- will need to play with blocked random effects
+   ## * Slope variation "works" but makes it hard to estimate both variation among individuals in intercept and slope. Maybe will be fine in real
+    ##  data where there is so much variation 
+   ## * To get variable timing of bd start and end I think what will be needed are parameters that directly adjust time for each location. 
+    ##  Maybe times can be the same _length_ but just have different times? (i.e., by adding a time_adj parameter)
+ ## -- Have a detailed rmd and html that shows the data structures. Will work on a script to parse the real data when I move to real data 
+
+## Next Steps:
+ ## 1) Construct the data parsing script using the newt data
+ ## 2) Work on first fitting a single population and then a multi-population model with the newt data
 
 ## Some things to still work on in the long run:
  ## 1) Still doesn't allow number of periods to vary by population --- that shouldn't be too hard -- just tedious
- ## 2) Doesn't allow times to vary by population -- this will be harder because X_bd is fit with a matrix and will have to be melted --
+ ## 2) Doesn't allow times to vary by population -- this will be harder because X_bd is fit with a matrix and will have to be melted
 
 ####
 ## Packages and misc
@@ -136,8 +129,10 @@ ind_in_pop.all    <- c(ind_in_pop.all, rep(pop_ind, length(unique(one_pop.long$i
 ind_occ_min1_size.all <- ind_occ_size.all - 1
 
 ## Fix the individual numbers in X_bd.m.all
+if (n_pop > 1) {
 for (i in 2:n_pop) {
   X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
+}
 }
 
 ## convert ind_pop interaction column to individuals
@@ -196,11 +191,13 @@ stan_data     <- list(
  , sampling_events_phi = ind_occ_phi.all$sampling_events_phi
  , offseason           = ind_occ_phi.all$offseason
  , pop_phi             = ind_occ_phi.all$pop
+ , phi_zeros           = ind_occ_phi.all$phi_zeros
 
  , ind_occ_rep       = ind_occ_p.all$ind
  , sampling_events_p = ind_occ_p.all$sampling_events_p
  , periods_occ       = ind_occ_p.all$periods_occ
  , pop_p             = ind_occ_p.all$pop
+ , p_zeros           = ind_occ_p.all$p_zeros
 
   ## covariates
  , N_bd            = nrow(X_bd.m.all)
@@ -217,14 +214,11 @@ stan_data     <- list(
  , first           = capture_range.all$first
  , last            = capture_range.all$final
   
- , phi_zeros       = ind_occ_phi.all$phi_zeros
- , p_zeros         = ind_occ_p.all$p_zeros
-  
  , present         = present.all
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp_cv.stan"
+  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp_cv_ir.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -233,6 +227,8 @@ stan.fit  <- stan(
 , refresh = 10
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+
+# stan.fit <- readRDS("stan.fit.re.Rds")
 
 ####
 ## CMR Diagnostics
@@ -243,10 +239,13 @@ stan.fit  <- stan(
   ## will also need quite a bit of cleanup when bd parameters start varying by population
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
+shinystan::launch_shinystan(stan.fit)
 
 ####
 ## Recovery of simulated coefficients?
 ####
+
+as.data.frame(stan.fit.summary[grep("beta_p", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
 
 ## Primary Bd effects
 pred_coef        <- as.data.frame(stan.fit.summary[c(1:9), c(4, 6, 8)])
@@ -316,18 +315,17 @@ stan.pred %>% {
     xlab("Log of Bd Load") + ylab("Predicted detection probability")
 }
 
-
 ####
 ## Individual random effect estimates
 ####
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, type = Var3, eps = value)
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
 stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
-  reshape2::melt(.) %>% rename(type = Var2, sd = value) %>%
+  reshape2::melt(.) %>% rename(sd = value) %>%
   left_join(., stan.ind_pred_eps) %>%
   mutate(eps = eps * sd) %>% 
-  group_by(ind, type) %>%
+  group_by(ind) %>%
   summarize(
     mid = quantile(eps, 0.50)
   , lwr = quantile(eps, 0.025)
@@ -342,7 +340,6 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
 ### Need to make this functioning given the new multi-population structure
 
 stan.ind_pred_var %>% 
-  filter(type == 1) %>% 
   arrange(mid) %>% 
   mutate(ind = factor(ind, levels = ind)) %>% {
   ggplot(., aes(ind, mid)) +
@@ -374,4 +371,36 @@ most_extreme %>% {
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line() +
     facet_wrap(~period)
+}
+
+####
+## Population random effect estimates
+####
+
+stan.ind_pred_eps <- stan.fit.samples$phi_delta_pop_eps %>%
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
+stan.ind_pred_var <- stan.fit.samples$phi_delta_pop_sigma %>%
+  reshape2::melt(.) %>% rename(sd = value) %>%
+  left_join(., stan.ind_pred_eps) %>%
+  mutate(eps = eps * sd) %>% 
+  group_by(ind) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% ungroup()
+
+### Need to make this functioning given the new multi-population structure
+
+stan.ind_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(ind = factor(ind, levels = ind)) %>% {
+  ggplot(., aes(ind, mid)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+    xlab("Population") + 
+    ylab("Random Effect Deviate") +
+    geom_hline(yintercept = 0
+      , linetype = "dashed", lwd = 1, colour = "firebrick3") +
+    scale_colour_brewer(palette = "Dark2") +
+    theme(axis.text.x = element_text(size = 8))
 }
