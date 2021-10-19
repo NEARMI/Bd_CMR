@@ -90,20 +90,35 @@ transformed data {
 
 parameters {
 
-	vector[2] beta_bd;				 // intercept and two slope coefficients for grand mean change in bd over time
-	vector[n_pop] beta_bd_int_pop;			 // population-specific intercepts in bd load	 
+	//// bd submodel parameters
+
+	vector[2] beta_bd;				 // two slope coefficients for grand mean change in bd over time
+	real beta_bd_int_pop;				 // population-specific intercepts in bd load	 
+
+	real<lower=0> bd_delta_pop_sigma;		 // change in Bd by pop (normal random effect variance)
+	real bd_delta_pop_eps[n_pop];			 // the conditions modes of the random effect (each populations intercept (for now))
+
+	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
+
+	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
+
+	//// survival
 
 	real beta_phi;       	          	 	 // grand intercept and slope for survival
-	vector[n_pop] beta_phi_slope_pop;	         // population specific slopes for survival
+	real beta_phi_slope_pop;	    	         // population specific slopes for survival
+
+	real<lower=0> phi_delta_pop_sigma;		 // change in Bd by individual (normal random effect variance)
+	real phi_delta_pop_eps[n_pop];
         
-	vector[2] beta_p;				 // intercept and slope coefficient for detection
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
 	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
 
-	real<lower=0> bd_delta_sigma[2];		 // change in Bd by individual (normal random effect variance)
-	real bd_delta_eps[n_ind, 2];			 // the conditions modes of the random effect (each individual's intercept (for now))
+	//// detection
 
-	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state
+	vector[2] beta_p;				 // intercept and slope coefficient for detection
+	
+	//// other	
 
 	matrix<lower=0,upper=1>[n_ind, n_periods] gamma; // probability of each individual seen in subsequent periods actually having been in the population previously
 
@@ -118,30 +133,39 @@ transformed parameters {
 	matrix[n_ind, n_times] X;	   	   // Estimated "true" bd for all of the caught individuals with no bd measured
 	matrix[n_ind, n_periods] X_max; 	   // summaries of X	
 		
-	real bd_ind[n_ind, 2];                     // Individual random effect deviates
+	real bd_ind[n_ind];                        // Individual random effect deviates
+	real bd_pop[n_pop];
+	real phi_pop[n_pop];
 
 	// -----
 	// bd submodel, contained to estimating within-season bd
 	// -----
 
+	for (pp in 1:n_pop) {
+	 bd_pop[pp]  = beta_bd_int_pop + bd_delta_pop_sigma * bd_delta_pop_eps[pp];
+	 phi_pop[pp] = beta_phi_slope_pop + phi_delta_pop_sigma * phi_delta_pop_eps[pp];
+	} 
+
 	for (i in 1:n_ind) {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i, 1] = bd_delta_sigma[1] * bd_delta_eps[i, 1];  
-	  bd_ind[i, 2] = bd_delta_sigma[2] * bd_delta_eps[i, 2];
-
+  	  bd_ind[i] = bd_delta_sigma * bd_delta_eps[i];  
 
 		// latent bd model before obs error
 
 	 for (t in 1:n_times) {
-	  X[i, t]   = (beta_bd_int_pop[ind_in_pop[i]] + bd_ind[i, 1]) +
-		      (beta_bd[1] + bd_ind[i, 2]) * time[t]           + 
+	  X[i, t]   = (bd_pop[ind_in_pop[i]] + bd_ind[i])    +
+		      beta_bd[1] * time[t]                   +
 		      beta_bd[2] * temp[t, ind_in_pop[i]];      
 	 }
 
 	 for (tp in 1:n_periods) {
-          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	   // calculation of the maximum bd load experienced in a year (could also be cumulative)
+
+		// calculation of the maximum bd load experienced in a year (could also be cumulative)
+
+          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	
+   
 	 }
 
         }
@@ -159,7 +183,7 @@ transformed parameters {
                       beta_phi                       + 
                       beta_timegaps  * time_gaps[t]  +
                       beta_offseason * offseason[t]  +	
-                      beta_phi_slope_pop[pop_phi[t]] * X[ind_occ_min1_rep[t], sampling_events_phi[t]]
+                      phi_pop[pop_phi[t]] * X[ind_occ_min1_rep[t], sampling_events_phi[t]]
                     );
 	 }  
 
@@ -203,9 +227,12 @@ model {
 
 	beta_phi ~ normal(0, 5);
 
+	beta_bd_int_pop    ~ normal(0, 5);
+	beta_phi_slope_pop ~ normal(0, 5);
+
 	for (pp in 1:n_pop) {
-	 beta_phi_slope_pop[pp] ~ normal(0, 5);
-	 beta_bd_int_pop[pp]    ~ normal(0, 5);
+	 bd_delta_pop_eps[pp]  ~ normal(0, 5);
+	 phi_delta_pop_eps[pp] ~ normal(0, 5);
 	}
 
 	beta_p[1]  ~ normal(0, 5);
@@ -215,14 +242,14 @@ model {
 	beta_timegaps  ~ normal(0, 5);
 	beta_offseason ~ normal(0, 5);
 
-	bd_delta_sigma[1] ~ inv_gamma(1, 1);
-	bd_delta_sigma[2] ~ inv_gamma(1, 1);
-
+	bd_delta_sigma    ~ inv_gamma(1, 1);
+	bd_delta_pop_sigma ~ inv_gamma(1, 1);
+	phi_delta_pop_sigma ~ inv_gamma(1, 1);
+	
 	bd_obs         ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i, 1]  ~ normal(0, 3);
-	  bd_delta_eps[i, 2]  ~ normal(0, 3);
+	  bd_delta_eps[i]     ~ normal(0, 3);
          for (j in 1:n_periods) {
           gamma[i, j] ~ uniform(0, 1);
 	 }
