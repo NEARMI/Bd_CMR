@@ -214,7 +214,6 @@ stan_data     <- list(
  , first           = capture_range.all$first
  , last            = capture_range.all$final
   
- , present         = present.all
   )
 
 stan.fit  <- stan(
@@ -228,7 +227,7 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-# stan.fit <- readRDS("stan.fit.re.Rds")
+# stan.fit <- readRDS("stan.fit.mi.Rds")
 
 ####
 ## CMR Diagnostics
@@ -239,7 +238,6 @@ stan.fit  <- stan(
   ## will also need quite a bit of cleanup when bd parameters start varying by population
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
-shinystan::launch_shinystan(stan.fit)
 
 ####
 ## Recovery of simulated coefficients?
@@ -248,7 +246,7 @@ shinystan::launch_shinystan(stan.fit)
 as.data.frame(stan.fit.summary[grep("beta_p", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
 
 ## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[c(1:9), c(4, 6, 8)])
+pred_coef        <- as.data.frame(stan.fit.summary[c(1:4), c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
@@ -320,12 +318,12 @@ stan.pred %>% {
 ####
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
+  reshape2::melt(.) %>% rename(ind = Var2, type = Var3, eps = value)
 stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
-  reshape2::melt(.) %>% rename(sd = value) %>%
+  reshape2::melt(.) %>% rename(type = Var2, sd = value) %>%
   left_join(., stan.ind_pred_eps) %>%
   mutate(eps = eps * sd) %>% 
-  group_by(ind) %>%
+  group_by(ind, type) %>%
   summarize(
     mid = quantile(eps, 0.50)
   , lwr = quantile(eps, 0.025)
@@ -340,6 +338,7 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
 ### Need to make this functioning given the new multi-population structure
 
 stan.ind_pred_var %>% 
+  filter(type == 1) %>%
   arrange(mid) %>% 
   mutate(ind = factor(ind, levels = ind)) %>% {
   ggplot(., aes(ind, mid)) +

@@ -6,53 +6,16 @@
 ## About this script
 ####
 
-## First, see and start with 'data_exploration.R' for data info
-## Second, see 'individual_CRM_few_samples.R' for a CMR model with a bd submodel that fits reasonably well with simulated data
-## Third, this script attempts to fit a very simple model to one site 
+## 1) see and start with 'data_exploration.R' for data info
+## 2) see 'CMR_simulations.R' for a CMR model with a bd submodel that fits reasonably well with simulated data
+## 3) see data_structure.Rmd / html for the data structures needed to fit the model
 
 ####
-## End of day conclusion for SEP 24:
+## Notes as of OCT 20:
 ####
 
-## 1) After lots of putsing around with the simulation models I finally have one that returns sensible results for
- ## gaps in time between sampling events. Running this on the real data for PA A11 fits very quickly but returns that
-  ## amphibian survival increases with bd load, which means that bd load is standing in for something else... Need
-   ## to add covariates to get to the bottom of this issues; but before moving forward with the data:
-## 2) Return to the simulation script to get:
- ## A) covariates working
- ## B) multi primary periods with intermediate periods set up (see below)
- ## C) a model with fewer secondary periods within primary periods to better match the other data
-
-####
-## Meeting notes from Sep 22:
-####
-
-## 1) time likely a stand-in for temperature. Possibly worth including temp to help control variation in bd
-## 2) Goal will be to work towards multi-season. OK to develop with within-season but lots of the mortality between e.g, about 50% for newts)
-## 3) Worth reading a bit about Robust Design Analysis
-
-####
-## Model and Data Notes as of Sep 22:
-####
-
-## 1) Current primary problem is time -- need to model progression of actual time to get the correct 
- ## growth of bd in the internal bd submodel, but need to make sure 0s on days where nothing was sampled
-  ## doesn't affect detection probability
- ## -- Currently have an issue with the sub-model; want to move it to a transformed parameter instead of a true parameter
-  ## (given my struggles with process vs observational error), but this leads to issues with undefined phi entries. I do
-   ## not understand why and do not want to waste more time on it
-
-## 2) The data in MA:A11 honestly seems good enough to be able to fit some sort of model
- ## -- **** However really need to resolve:
-  ## A) the time gaps problem between observations
-  ## B) a realistic bd process model
-
-## 3) It sort of seems like more of a regression-style random effects model for bd change over time could be fruitful
- ## -- **** Going this route however:
-  ## A) Does every individual need their latent bd estimated because that is really hard. How much work to put into estimating all of this?
-  ## B) How many extra random effects are needed: do individuals need to vary in their survival and detection apart from their variation in bd?
-  ## C) How to deal with the time gaps inbetween sampling
-  ## D) Will we be able to fit other covariates?
+## After some reasonable success with fitting the model to simulated data, time to start on real data. 
+ ## First step is to get the data into the correct structure...
 
 ####
 ## Packages and functions
@@ -63,163 +26,103 @@ source("../ggplot_theme.R")
 set.seed(10002)
 '%notin%' <- Negate('%in%')
 
-Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_9.12.21.csv")
-Bd_Newts_AllSites   %<>% mutate(Date = as.Date(Date))
+Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_10.1.21.csv")
+
+## Stupid dates
+if (length(grep("/", Bd_Newts_AllSites$Date[1])) > 0) {
+
+date_convert <- apply(matrix(Bd_Newts_AllSites$Date), 1, FUN = function (x) {
+  a <- strsplit(x, split = "/")[[1]]
+  b <- a[3]
+  b <- strsplit(b, "")[[1]][c(3, 4)] %>% paste(collapse = "")
+  paste(c(a[c(1, 2)], b), collapse = "/")
+})
+
+Bd_Newts_AllSites$Date <- date_convert
+Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date, "%m/%d/%y"))
+
+} else {
+  
+Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date))
+  
+}
 
 ## Some parameters
 red_ind        <- FALSE    ## TRUE   = reduce the number of individuals for debugging purposes
-all_dates      <- "Week"   ## TRUE   = expand the capture matrix to have an event on every day
-                           ## FALSE  = collapse sampling events to lose the time spacing between them
-                           ## "Week" = collapse into one week intervals
-fix_time       <- TRUE     ## TRUE   = try and appropriately deal with continus time for bd and sampling on specific dates
 
 if (red_ind) {
 red_total_capt <- 4        ## minimum number of recaptures to keep an individual in an analysis
 }
 
+## Just select one site for now for a trial fit
 A11 <- Bd_Newts_AllSites %>% 
-  filter(
-    Site == "A11"
-  , year == 2020
-  )
+  filter(Site == "A11") %>% 
+  group_by(year) %>% 
+  mutate(week = ceiling(julian / 7))
 
-if (all_dates == F) {
+## Find the first and last week ever sampled in this population
+week_range <- A11 %>% 
+  summarize(
+    min_week = min(week)
+  , max_week = max(week)
+  ) %>% summarize(
+    min_week = min(min_week)
+  , max_week = max(max_week)
+  ) %>% unlist()
+
+## Find the unique weeks sampled in each year
+sampled_weeks <- A11 %>% 
+  summarize(week = unique(week)) %>%
+  mutate(sampled = 1)
+
+## Construct an "all possible combinations" data frame and parse it down
 capt_history <- expand.grid(
-  Date = unique(A11$Date)
+  week = seq(from = week_range["min_week"], to = week_range["max_week"], by = 1)
+, year = unique(A11$year)
 , Mark = unique(A11$Mark)
-)
-} else if (all_dates == T) {
-capt_history <- expand.grid(
-  Date = seq(from = min(A11$Date), to = max(A11$Date), by = 1)
-, Mark = unique(A11$Mark)
-) 
-} else if (all_dates == "Week") {
-all_days   <- seq(from = min(A11$Date), to = max(A11$Date), by = 1) 
-week_max   <- round((length(all_days) / 7), 0)
-extra_days <- rep(week_max + 1, round(((length(all_days) / 7) %% 1) * 7, 0))
-
-week_vec <- data.frame(
-  Date  = seq(from = min(A11$Date), to = max(A11$Date), by = 1)
-) %>% mutate(
-  week = c(rep(seq(1, week_max, by = 1), each = 7), extra_days)
-)
-
-capt_history <- expand.grid(
-  Date = seq(from = min(A11$Date), to = max(A11$Date), by = 1)
-, Mark = unique(A11$Mark)
-) %>% left_join(., week_vec)
-
-}
-
-if (all_dates != "Week") {
-  
-capt_history %<>% 
+) %>% left_join(., sampled_weeks) %>% 
+  mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
   left_join(.
-    , {A11 %>% dplyr::select(Date, Mark, julian, copies.swab)}
+    , {A11 %>% dplyr::select(week, year,  Mark, month, copies.swab)}
     ) %>% rename(
-      captured = julian
+      captured = month
     , bd_load  = copies.swab) %>% 
-  mutate(
-    captured = ifelse(is.na(captured), 0, 1)
-  , swabbed  = ifelse(is.na(bd_load), 0, 1)) %>%
-  mutate(log_bd_load = log(bd_load + 1)) %>%                          ### eeek!
-  mutate(log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load))    ### eeek X2!!
-  
-capt_history %<>% arrange(Date, Mark)
-  
-## Quick double check of these individuals' bd load. Honestly doesn't look too bad
-capt_history %>% filter(swabbed == 1) %>%  {
-  ggplot(., aes(Date, log_bd_load)) + 
-    geom_line(aes(group = Mark)) +
-    xlab("Date") +
-    ylab("Bd Load") 
-}
-
-## Why collapsing sampling events doesnt work -- cant model a continuous curve appropriately when things
- ## get squashed without taking into consideration the length of time between the gaps
-capt_history %>% filter(swabbed == 1) %>% 
-  mutate(occ = as.numeric(as.factor(Date))) %>% {
-  ggplot(., aes(occ, log_bd_load)) + 
-    geom_line(aes(group = Mark)) +
-    xlab("Date") +
-    ylab("Bd Load")
-}
-
-## jump through a few summary hoops to collapse to weekly measures if desired
-} else {
-  
-## leave off the bd summary, which will need to be done after collapsing to week
-capt_history %<>% 
-  left_join(.
-    , {A11 %>% dplyr::select(Date, Mark, julian, copies.swab)}
-    ) %>% rename(
-      captured = julian
-    , bd_load  = copies.swab) %>% 
-  mutate(
-    captured = ifelse(is.na(captured), 0, 1)
-  , swabbed  = ifelse(is.na(bd_load), 0, 1))
-  
-## Only a single individual was swabbed twice in the same week, just take the mean in this one case
-capt_history %>% group_by(Mark, week) %>%
+    mutate(
+     captured = ifelse(is.na(captured), 0, 1)
+   , swabbed  = ifelse(is.na(bd_load), 0, 1)) %>%
+    group_by(Mark, week, year) %>%
     summarize(
-      captured = sum(captured)
-    , swabbed  = sum(swabbed)
-    ) %>% arrange(desc(swabbed))
+      sampled  = sum(sampled)
+    , captured = sum(captured, na.rm = T)
+    , swabbed  = sum(swabbed, na.rm = T)
+    , bd_load  = sum(bd_load, na.rm = T)
+    ) %>% 
+   mutate(
+      sampled  = ifelse(sampled > 1, 1, sampled)
+    , captured = ifelse(captured > 1, 1, captured)
+    , swabbed  = ifelse(swabbed > 1, 1, swabbed)
+    , log_bd_load = log(bd_load + 1)                           ### eeek!
+    , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load) ### eeek X2!!
+    ) %>% 
+   mutate(Mark = as.factor(Mark)) %>% 
+   mutate(Mark = as.numeric(Mark))
 
-csw_hist <- capt_history %>% group_by(week, Mark) %>% 
-  summarize(
-    captured = sum(captured, na.rm = T)
-  , swabbed  = sum(swabbed, na.rm = T)) %>%
-  mutate(
-    captured = ifelse(captured > 1, 1, captured)
-  , swabbed  = ifelse(swabbed > 1, 1, swabbed)) %>% mutate(
-     Date = week 
-    )
-
-bd_hist <- capt_history %>% 
-  group_by(week, Mark) %>% 
-  filter(swabbed == 1) %>% 
-  summarize(
-    bd_load = mean(bd_load)
-  , log_bd_load = log(bd_load + 1)                            ### eeek!
-  , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)  ### eeek X2!
-  ) %>% mutate(
-     Date = week 
-    )
-
-capt_history <- left_join(csw_hist, bd_hist)
-
-capt_history %<>% mutate(
-  log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)
+## Add a column for each unique sampling week and all weeks
+capt_history %<>% ungroup() %>% arrange(year, week, Mark) %>% mutate(
+   week_year  = interaction(week, year)
+ , week_year  = as.factor(week_year)
+ , week_year  = as.numeric(week_year)
+ , year_f     = as.numeric(as.factor(year)) - 1
+ , cont_weeks = (52 * year_f) + week
 )
 
 ## Quick double check to see how collapsing to week held up
 capt_history %>% filter(swabbed == 1) %>%  {
-  ggplot(., aes(Date, log_bd_load)) + 
+  ggplot(., aes(week, log_bd_load)) + 
     geom_line(aes(group = Mark)) +
+    facet_wrap(~year) +
     xlab("Week") +
     ylab("Bd Load") 
-}
-
-## Check in which weeks no sampling occurred
- capt_history.no_samps <- capt_history %>% 
-   group_by(week) %>% 
-   summarize(total_caps = sum(captured)) %>% 
-   filter(total_caps != 0)
- 
- weeks_sampled     <- unique(capt_history.no_samps$week)
- weeks_not_sampled <- which(seq(1, max(weeks_sampled), by = 1) %notin% weeks_sampled)
- sampling          <- rep(0, max(weeks_sampled))
- sampling[weeks_sampled] <- 1
- 
-capt_history %<>% mutate(no_sampling = 0)
-capt_history[capt_history$week %in% weeks_not_sampled, ]$no_sampling <- 1
-
-## SEP 22: First attempt at trying to solve the time vs sampling events problem
-if (fix_time) {
-# capt_history %<>% filter(week %in% weeks_sampled)
-}
-
 }
 
 ## Try a small subset to see if the model will run (regardless of whether it will fit or not)
@@ -233,54 +136,16 @@ if (red_ind) {
   capt_history %<>% filter(Mark %in% capt_history.well_meas$Mark)
 } 
 
-## capture matrix
-capt_history.matrix <- matrix(
-  nrow = length(unique(capt_history$Mark))
-# , ncol = length(unique(capt_history$Date))
-, ncol = length(weeks_sampled)
-, data = capt_history[capt_history$no_sampling == 0, ]$captured
-, byrow = F)
-
 ## individuals' measured bd 
-capt_history.bd_load <- matrix(
-  nrow = length(unique(capt_history$Mark))
-# , ncol = length(unique(capt_history$Date))
-, ncol = length(weeks_sampled)
-, data = capt_history[capt_history$no_sampling == 0, ]$log_bd_load
-, byrow = F)
+capt_history.bd_load <- capt_history %>% 
+  ungroup() %>%
+  arrange(Mark, week_year) %>%
+  filter(swabbed == 1)
 
-## time points where bd was measured
-capt_history.bd_measured <- matrix(
-  nrow = length(unique(capt_history$Mark))
-# , ncol = length(unique(capt_history$Date))
-, ncol = length(weeks_sampled)
-, data = capt_history[capt_history$no_sampling == 0, ]$swabbed
-, byrow = F)
-
-## some quick visuals and checks
-par(mfrow = c(2, 1))
-image(capt_history.matrix)
-image(capt_history.bd_measured)
-
-if (length(
-  which(
-  (capt_history.matrix[2, ] == capt_history[capt_history$Mark == unique(capt_history$Mark)[2], ]$captured) == FALSE
-)
-) > 0) {
-  print("ERROR: capture matrix not filled in correctly"); break
-}
-
-if (length(
-  which(
-  (capt_history.bd_measured[2, ] == capt_history[capt_history$Mark == unique(capt_history$Mark)[2], ]$swabbed) == FALSE
-)
-) > 0) {
-  print("ERROR: bd matrix not filled in correctly"); break
-}
-
+## first and last _OF THE CAPTURE EVENTS_ in which each individual was captured
 capture_range  <- capt_history %>% 
   group_by(Mark) %>% 
-  filter(no_sampling == 0) %>%
+  filter(sampled == 1) %>%  
   summarize(
     first = min(which(captured == 1))
   , final = max(which(captured == 1))) %>% 
@@ -291,16 +156,18 @@ capture_range  <- capt_history %>%
     )
 
 capture_total <- capt_history %>% 
-  group_by(Date) %>% 
-  filter(no_sampling == 0) %>%
+  filter(sampled == 1) %>% 
+  group_by(week_year) %>% 
   summarize(total_capt = sum(captured))
 
-capt_history %>% mutate(event = as.factor(Date)) %>% {
-  ggplot(., aes(Date, Mark, fill = as.factor(captured))) + 
-    geom_tile(aes(alpha = 1 - no_sampling)) +
-    geom_point(data = capt_history %>% mutate(event = as.factor(Date)) %>% 
-        filter(swabbed == 1), aes(x = Date, y = Mark, z = NULL), lwd = 0.7) +
-    xlab("Time") + ylab("Individual") +
+capt_history %>% mutate(event = week) %>% {
+  ggplot(., aes(week, Mark, fill = as.factor(captured))) + 
+    geom_tile(aes(alpha = sampled)) +
+    geom_point(data = capt_history %>% mutate(event = week) %>% 
+        filter(swabbed == 1), aes(x = week, y = Mark, z = NULL), lwd = 0.7) +
+    facet_wrap(~year) +
+    xlab("Week of the year") +
+    ylab("Individual") +
     scale_fill_manual(
         values = c("dodgerblue4", "firebrick4")
       , name   = "Detected?"
@@ -315,6 +182,112 @@ capt_history %>% mutate(event = as.factor(Date)) %>% {
 }
 
 ####
+## Data in the needed structure for the stan model
+####
+
+## Numbers and lengths of things
+n_periods <- length(unique(capt_history$year))
+n_ind     <- length(unique(capt_history$Mark))  
+n_times.w <- length(seq(week_range[1], week_range[2]))
+n_times.a <- length(seq(week_range[1], week_range[2])) * n_periods
+n_occ     <- sampled_weeks %>% group_by(year) %>%
+  summarize(n_occ = length(unique(week)))
+n_occ     <- n_occ$n_occ
+
+## Vectors for detection
+capt_history.p   <- capt_history %>% filter(sampled == 1) %>% 
+  arrange(Mark) %>% ungroup()
+
+p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>% 
+  group_by(Mark) %>% 
+  summarize(first_index = min(index)))$first_index
+
+## check to make sure things are aligning properly
+if ((p_first_index[2] - p_first_index[1]) != sum(n_occ)) {
+  print("Gaps between p indexes doesn't match number of sampling events")
+}
+
+## determine the first period in which each individual was present
+first_capt <- capt_history.p %>% group_by(Mark, year) %>% 
+  summarize(capt = sum(captured)) %>% 
+  mutate(capt = cumsum(capt)) %>% 
+  mutate(capt = ifelse(capt > 0, 1, 0)) 
+
+## time periods in which we do not know if an individual was present or not
+p_zeros <- matrix(data = 0, nrow = n_ind, ncol = sum(n_occ))
+for (i in 1:n_ind) {
+  p_zeros[i, ] <- rep(first_capt[first_capt$Mark == unique(first_capt$Mark)[i], ]$capt, n_occ)
+}
+p_zeros   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+
+capt_history.p$p_zeros <- p_zeros
+
+## Vectors for survival
+last_week        <- max(capt_history[capt_history$sampled == 1, ]$week_year)
+capt_history.phi <- capt_history %>% filter(week_year != last_week, sampled == 1) %>% 
+  arrange(Mark) %>% ungroup()
+
+## Determine the number of time periods that elapse between back to back samples
+the_weeks <- capt_history %>% 
+  filter(sampled == 1) %>% 
+  summarize(cont_weeks = unique(cont_weeks))
+the_weeks <- the_weeks$cont_weeks
+time_gaps <- (the_weeks - lag(the_weeks, 1))[-1]
+
+## Weeks between sampling events
+capt_history.phi %<>% mutate(time_gaps = rep(time_gaps, n_ind))
+
+## Offseason vector (not the best strategy, but ok)
+capt_history.phi %<>% mutate(offseason = ifelse(time_gaps > 20, 1, 0))
+
+phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% group_by(Mark) %>% 
+  summarize(first_index = min(index)))$first_index
+
+## check to make sure things are aligning properly
+if ((phi_first_index[2] - phi_first_index[1]) != (sum(n_occ) - 1)) {
+  print("Gaps between phi indexes doesn't match number of sampling events minus 1")
+}
+
+## Indices for which entries of phi must be 0
+phi_zeros <- matrix(data = 0, nrow = n_ind, ncol = sum(n_occ) - 1)
+for (i in 1:n_ind) {
+  phi_zeros[i, ] <- c(
+    rep(1, capture_range$first[i] - 1)
+  , rep(0, ncol(phi_zeros) - (capture_range$first[i] - 1))
+    )
+}
+phi_zeros   <- (phi_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+
+capt_history.phi$phi_zeros <- phi_zeros
+
+####
+## Other needed covaraites 
+####
+
+## OCT 20: Hmm, not good. Temp will need to be imputed?
+temp <- expand.grid(
+  year = unique(A11$year)
+, week = seq(week_range[1], week_range[2])
+)
+
+temp_have <- A11 %>% 
+  group_by(year, week) %>% 
+  summarize(temp = mean(Site_temp, na.rm = T))
+
+## For the first run just get 2018 temp to be 2020 temp
+temp_have[1:8, 3] <- temp_have[c(21, 9, 10, 11, 12, 15, 18, 21), 3]
+
+temp <- left_join(temp, temp_have)
+
+## For now do a really ugly imputation to just get the model running
+temp %<>% group_by(week) %>% mutate(temp = ifelse(is.na(temp), mean(temp, na.rm = T), temp))
+temp[c(7:9), ]$temp   <- (temp[c(10:12), ]$temp - temp[c(4:6), ]$temp) + temp[c(4:6), ]$temp
+temp[c(22:24), ]$temp <- (temp[c(25:27), ]$temp - temp[c(19:21), ]$temp) + temp[c(19:21), ]$temp
+
+temp %<>% arrange(year, week) 
+temp <- as.matrix(temp[, 3])
+
+####
 ## Run the stan model
 ####
 
@@ -323,88 +296,60 @@ stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 
-if (!fix_time) {
-
 stan_data     <- list(
-  ## bookkeeping params
-   n_ind         = length(unique(capt_history$Mark))
- , n_occasions   = length(unique(capt_history$Date))
- , samp_events   = seq(length(unique(capt_history$Date)))  ## Need to update for uneven spacing (SEP 22: see fix_time)
+  
+  ## dimensional indexes 
+   n_pop           = 1
+ , n_periods       = n_periods
+ , n_ind           = n_ind
+ , n_times         = n_times.a
+ , times_within    = n_times.w
+ , ind_occ         = sum(n_occ) * n_ind
+ , ind_occ_min1    = (sum(n_occ) - 1) * n_ind
+  
+  ## short vector indexes 
+ , time              = rep(seq(n_times.w), n_periods)
+ , time_per_period   = matrix(data = seq(n_times.w * n_periods), nrow = n_times.w, ncol = n_periods)
+ , periods           = rep(seq(n_periods), each = n_times.w)
+ , ind_occ_size      = rep(sum(n_occ), n_ind)
+ , ind_occ_min1_size = rep(sum(n_occ) - 1, n_ind)
+ , ind_in_pop        = rep(1, n_ind)
+
+ , phi_first_index   = phi_first_index
+ , p_first_index     = p_first_index
+  
+  ## long vector indexes
+ , ind_occ_min1_rep    = capt_history.phi$Mark
+ , sampling_events_phi = capt_history.phi$week_year
+ , offseason           = capt_history.phi$offseason
+ , pop_phi             = rep(1, nrow(capt_history.phi))
+ , phi_zeros           = capt_history.phi$phi_zeros
+
+ , ind_occ_rep       = capt_history.p$Mark
+ , sampling_events_p = capt_history.p$week
+ , periods_occ       = as.numeric(as.factor(capt_history.p$year))
+ , pop_p             = rep(1, nrow(capt_history.p))
+ , p_zeros           = capt_history.p$p_zeros
+
+  ## covariates
+ , N_bd            = nrow(capt_history.bd_load)
+ , X_bd            = capt_history.bd_load$log_bd_load  
+ , ii_bd           = capt_history.bd_load$Mark
+ , tt_bd           = capt_history.bd_load$week_year
+ , temp            = temp
+ , time_gaps       = capt_history.phi$time_gaps
+  
   ## Capture data
- , y             = capt_history.matrix
- , first         = capture_range$first
- , last          = capture_range$final
- , n_captured    = capture_total$total_capt
-  ## Covariate associated parameters
- , X_bd          = capt_history.bd_load
- , X_measured    = capt_history.bd_measured
+ , N_y             = nrow(capt_history.p)
+ , y               = capt_history.p$captured
+  
+ , first           = capture_range$first
+ , last            = capture_range$final
+
   )
 
 stan.fit  <- stan(
-  file    = "CMR_mine/CMR_ind_pat_bd_empirical_red2.stan"
-, data    = stan_data
-, chains  = 1
-, iter    = stan.iter
-, warmup  = stan.burn
-, thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
-  )
-
-} else {
- 
-stan_data     <- list(
-  ## bookkeeping params
-   n_ind         = length(unique(capt_history$Mark))
- , n_occasions   = length(unique(capt_history$Date))
- , samp_events   = seq(length(unique(capt_history$Date)))  ## Need to update for uneven spacing (SEP 22: see fix_time)
- , sampling      = sampling
-  ## Capture data
- , y             = capt_history.matrix
- , first         = capture_range$first
- , last          = capture_range$final
- , n_captured    = capture_total$total_capt
-  ## Covariate associated parameters
- , X_bd          = capt_history.bd_load
- , X_measured    = capt_history.bd_measured
-  ) 
-
-stan.fit  <- stan(
-  file    = "CMR_mine/CMR_ind_pat_bd_empirical_red4.stan"
-, data    = stan_data
-, chains  = 1
-, iter    = stan.iter
-, warmup  = stan.burn
-, thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
-  )
-
-stan_data     <- list(
-  ## bookkeeping params
-   n_ind         = length(unique(capt_history$Mark))
- , n_times       = length(unique(capt_history$Date))
- , n_occasions   = sum(sampling)
- , n_oc_min1     = sum(sampling) - 1
- , time          = seq(length(unique(capt_history$Date)))
- , sampling      = sampling
- , sampling_events = weeks_sampled
- , no_sampling     = weeks_not_sampled
-  ## Capture data
- , y             = capt_history.matrix
- , first         = capture_range$first
- , last          = capture_range$final
- , n_captured    = capture_total$total_capt
-  ## Covariate associated parameters
- , X_bd          = capt_history.bd_load
- , X_measured    = capt_history.bd_measured
- , time_gaps     = (weeks_sampled - lag(weeks_sampled, 1))[-1]
- , bd_after_gap  = c(sort(weeks_sampled)[-samp] + (
-   (weeks_sampled - lag(weeks_sampled, 1))[-1] - 1
-   ), times)
-  ) 
-
-stan.fit  <- stan(
-# file    = "CMR_mine/CMR_ind_pat_bd_empirical_red4.stan"
-  file    = "CMR_mine/CMR_ind_pat_bd-p-phi_no_average_bd.stan"
+  file    = "CMR_simulation/CMR_empirical.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -413,8 +358,6 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
   
-}
-
 shinystan::launch_shinystan(stan.fit)
 
 saveRDS(stan.fit, "stan.fit.empirical.Rds")
