@@ -39,13 +39,13 @@ set.seed(10002)
 
 ## "Design" parameters
 nsim      <- 1                    ## number of simulations (1 to check model, could be > 1 for some sort of power analysis or something)
-ind       <- 20                   ## number of individuals in the population being modeled
+ind       <- 40                   ## number of individuals in the population being modeled
 periods   <- 3                    ## number of primary periods (years in most cases)
-new_ind   <- rep(4, periods - 1)  ## individuals added in each new period
+new_ind   <- rep(5, periods - 1)  ## individuals added in each new period
 inbetween <- seq(1.5, periods, by = 1)
 all_ind   <- ind + sum(new_ind)   ## number of individuals ever to exist in the population
 times     <- 20                   ## number of time periods (in the real data probably weeks; e.g., May-Sep or so)
-samp      <- 2                    ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
+samp      <- 10                   ## number of sampling events occurring over 'times' (e.g., subset of 'times' weeks when sampling occurred)
 if (periods > 1) {
 samp <- rep(samp, periods)      ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 between_season_duration <- 10   ## number of time periods that elapse between the on-season

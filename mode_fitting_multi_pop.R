@@ -6,21 +6,13 @@
 ## About this script
 ####
 
-## 1) see and start with 'data_exploration.R' for data info
-## 2) see 'CMR_simulations.R' for a CMR model with a bd submodel that fits reasonably well with simulated data
-## 3) see data_structure.Rmd / html for the data structures needed to fit the model
+## Extension of model_fitting.R for multiple populations
 
 ####
-## Notes as of OCT 21:
+## Notes as of OCT 26:
 ####
 
-## Model fits reasonably well but there are definitely some problems:
- ## 1) Model thinks within-season survival increases with bd load but detection is basically not affected at all
-  ## which definitely seems odd
- ## 2) Mean responses are pretty well estimated, but the individual variation is not...
-  ## probably need a better way to capture more individual variation
- 
-## Interested in first refitting forcing survival to be negative and see what happens
+## Working to convert model_fitting.R to work for all populations
 
 ####
 ## Packages and functions
@@ -61,9 +53,14 @@ red_total_capt <- 4        ## minimum number of recaptures to keep an individual
 
 ## Just select one site for now for a trial fit
 A11 <- Bd_Newts_AllSites %>% 
-  filter(Site == "A11") %>% 
-  group_by(year) %>% 
-  mutate(week = ceiling(julian / 7))
+  filter(SA == "PA") %>% 
+  filter(Site == "P1" | Site == "A11") %>%
+  group_by(year) %>%  
+  mutate(week = ceiling(julian / 7)) %>% 
+  filter(!is.na(Site))
+
+n_sites <- length(unique(A11$Site))
+u_sites <- unique(A11$Site)
 
 ## Find the first and last week ever sampled in this population
 week_range <- A11 %>% 
@@ -77,25 +74,33 @@ week_range <- A11 %>%
 
 ## Find the unique weeks sampled in each year
 sampled_weeks <- A11 %>% 
+  group_by(Site, year) %>%
   summarize(week = unique(week)) %>%
-  mutate(sampled = 1)
+  mutate(sampled = 1) %>%
+  arrange(Site, week) 
 
 ## Construct an "all possible combinations" data frame and parse it down
-capt_history <- expand.grid(
+all_ind <- 0
+for (i in 1:n_sites) {
+  
+capt_history.t <- expand.grid(
   week = seq(from = week_range["min_week"], to = week_range["max_week"], by = 1)
 , year = unique(A11$year)
-, Mark = unique(A11$Mark)
-) %>% left_join(., sampled_weeks) %>% 
-  mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
+, Site = u_sites[i]
+, Mark = unique((A11 %>% filter(Site == u_sites[i]))$Mark)) %>% 
+  left_join(., (sampled_weeks %>% filter(Site == u_sites[i]))) %>% 
   left_join(.
-    , {A11 %>% dplyr::select(week, year,  Mark, month, copies.swab)}
-    ) %>% rename(
+  , (A11 %>% filter(Site == u_sites[i]) %>%
+      dplyr::select(week, year,  Mark, month, copies.swab)
+     )
+  ) %>% mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
+   rename(
       captured = month
     , bd_load  = copies.swab) %>% 
     mutate(
      captured = ifelse(is.na(captured), 0, 1)
    , swabbed  = ifelse(is.na(bd_load), 0, 1)) %>%
-    group_by(Mark, week, year) %>%
+    group_by(Mark, week, year, Site) %>%
     summarize(
       sampled  = sum(sampled)
     , captured = sum(captured, na.rm = T)
@@ -103,17 +108,20 @@ capt_history <- expand.grid(
     , bd_load  = sum(bd_load, na.rm = T)
     ) %>% 
    mutate(
-      sampled  = ifelse(sampled > 1, 1, sampled)
-    , captured = ifelse(captured > 1, 1, captured)
-    , swabbed  = ifelse(swabbed > 1, 1, swabbed)
+      sampled     = ifelse(sampled > 1, 1, sampled)
+    , captured    = ifelse(captured > 1, 1, captured)
+    , swabbed     = ifelse(swabbed > 1, 1, swabbed)
     , log_bd_load = log(bd_load + 1)                           ### eeek!
     , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load) ### eeek X2!!
-    ) %>% 
-   mutate(Mark = as.factor(Mark)) %>% 
-   mutate(Mark = as.numeric(Mark))
+    )
 
-## Add a column for each unique sampling week and all weeks
-capt_history %<>% ungroup() %>% arrange(year, week, Mark) %>% mutate(
+capt_history.t %<>% mutate(Mark = as.factor(Mark)) %>%
+  mutate(Mark = as.numeric(Mark) + all_ind)
+all_ind <- all_ind + max(capt_history.t$Mark)
+
+capt_history.t %<>% ungroup() %>% 
+  arrange(year, week, Mark, Site) %>% 
+  mutate(
    week_year  = interaction(week, year)
  , week_year  = as.factor(week_year)
  , week_year  = as.numeric(week_year)
@@ -121,25 +129,15 @@ capt_history %<>% ungroup() %>% arrange(year, week, Mark) %>% mutate(
  , cont_weeks = (52 * year_f) + week
 )
 
-## Quick double check to see how collapsing to week held up
-capt_history %>% filter(swabbed == 1) %>%  {
-  ggplot(., aes(week, log_bd_load)) + 
-    geom_line(aes(group = Mark)) +
-    facet_wrap(~year) +
-    xlab("Week") +
-    ylab("Bd Load") 
+if (i == 1) {
+capt_history <- capt_history.t
+} else {
+capt_history <- rbind(capt_history, capt_history.t)
 }
-
-## Try a small subset to see if the model will run (regardless of whether it will fit or not)
-if (red_ind) {
-  capt_history.well_meas <- capt_history %>% 
-  group_by(Mark) %>%
-  summarize(total_capt = sum(captured)) %>% 
-  filter(total_capt > red_total_capt) %>% 
-  droplevels()
-  
-  capt_history %<>% filter(Mark %in% capt_history.well_meas$Mark)
-} 
+   
+}
+ 
+capt_history %<>% arrange(Mark, year, Site, week)
 
 ## individuals' measured bd 
 capt_history.bd_load <- capt_history %>% 
@@ -170,7 +168,7 @@ capt_history %>% mutate(event = week) %>% {
     geom_tile(aes(alpha = sampled)) +
     geom_point(data = capt_history %>% mutate(event = week) %>% 
         filter(swabbed == 1), aes(x = week, y = Mark, z = NULL), lwd = 0.7) +
-    facet_wrap(~year) +
+    facet_grid(Site~year) +
     xlab("Week of the year") +
     ylab("Individual") +
     scale_fill_manual(
@@ -180,11 +178,19 @@ capt_history %>% mutate(event = week) %>% {
     guides(alpha = FALSE) +
     theme(
       axis.text.y = element_text(size = 6)
-  #  , axis.text.x = element_text(size = 8, angle = 300)
     , legend.text = element_text(size = 12)
     , legend.key.size = unit(.55, "cm")
     ) 
 }
+
+rand_inds    <- sort(sample(length(unique(capt_history$Mark)), 100))
+capt_history %<>% filter(Mark %in% rand_inds)
+capt_history %<>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
+capture_range <- capture_range[rand_inds, ]
+capt_history.bd_load <- capt_history %>% 
+  ungroup() %>%
+  arrange(Mark, week_year) %>%
+  filter(swabbed == 1)
 
 ####
 ## Data in the needed structure for the stan model
@@ -192,79 +198,118 @@ capt_history %>% mutate(event = week) %>% {
 
 ## Numbers and lengths of things
 n_periods <- length(unique(capt_history$year))
-n_ind     <- length(unique(capt_history$Mark))  
+n_ind     <- length(unique(capt_history$Mark)) 
+n_ind.per <- capt_history %>% group_by(Site) %>%
+  summarize(n_ind = length(unique(Mark))) %>% 
+  dplyr::select(-Site) %>% as.matrix()
 n_times.w <- length(seq(week_range[1], week_range[2]))
 n_times.a <- length(seq(week_range[1], week_range[2])) * n_periods
-n_occ     <- sampled_weeks %>% group_by(year) %>%
-  summarize(n_occ = length(unique(week)))
-n_occ     <- n_occ$n_occ
+n_occ     <- sampled_weeks %>% group_by(year, Site) %>%
+  summarize(n_occ = length(unique(week))) %>% 
+  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  ungroup() %>%
+  dplyr::select(-year) %>% as.matrix()
 
 ## Vectors for detection
-capt_history.p   <- capt_history %>% filter(sampled == 1) %>% 
-  arrange(Mark) %>% ungroup()
+capt_history.p   <- capt_history %>% 
+  filter(sampled == 1) %>% 
+  ungroup()
 
 p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>% 
   group_by(Mark) %>% 
   summarize(first_index = min(index)))$first_index
 
-## check to make sure things are aligning properly
-if ((p_first_index[2] - p_first_index[1]) != sum(n_occ)) {
-  print("Gaps between p indexes doesn't match number of sampling events")
-}
-
 ## determine the first period in which each individual was present
-first_capt <- capt_history.p %>% group_by(Mark, year) %>% 
+first_capt <- capt_history.p %>% 
+  group_by(Mark, year, Site) %>% 
   summarize(capt = sum(captured)) %>% 
   mutate(capt = cumsum(capt)) %>% 
   mutate(capt = ifelse(capt > 0, 1, 0)) 
 
 ## time periods in which we do not know if an individual was present or not
-p_zeros <- matrix(data = 0, nrow = n_ind, ncol = sum(n_occ))
-for (i in 1:n_ind) {
-  p_zeros[i, ] <- rep(first_capt[first_capt$Mark == unique(first_capt$Mark)[i], ]$capt, n_occ)
+for (k in 1:n_sites) {
+p_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, k]))
+for (i in 1:n_ind.per[k, 1]) {
+  tdat <- first_capt %>% filter(Site == u_sites[k])
+  tdat %<>% filter(Mark == unique(tdat$Mark)[i])
+  p_zeros[i, ] <- rep(tdat$capt, n_occ[, k])
   p_zeros[i, ] <- ifelse(cumsum(p_zeros[i, ]) > 0, 1, 0)
-  }
-p_zeros   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+}
+p_zeros.t   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
 
-capt_history.p$p_zeros <- p_zeros
+if (k == 1) {
+p_zeros.a <- p_zeros.t
+} else {
+p_zeros.a <- c(p_zeros.a, p_zeros.t)
+}
+}
+
+capt_history.p$p_zeros <- p_zeros.a
 
 ## Vectors for survival
-last_week        <- max(capt_history[capt_history$sampled == 1, ]$week_year)
-capt_history.phi <- capt_history %>% filter(week_year != last_week, sampled == 1) %>% 
-  arrange(Mark) %>% ungroup()
+last_week        <- capt_history %>% group_by(Site) %>% 
+  filter(sampled == 1) %>% summarize(last_week = max(week_year))
+capt_history.phi <- capt_history %>% 
+  left_join(., last_week) %>%
+  filter(week_year != last_week, sampled == 1) %>% ungroup()
 
 ## Determine the number of time periods that elapse between back to back samples
-the_weeks <- capt_history %>% 
+the_weeks.a <- capt_history %>% 
   filter(sampled == 1) %>% 
+  group_by(Site) %>%
   summarize(cont_weeks = unique(cont_weeks))
-the_weeks <- the_weeks$cont_weeks
-time_gaps <- (the_weeks - lag(the_weeks, 1))[-1]
+
+for (k in 1:n_sites) {
+  the_weeks.t <- (the_weeks.a %>% filter(Site == u_sites[k]))$cont_weeks
+  time_gaps.t <- (the_weeks.t - lag(the_weeks.t, 1))[-1]
+  
+  time_gaps.ta <- rep(time_gaps.t, n_ind.per[k, 1])
+  
+  if (k == 1) {
+   time_gaps   <- time_gaps.t
+   time_gaps.a <- time_gaps.ta
+  } else {
+   time_gaps   <- c(time_gaps, time_gaps.t)
+   time_gaps.a <- c(time_gaps.a, time_gaps.ta)
+  }
+}
 
 ## Weeks between sampling events
-capt_history.phi %<>% mutate(time_gaps = rep(time_gaps, n_ind))
+capt_history.phi %<>% mutate(time_gaps = time_gaps.a)
 
 ## Offseason vector (not the best strategy, but ok)
 capt_history.phi %<>% mutate(offseason = ifelse(time_gaps > 20, 1, 0))
 
-phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% group_by(Mark) %>% 
-  summarize(first_index = min(index)))$first_index
-
-## check to make sure things are aligning properly
-if ((phi_first_index[2] - phi_first_index[1]) != (sum(n_occ) - 1)) {
-  print("Gaps between phi indexes doesn't match number of sampling events minus 1")
-}
+phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% 
+    group_by(Mark) %>% 
+    summarize(first_index = min(index)))$first_index
 
 ## Indices for which entries of phi must be 0
-phi_zeros <- matrix(data = 0, nrow = n_ind, ncol = sum(n_occ) - 1)
-for (i in 1:n_ind) {
-  phi_zeros[i, ] <- c(
-    rep(1, capture_range$first[i] - 1)
-  , rep(0, ncol(phi_zeros) - (capture_range$first[i] - 1))
-    )
-}
-phi_zeros   <- (phi_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+for (k in 1:n_sites) {
+phi_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, k]) - 1)
 
-capt_history.phi$phi_zeros <- phi_zeros
+for (i in 1:n_ind.per[k, 1]) {
+  tdat <- first_capt %>% filter(Site == u_sites[k])
+  tdat %<>% filter(Mark == unique(tdat$Mark)[i])
+  this_ind <- tdat$Mark[1]
+
+  phi_zeros[i, ] <- c(
+    rep(1, capture_range$first[this_ind] - 1)
+  , rep(0, ncol(phi_zeros) - (capture_range$first[this_ind] - 1))
+  )
+  
+}
+
+phi_zeros.t   <- (phi_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+
+if (k == 1) {
+phi_zeros.a <- phi_zeros.t
+} else {
+phi_zeros.a <- c(phi_zeros.a, phi_zeros.t)
+}
+}
+
+capt_history.phi$phi_zeros <- phi_zeros.a
 
 ####
 ## Other needed covaraites 
@@ -274,24 +319,31 @@ capt_history.phi$phi_zeros <- phi_zeros
 temp <- expand.grid(
   year = unique(A11$year)
 , week = seq(week_range[1], week_range[2])
+, Site = unique(A11$Site)
 )
 
 temp_have <- A11 %>% 
-  group_by(year, week) %>% 
+  group_by(year, week, Site) %>% 
   summarize(temp = mean(Site_temp, na.rm = T))
 
-## For the first run just get 2018 temp to be 2020 temp
-temp_have[1:8, 3] <- temp_have[c(21, 9, 10, 11, 12, 15, 18, 21), 3]
+temp %<>% left_join(., temp_have)
 
-temp <- left_join(temp, temp_have)
+temp.lm <- lm(
+  temp ~ week
+, data = temp
+)
 
-## For now do a really ugly imputation to just get the model running
-temp %<>% group_by(week) %>% mutate(temp = ifelse(is.na(temp), mean(temp, na.rm = T), temp))
-temp[c(7:9), ]$temp   <- (temp[c(10:12), ]$temp - temp[c(4:6), ]$temp) + temp[c(4:6), ]$temp
-temp[c(22:24), ]$temp <- (temp[c(25:27), ]$temp - temp[c(19:21), ]$temp) + temp[c(19:21), ]$temp
+predvals <- data.frame(
+  week     = sort(unique(temp$week))
+, predvals = predict(temp.lm, newdata = data.frame(week = sort(unique(temp$week))))
+  )
 
-temp %<>% arrange(year, week) 
-temp <- as.matrix(temp[, 3])
+temp %<>% left_join(., predvals) %>% mutate(temp = ifelse(is.na(temp), predvals, temp))
+
+temp <- temp %>% arrange(year, week, Site) %>% 
+  dplyr::select(-predvals) %>% pivot_wider(names_from = Site, values_from = temp) %>%
+  dplyr::select(-year, -week) 
+temp <- as.matrix(temp)
 
 ####
 ## Run the stan model
@@ -305,20 +357,20 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan_data     <- list(
   
   ## dimensional indexes 
-   n_pop           = 1
+   n_pop           = n_sites
  , n_periods       = n_periods
  , n_ind           = n_ind
  , n_times         = n_times.a
  , times_within    = n_times.w
- , ind_occ         = sum(n_occ) * n_ind
- , ind_occ_min1    = (sum(n_occ) - 1) * n_ind
+ , ind_occ         = sum(colSums(n_occ) * c(n_ind.per))
+ , ind_occ_min1    = sum((colSums(n_occ) - 1) * c(n_ind.per))
   
   ## short vector indexes 
  , time              = rep(seq(n_times.w), n_periods)
  , time_per_period   = matrix(data = seq(n_times.w * n_periods), nrow = n_times.w, ncol = n_periods)
  , periods           = rep(seq(n_periods), each = n_times.w)
- , ind_occ_size      = rep(sum(n_occ), n_ind)
- , ind_occ_min1_size = rep(sum(n_occ) - 1, n_ind)
+ , ind_occ_size      = rep(colSums(n_occ), n_ind.per)
+ , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)
  , ind_in_pop        = rep(1, n_ind)
 
  , phi_first_index   = phi_first_index
@@ -328,13 +380,13 @@ stan_data     <- list(
  , ind_occ_min1_rep    = capt_history.phi$Mark
  , sampling_events_phi = capt_history.phi$week_year
  , offseason           = capt_history.phi$offseason
- , pop_phi             = rep(1, nrow(capt_history.phi))
+ , pop_phi             = as.numeric(as.factor(capt_history.phi$Site))
  , phi_zeros           = capt_history.phi$phi_zeros
 
  , ind_occ_rep       = capt_history.p$Mark
  , sampling_events_p = capt_history.p$week
  , periods_occ       = as.numeric(as.factor(capt_history.p$year))
- , pop_p             = rep(1, nrow(capt_history.p))
+ , pop_p             = as.numeric(as.factor(capt_history.p$Site))
  , p_zeros           = capt_history.p$p_zeros
 
   ## covariates

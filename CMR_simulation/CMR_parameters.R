@@ -6,7 +6,7 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 1
+n_pop      <- 3
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
@@ -33,8 +33,9 @@ times     <- matrix(data = rep(20, n_pop)
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp      <- matrix(data = 10
-    # rpois(periods[1, ] * n_pop, 8)
+samp      <- matrix(
+  # data = 10
+    data = rpois(periods[1, ] * n_pop, 8)
   , ncol = periods[1, ], nrow = n_pop)
 # samp      <- mapply(rep, samp, periods) %>% t()
 
