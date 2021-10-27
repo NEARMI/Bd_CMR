@@ -9,10 +9,13 @@
 ## Extension of model_fitting.R for multiple populations
 
 ####
-## Notes as of OCT 26:
+## Notes as of OCT 27:
 ####
 
-## Working to convert model_fitting.R to work for all populations
+## 1) No real issue with using locations with no measures in a given year
+  ## -- apart from the fact that ATM latent bd is estimated in these years which is inefficient
+  ## -- and gamma for those years is not informed so is just an extra parameter whose prior is sampled
+## 2) Multi-pop empirical model constructed and seems fine, need to run on the desktop
 
 ####
 ## Packages and functions
@@ -51,13 +54,17 @@ if (red_ind) {
 red_total_capt <- 4        ## minimum number of recaptures to keep an individual in an analysis
 }
 
+Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(year)))
+unique((Bd_Newts_AllSites %>% filter(Site == "A04"))$year)
+
 ## Just select one site for now for a trial fit
 A11 <- Bd_Newts_AllSites %>% 
   filter(SA == "PA") %>% 
-  filter(Site == "P1" | Site == "A11") %>%
+  filter(Site == "A04" | Site == "A11") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 
-  filter(!is.na(Site))
+  filter(!is.na(Site)) %>% 
+  arrange(Site)
 
 n_sites <- length(unique(A11$Site))
 u_sites <- unique(A11$Site)
@@ -206,9 +213,13 @@ n_times.w <- length(seq(week_range[1], week_range[2]))
 n_times.a <- length(seq(week_range[1], week_range[2])) * n_periods
 n_occ     <- sampled_weeks %>% group_by(year, Site) %>%
   summarize(n_occ = length(unique(week))) %>% 
+  mutate(Site = factor(Site, levels = u_sites)) %>%
+  arrange(Site) %>%
   pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  arrange(year) %>%
   ungroup() %>%
   dplyr::select(-year) %>% as.matrix()
+n_occ[is.na(n_occ)] <- 0
 
 ## Vectors for detection
 capt_history.p   <- capt_history %>% 
@@ -228,11 +239,12 @@ first_capt <- capt_history.p %>%
 
 ## time periods in which we do not know if an individual was present or not
 for (k in 1:n_sites) {
-p_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, k]))
+p_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, u_sites[k]]))
 for (i in 1:n_ind.per[k, 1]) {
   tdat <- first_capt %>% filter(Site == u_sites[k])
   tdat %<>% filter(Mark == unique(tdat$Mark)[i])
-  p_zeros[i, ] <- rep(tdat$capt, n_occ[, k])
+  rep.t <- n_occ[, u_sites[k]]; rep.t <- rep.t[which(rep.t != 0)]
+  p_zeros[i, ] <- rep(tdat$capt, rep.t)
   p_zeros[i, ] <- ifelse(cumsum(p_zeros[i, ]) > 0, 1, 0)
 }
 p_zeros.t   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
@@ -286,7 +298,7 @@ phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>%
 
 ## Indices for which entries of phi must be 0
 for (k in 1:n_sites) {
-phi_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, k]) - 1)
+phi_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, u_sites[k]]) - 1)
 
 for (i in 1:n_ind.per[k, 1]) {
   tdat <- first_capt %>% filter(Site == u_sites[k])
@@ -407,7 +419,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_simulation/CMR_empirical.stan"
+  file    = "CMR_simulation/CMR_empirical_pr.stan"
 , data    = stan_data
 , chains  = 1
 , refresh = 20
@@ -425,7 +437,7 @@ shinystan::launch_shinystan(stan.fit)
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
-bd_levels <- log(c(seq(1, 10, by = 0.5) %o% 10^(0:5)))
+bd_levels <- log(c(seq(1, 8, by = 0.5) %o% 10^(0:5)))
 
 ####
 ## Recovery of simulated coefficients?
@@ -511,7 +523,7 @@ stan.pred %>% {
     ylab("Predicted detection probability")
 }
 
-between_seas <- stan.fit.samples$phi[, (phi_first_index + 10 + 7)]
+between_seas <- stan.fit.samples$phi[, (phi_first_index[-c(1:19)] + 8 + 12)]
 between_seas <- reshape2::melt(between_seas)
 between_seas %<>% filter(value != 0)
 

@@ -222,7 +222,6 @@ first_capt <- capt_history.p %>% group_by(Mark, year) %>%
 p_zeros <- matrix(data = 0, nrow = n_ind, ncol = sum(n_occ))
 for (i in 1:n_ind) {
   p_zeros[i, ] <- rep(first_capt[first_capt$Mark == unique(first_capt$Mark)[i], ]$capt, n_occ)
-  p_zeros[i, ] <- ifelse(cumsum(p_zeros[i, ]) > 0, 1, 0)
   }
 p_zeros   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
 
