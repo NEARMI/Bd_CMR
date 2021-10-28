@@ -33,7 +33,7 @@ data {
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=1> int_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
+	int<lower=1> ind_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
 	int<lower=0> ind_time;				    // n_ind * n_times, summed over the sampling of all populations
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
 	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
@@ -71,6 +71,8 @@ data {
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
+	int<lower=0> bd_first_index[ind_per_period];	    // First entry of latent bd associated with each individual 'by' period
+	int<lower=0> bd_last_index[ind_per_period];	    // Last entry of latent bd associated with each individual 'by' period
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
   // captures
@@ -121,7 +123,7 @@ parameters {
 // other
 // -----	
 
-	vector<lower=0,upper=1>[int_per_period] gamma;
+	vector<lower=0,upper=1>[ind_per_period] gamma;
 
 }
 
@@ -132,6 +134,7 @@ transformed parameters {
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
 	real X[ind_time];			   // latent bd
+	real X_stat[ind_per_period];		   // yearly summaries of 
  		
 	real bd_ind[n_ind];                        // Individual random effect deviates
 
@@ -158,6 +161,11 @@ transformed parameters {
 
         }
 
+	for (t in 1:ind_per_period) {
+	 
+	 X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
+	}
+
 // -----
 // Survival probability over the whole period
 // -----
@@ -170,7 +178,7 @@ transformed parameters {
            phi[t] = inv_logit(
                       beta_phi[1]                    + 
                       beta_timegaps  * time_gaps[t]  +
-                      beta_offseason * offseason[t]  +	
+                      beta_offseason * X_stat[ind_occ_min1_rep[t]] * offseason[t]  +		// only called upon if offseason == 1
                       beta_phi[2] * X[phi_bd_index[t]]
                     );
 	 }  

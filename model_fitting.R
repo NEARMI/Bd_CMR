@@ -48,7 +48,7 @@ Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date))
 }
 
 ## Some parameters
-red_ind        <- FALSE    ## TRUE   = reduce the number of individuals for debugging purposes
+red_ind        <- TRUE    ## TRUE   = reduce the number of individuals for debugging purposes
 if (red_ind) {
   red_ind.count <- 50
 }
@@ -234,6 +234,7 @@ test_ind <- ifelse(test_ind > red_ind.count, red_ind.count, test_ind)
 ## pull out the appropriate individuals from each location
 for (i in 1:n_sites) {
   temp_dat  <- capt_history %>% filter(Site == u_sites[i])
+  # rand_inds <- (capt_history %>% group_by(Mark) %>% summarize(num_capt = sum(captured)) %>% arrange(desc(num_capt)) %>% filter(num_capt > 3))$Mark
   rand_inds <- sort(sample(unique(temp_dat$Mark), test_ind[i, 1]))
   temp_dat  <- temp_dat %>% filter(Mark %in% rand_inds)
   if (i == 1) {
@@ -356,12 +357,6 @@ time_gaps <- (capt_history %>%
  
 capt_history.phi %<>% mutate(time_gaps = time_gaps)
 
-## Find the offseasons
-capt_history.phi %>% 
-  group_by(Site) %>%
-  arrange(desc(time_gaps)) %>%
-  slice(1:length(unique(year)))
-
 ## Offseason vector 
 capt_history.phi %<>% 
   group_by(Site) %>%
@@ -408,8 +403,16 @@ capt_history.phi$phi_zeros <- phi_zeros.a
 
 ## Latent bd is estimated over the whole time period and not just for the capture occasions,
  ## though bd on the capture occasions are used to determine detection and survival. Need to
-  ## detemine what entries of phi, and p correspond to the full time period bd. This is done here
+  ## determine what entries of phi, and p correspond to the full time period bd. This is done here
 
+## for calculating summaries of latent bd for between season survival
+bd_first_index <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, year, Site) %>% 
+  summarize(first_index = min(index)))$first_index
+bd_last_index  <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, year, Site) %>% 
+  summarize(last_index = max(index)))$last_index
+  
 ## Index for every entry of bd (all time points)
 capt_history %<>% mutate(index = seq(n()))
 
@@ -438,7 +441,6 @@ x_bd_index <- (left_join(
   ))$index
 
 capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
-
 
 ####
 ## Finally, deal with any other needed covariates 
@@ -482,7 +484,7 @@ stan_data     <- list(
   ## dimensional indexes 
    n_pop           = n_sites
  , n_ind           = n_ind
- , int_per_period  = sum(year_range$n_years * n_ind.per)
+ , ind_per_period  = sum(year_range$n_years * n_ind.per)
   
  , ind_time        = sum((week_range[, 3] - week_range[, 2] + 1) * year_range$n_years * n_ind.per)
  , ind_occ         = sum(colSums(n_occ) * c(n_ind.per))
@@ -492,8 +494,8 @@ stan_data     <- list(
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)
  , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)
 
- , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index
+ , phi_first_index   = phi_first_index
   
   ## long vector indexes
  , ind_occ_rep       = capt_history.p$Mark
@@ -511,15 +513,17 @@ stan_data     <- list(
  , phi_zeros           = capt_history.phi$phi_zeros
  , phi_bd_index        = capt_history.phi$phi_bd_index
 
- , ind_bd_rep         = capt_history$Mark
- , sampling_events_bd = capt_history$week
- , ind_in_pop         = as.numeric(as.factor(capt_history$Site))
- , temp               = capt_history$temp
+ , ind_bd_rep          = capt_history$Mark
+ , sampling_events_bd  = capt_history$week
+ , ind_in_pop          = as.numeric(as.factor(capt_history$Site))
+ , temp                = capt_history$temp
 
   ## covariates
  , N_bd            = nrow(capt_history.bd_load)
  , X_bd            = capt_history.bd_load$log_bd_load  
  , x_bd_index      = capt_history.bd_load$x_bd_index
+ , bd_first_index  = bd_first_index
+ , bd_last_index   = bd_last_index
  , time_gaps       = capt_history.phi$time_gaps
   
   ## Capture data
@@ -545,8 +549,6 @@ stan.fit  <- stan(
 # saveRDS(stan.fit, "stan.fit.empirical.Rds")
 # stan.fit <- readRDS("stan.fit.empirical.Rds")
 # stan.fit.samples <- readRDS("CMR_simulation/phi.samples.Rds")
-
-
 
 shinystan::launch_shinystan(stan.fit)
 
@@ -652,6 +654,20 @@ between_seas %>% {
 ####
 ## What does predicted overall bd look like?
 ####
+
+capt_history %<>% mutate(est_bd = colMeans(stan.fit.samples$X))
+
+capt_history %>% filter(year == 2019) %>% {
+  ggplot(., aes(cont_weeks, est_bd)) + geom_line(aes(group = Mark)) +
+    geom_line(
+      data = capt_history %>% filter(year == 2019) %>% filter(swabbed == 1)
+     , aes(cont_weeks, log_bd_load, group = Mark), colour = "red"
+      )
+}
+
+
+
+
 stan.pred     <- matrix(nrow = length(unique(capt_history$week)), ncol = 1000, data = 0)
 stan.pred.ind <- array(dim = c(length(unique(capt_history$Mark)), length(unique(capt_history$week)), 1000), data = 0)
 samp_occ      <- seq(length(unique(capt_history$week)))
