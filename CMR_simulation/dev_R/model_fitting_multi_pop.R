@@ -9,15 +9,6 @@
 ## Extension of model_fitting.R for multiple populations
 
 ####
-## Notes as of OCT 27:
-####
-
-## 1) No real issue with using locations with no measures in a given year
-  ## -- apart from the fact that ATM latent bd is estimated in these years which is inefficient
-  ## -- and gamma for those years is not informed so is just an extra parameter whose prior is sampled
-## 2) Multi-pop empirical model constructed and seems fine, need to run on the desktop
-
-####
 ## Packages and functions
 ####
 needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
@@ -60,7 +51,7 @@ unique((Bd_Newts_AllSites %>% filter(Site == "A04"))$year)
 ## Just select one site for now for a trial fit
 A11 <- Bd_Newts_AllSites %>% 
   filter(SA == "PA") %>% 
-  filter(Site == "A04" | Site == "A11") %>%
+  filter(Site == "A04" | Site == "A11" | Site == "A05" | Site == "A10") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 
   filter(!is.na(Site)) %>% 
@@ -123,8 +114,10 @@ capt_history.t <- expand.grid(
     )
 
 capt_history.t %<>% mutate(Mark = as.factor(Mark)) %>%
-  mutate(Mark = as.numeric(Mark) + all_ind)
-all_ind <- all_ind + max(capt_history.t$Mark)
+  mutate(Mark = as.numeric(Mark))
+n_inds <- max(capt_history.t$Mark)
+capt_history.t %<>% mutate(Mark = Mark + all_ind)
+all_ind <- all_ind + n_inds
 
 capt_history.t %<>% ungroup() %>% 
   arrange(year, week, Mark, Site) %>% 
@@ -142,6 +135,8 @@ capt_history <- capt_history.t
 capt_history <- rbind(capt_history, capt_history.t)
 }
    
+print(paste("Through", i, "of", n_sites, "sites", sep = " "))
+
 }
  
 capt_history %<>% arrange(Mark, year, Site, week)
@@ -190,9 +185,28 @@ capt_history %>% mutate(event = week) %>% {
     ) 
 }
 
-rand_inds    <- sort(sample(length(unique(capt_history$Mark)), 100))
-capt_history %<>% filter(Mark %in% rand_inds)
-capt_history %<>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
+test_ind <- capt_history %>% group_by(Site) %>%
+  summarize(n_ind = length(unique(Mark))) %>% 
+  dplyr::select(-Site) %>% as.matrix()
+test_ind <- ifelse(test_ind > 100, 100, test_ind)
+
+rand_inds <- matrix(
+  nrow = 4,
+  ncol = 15
+)
+for (i in 1:n_sites) {
+  temp_dat       <- capt_history %>% filter(Site == u_sites[i])
+  rand_inds[i, ] <- sort(sample(unique(temp_dat$Mark), test_ind[i, 1]))
+  temp_dat  <- temp_dat %>% filter(Mark %in% rand_inds[i, ])
+  if (i == 1) {
+    temp_dat.a <- temp_dat
+  } else {
+   temp_dat.a <- rbind(temp_dat.a, temp_dat) 
+  }
+}
+
+rand_inds     <- unique(temp_dat.a$Mark)
+capt_history  <- temp_dat.a %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
 capture_range <- capture_range[rand_inds, ]
 capt_history.bd_load <- capt_history %>% 
   ungroup() %>%
