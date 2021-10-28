@@ -32,27 +32,17 @@ data {
 
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
-	int<lower=1> n_periods;				    // Total number of seasons/years (the "on" period where sampling occurs) over which individuals are captured
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=n_periods> n_times;		    	    // Sum of total time points modeled within each season across all seasons/years 
- 
-	int<lower=1> times_within;			    // number of time periods in each season		
-
+	int<lower=1> int_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
+	int<lower=0> ind_time;				    // n_ind * n_times, summed over the sampling of all populations
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
 	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
 	
-  // dimensional and bookkeeping params (vectors)
-	int<lower=0> time[n_times];		 	                          // Vector indicating time (e.g., weeks) *!within each season!*
-	int<lower=0, upper=n_times> time_per_period[times_within, n_periods];     // Matrix of indices of time per period for subsetting X			 
-	int<lower=0> periods[n_times];			                          // Vector designating periods for bd model (all times)
-	
-	int<lower=1> ind_occ_size[n_ind];					  // Number of sampling periods for all individuals
-	int<lower=1> ind_occ_min1_size[n_ind];					  // Number of sampling periods -1 for all individuals
-	
-	int<lower=1> ind_in_pop[n_ind];						  // population in which each individual resides	
-
-	int<lower=1> phi_first_index[n_ind];				          // The indexes of phi corresponding to the first entry for each individual
-	int<lower=1> p_first_index[n_ind];				          // The indexes of p corresponding to the first entry for each individual
+  // dimensional and bookkeeping params (vectors)	
+	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
+	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
+	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
+	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -60,6 +50,8 @@ data {
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
+	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
+	int<lower=1> gamma_index[ind_occ];		    // gamma value associated with each entry of p
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
@@ -67,18 +59,24 @@ data {
 	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
+	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
+
+  // long vector indices for bd model (bd)
+	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
+	int<lower=0> sampling_events_bd[ind_time];	    // All of the weeks on which latent bd is modeled in each population 
+	int<lower=1> ind_in_pop[ind_time];		    // population associated with each estimated bd level
+	real	     temp[ind_time];			    // temperature associated with each estimated bd level
 	  
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
-  	int<lower=1, upper=n_ind> ii_bd[N_bd];	            // individual index that defines each bd entry
-  	int<lower=1, upper=n_times> tt_bd[N_bd];            // occasion index that defines each bd entry
-	matrix[n_times, n_pop] temp;			    // Temperature covariate in each population
+	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
+
   	int<lower=0> first[n_ind];         		    // Capture event in which each individual was first captured
   	int<lower=0> last[n_ind];         		    // Capture event in which each individual was last captured
 
@@ -131,7 +129,7 @@ parameters {
 // other
 // -----	
 
-	matrix<lower=0,upper=1>[n_ind, n_periods] gamma; // probability of each individual seen in subsequent periods actually having been in the population previously
+	vector<lower=0,upper=1>[int_per_period] gamma;
 
 }
 
@@ -140,10 +138,9 @@ transformed parameters {
 	real<lower=0,upper=1> phi[ind_occ_min1];   // survival from t to t+1, each individual repeated the number of times its population was measured
 	real<lower=0,upper=1> p[ind_occ];          // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
- 
-	matrix[n_ind, n_times] X;	   	   // Estimated "true" bd for all of the caught individuals with no bd measured
-	matrix[n_ind, n_periods] X_max; 	   // summaries of X	
-		
+
+	real X[ind_time];			   // latent bd
+ 		
 	real bd_ind[n_ind];                        // Individual random effect deviates
 	real bd_pop[n_pop];
 	real phi_pop[n_pop];
@@ -163,22 +160,16 @@ transformed parameters {
 
   	  bd_ind[i] = bd_delta_sigma * bd_delta_eps[i];  
 
+	}
+
+	for (t in 1:ind_time) {
+
 		// latent bd model before obs error
 
-	 for (t in 1:n_times) {
-	  X[i, t]   = (bd_pop[ind_in_pop[i]] + bd_ind[i])    +
-		      beta_bd[1] * time[t]                   +
-		      beta_bd[2] * square(time[t])           + 
-		      beta_bd[3] * temp[t, ind_in_pop[i]];      
-	 }
-
-	 for (tp in 1:n_periods) {
-
-		// calculation of the maximum bd load experienced in a year (could also be cumulative)
-
-          X_max[i, tp] = max(X[i, time_per_period[1, tp]:time_per_period[times_within, tp]]);	
-   
-	 }
+	  X[t] = (bd_pop[ind_in_pop[t]] + bd_ind[ind_bd_rep[t]]) +
+		      beta_bd[1] * sampling_events_bd[t]         +
+		      beta_bd[2] * square(sampling_events_bd[t]) + 
+		      beta_bd[3] * temp[t];      
 
         }
 
@@ -195,7 +186,7 @@ transformed parameters {
                       beta_phi                       + 
                       beta_timegaps  * time_gaps[t]  +
                       beta_offseason * offseason[t]  +	
-                      phi_pop[pop_phi[t]] * X[ind_occ_min1_rep[t], sampling_events_phi[t]]
+                      phi_pop[pop_phi[t]] * X[phi_bd_index[t]]
                     );
 	 }  
 
@@ -211,9 +202,9 @@ transformed parameters {
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t], sampling_events_p[t]]);
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]);
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t], sampling_events_p[t]]) * gamma[ind_occ_rep[t], periods_occ[t]];
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -263,10 +254,10 @@ model {
 
 	for (i in 1:n_ind) {
 	  bd_delta_eps[i]   ~ normal(0, 3);
-         for (j in 1:n_periods) {
-          gamma[i, j]       ~ uniform(0, 1);
-	 }
 	}
+         
+        gamma       ~ uniform(0, 1);
+
 
 // -----
 // Bd Process and Data Model
@@ -275,7 +266,7 @@ model {
 		// observed bd is the linear predictor + some observation noise
 
 	for (t in 1:N_bd) {
-          X_bd[t] ~ normal(X[ii_bd[t], tt_bd[t]], bd_obs); 
+          X_bd[t] ~ normal(X[x_bd_index[t]], bd_obs); 
 	} 
     
 // -----
@@ -300,3 +291,5 @@ generated quantities {
  
           
 }
+
+
