@@ -66,7 +66,7 @@ bd.sampling <- function (
   expdat
 , all_ind, new_ind, times, periods, when_samp, samp
 , inbetween, between_season_duration
-, bd_mort, bd_detect, p_mort
+, bd_mort, bd_detect, p_mort, pop_ind
 ) {
 
 ## drop new_ind random individuals from each prior period to simulate individuals that migrated into the population
@@ -327,6 +327,8 @@ expdat %<>% left_join(.
 expdat %<>% mutate(
   bd_swabbed = ifelse(is.na(bd_swabbed), 0, bd_swabbed)
 )
+
+expdat %<>% mutate(pop = pop_ind)
   
 expdat.swabbed <- expdat %>% filter(sampling_days == 1)
 
@@ -350,7 +352,6 @@ periods_time <- (expdat %>% filter(ind == unique(expdat$ind)[1]))$periods
 periods_occ  <- (expdat %>% filter(ind == unique(expdat$ind)[1]
   , sampling_days == 1))$periods
  
-
 return(list(
   expdat             = expdat
 , all_ind            = all_ind
@@ -444,11 +445,11 @@ ind_occ_p <- data.frame(
  , pop               = rep(pop_ind, length(p_zeros))
 ) %>% mutate(pop = pop_ind, ind = interaction(ind_occ_rep, pop))
 
-X_bd.m %<>% mutate(pop = pop_ind)
-
 one_pop$capture_range %<>% mutate(pop = 1, ind = interaction(ind, pop))
 
 ind_occ_size <- rep(sum(samp), one_pop$all_ind)
+
+X_bd.m %<>% mutate(pop = pop_ind)
 
 ## Add the extra tracked items to one_pop
 one_pop      <- c(one_pop, ind_occ_size = list(ind_occ_size))

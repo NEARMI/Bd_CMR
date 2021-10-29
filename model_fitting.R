@@ -334,7 +334,6 @@ capt_history.p %<>%
   mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
   mutate(gamma_index = as.numeric(gamma_index))
   
-
 ### --- Data for survival (.phi for survival) --- ###
 
 ## phi not calculable on the last time step so drop it
@@ -665,7 +664,14 @@ capt_history %>% filter(year == 2019) %>% {
       )
 }
 
+capt_history.phi %<>% mutate(phi.est = colMeans(stan.fit.samples$phi))
 
+capt_history.phi %>% 
+  filter(offseason == 1) %>% 
+  filter(phi_zeros == 0) %>% {
+  ggplot(., aes(x = phi.est)) +
+      geom_histogram(bins = 50)
+}
 
 
 stan.pred     <- matrix(nrow = length(unique(capt_history$week)), ncol = 1000, data = 0)

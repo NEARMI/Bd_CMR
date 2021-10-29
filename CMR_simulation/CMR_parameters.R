@@ -6,41 +6,41 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 3
+n_pop      <- 1
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rep(200, n_pop)
+ind       <- matrix(data = rep(30, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases). AS OF OCT 14 must be the same for all populations. To be updated later
 periods   <- matrix(data = rep(3, n_pop)
   , ncol = 1, nrow = n_pop)
 
-## individuals added in each new period.
-new_ind   <- matrix(data = rep(rep(20, n_pop), periods - 1)
-  , ncol = periods - 1, nrow = n_pop, byrow = T)
+## individuals added in each new period. Make dynamic after I figure out the rest
+new_ind <- list(
+  rep(5, periods[1, 1] - 1)
+#, rep(3, periods[2, 1] - 1)
+)
 
 ## number of individuals ever to exist in each population
-all_ind   <- matrix(data = ind + rowSums(new_ind)
+all_ind   <- matrix(data = ind + lapply(new_ind, sum) %>% unlist()
   , ncol = 1, nrow = n_pop)
 
 ## number of time periods (in the real data probably will use weeks; e.g., May-Sep or so)
- ## For now (and probably forever[?] given the structure of the bd sumbodel[?] equal by population)
 times     <- matrix(data = rep(20, n_pop)
   , ncol = 1, nrow = n_pop)
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp      <- matrix(
-  # data = 10
-    data = rpois(periods[1, ] * n_pop, 8)
-  , ncol = periods[1, ], nrow = n_pop)
-# samp      <- mapply(rep, samp, periods) %>% t()
+samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
+if (n_pop == 1) {
+  samp <- list(samp)
+}
 
 ## number of time periods that elapse between the on-season
-between_season_duration <- matrix(data = rep(20, n_pop)
+between_season_duration <- matrix(data = rep(28, n_pop)
   , ncol = 1, nrow = n_pop)   
 
 ## random = sampling occurs on a random subset of possible days
@@ -48,7 +48,10 @@ when_samp <- matrix(data = rep("random", n_pop)
   , ncol = 1, nrow = n_pop)    
 
 ## vector to designate the offseasons
-inbetween <- apply(periods, 1, FUN = function(x) seq(1.5, x, by = 1)) %>% t()
+inbetween <- apply(periods, 1, FUN = function(x) seq(1.5, x, by = 1))
+if (n_pop == 1) {
+  inbetween <- list(inbetween)
+}
 
 ####
 ## bd_parameters
@@ -100,7 +103,10 @@ bd_noinf <- matrix(
 bd_perc <- matrix(data = rep(.50, n_pop)
   , nrow = n_pop, ncol = 1)
 
-bd_drop <- sweep(samp, 1, ind, "*") %>% sweep(., 1, 1 - bd_perc, "*")
+bd_drop <- vector("list", n_pop)
+for (k in 1:n_pop) {
+bd_drop[[k]] <-  samp[[k]] * ind[k, 1] * (1 - bd_perc[k, 1])
+}
 
 ## Observation noise in bd
 obs_noise <- matrix(data = rep(3, n_pop)

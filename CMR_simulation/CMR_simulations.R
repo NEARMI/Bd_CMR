@@ -6,33 +6,18 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of OCT 19:
+## Notes as of OCT 29:
 ####
 
-## Notes:
- ## -- Covariates by population can be recovered -ok- with well sampled populations.
-   ## * Random effects model with 12 populations, rpois(20) indv per population taks about 1.2 h to run:
-    ##   -- recovers mean bd response, survival, and detection quite well
-    ##   -- recovers individual random effects no worse
-    ##   -- questionable recovery of population-specific survival parameters
-      ##     * HOWEVER, I am more confident that this will work better when population-specific parameters are added
-    ##   ^^ Can check better sampled populations to see what it takes to recover these parameters
- ## -- Latent bd could maybe get more complicated, but worried about identifiability in poorly sampled populations
-   ## * Model does reasonably fine recovering very low bd-loads for individuals that never get infected
-   ## * Worried about individuals that only get infected some years -- will need to play with blocked random effects
-   ## * Slope variation "works" but makes it hard to estimate both variation among individuals in intercept and slope. Maybe will be fine in real
-    ##  data where there is so much variation 
-   ## * To get variable timing of bd start and end I think what will be needed are parameters that directly adjust time for each location. 
-    ##  Maybe times can be the same _length_ but just have different times? (i.e., by adding a time_adj parameter)
- ## -- Have a detailed rmd and html that shows the data structures. Will work on a script to parse the real data when I move to real data 
+## -- Simulation code updated for long-form bd submodel. Working (recovers simulated parameter values) but code 
+ ## needs quite a bit of cleaning (e.g., a number of things are still not very dynamic)
 
-## Next Steps:
- ## 1) Construct the data parsing script using the newt data
- ## 2) Work on first fitting a single population and then a multi-population model with the newt data
-
-## Some things to still work on in the long run:
- ## 1) Still doesn't allow number of periods to vary by population --- that shouldn't be too hard -- just tedious
- ## 2) Doesn't allow times to vary by population -- this will be harder because X_bd is fit with a matrix and will have to be melted
+## Next need to explore:
+ ## 1) For USGS explore sampling schemes for bd -- what is needed to recover parameter values?
+ ## 2) For future use of all data -- work to decrease size of model and see what can be recovered with fewer 
+  ## samples within year
+ ## 3) Add more covariates to better soak up more variation / remove need for bd to try and capture so much
+ ## 4) Expand detection model
 
 ####
 ## Packages and misc
@@ -74,16 +59,17 @@ expdat  <- bd.simulate(
 one_pop <- bd.sampling(
   expdat    = expdat
 , all_ind   = all_ind[pop_ind, ]
-, new_ind   = new_ind[pop_ind, ]
+, new_ind   = new_ind[[pop_ind]]
 , times     = times[pop_ind, ]
 , periods   = periods[pop_ind, ]
 , when_samp = when_samp[pop_ind, ]
-, samp      = samp[pop_ind, ]
-, inbetween = inbetween[pop_ind, ]
+, samp      = samp[[pop_ind]]
+, inbetween = inbetween[[pop_ind]]
 , between_season_duration = between_season_duration[pop_ind, ]
 , bd_mort   = bd_mort[pop_ind, ]
 , bd_detect = bd_detect[pop_ind, ]
 , p_mort    = p_mort[pop_ind, ]
+, pop_ind   = pop_ind
 )
 
 one_pop.long <- bd.stan_org(
@@ -91,7 +77,7 @@ one_pop.long <- bd.stan_org(
 , pop_ind  = pop_ind
 , times    = times[pop_ind, ]
 , periods  = periods[pop_ind, ]
-, samp     = samp[pop_ind, ]
+, samp     = samp[[pop_ind]]
 )
 
 print(paste("Population", pop_ind, "Simulated", sep = " "))
@@ -102,36 +88,46 @@ ind_occ_phi.all   <- one_pop.long$ind_occ_phi
 ind_occ_p.all     <- one_pop.long$ind_occ_p
 X_bd.m.all        <- one_pop.long$X_bd.m
 capture_range.all <- one_pop.long$one_pop$capture_range
-present.all       <- one_pop.long$one_pop$present
 ind_occ_size.all  <- one_pop.long$one_pop$ind_occ_size
 all_ind.all       <- one_pop.long$one_pop$all_ind
-ind_occ.all       <- one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
-ind_occ_min1.all  <- one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
+each_ind.all      <- one_pop.long$one_pop$all_ind
+ind_occ.all       <- one_pop.long$one_pop$all_ind * sum(samp[[pop_ind]])
+ind_occ_min1.all  <- one_pop.long$one_pop$all_ind * (sum(samp[[pop_ind]]) - 1)
 pop_cov.bd.all    <- one_pop.long$pop_cov.bd
 ind_in_pop.all    <- rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind)))
+expdat.all        <- one_pop$expdat
 } else  {
 ind_occ_phi.all   <- rbind(ind_occ_phi.all, one_pop.long$ind_occ_phi)
 ind_occ_p.all     <- rbind(ind_occ_p.all, one_pop.long$ind_occ_p)
 X_bd.m.all        <- rbind(X_bd.m.all, one_pop.long$X_bd.m)
 capture_range.all <- rbind(capture_range.all, one_pop.long$one_pop$capture_range)
-present.all       <- rbind(present.all, one_pop.long$one_pop$present)
 ind_occ_size.all  <- c(ind_occ_size.all, one_pop.long$one_pop$ind_occ_size)
 all_ind.all       <- all_ind.all + one_pop.long$one_pop$all_ind
-ind_occ.all       <- ind_occ.all + one_pop.long$one_pop$all_ind * rowSums(samp)[pop_ind]
-ind_occ_min1.all  <- ind_occ_min1.all + one_pop.long$one_pop$all_ind * (rowSums(samp) - 1)[pop_ind]
+each_ind.all      <- c(each_ind.all, one_pop.long$one_pop$all_ind)
+ind_occ.all       <- ind_occ.all + one_pop.long$one_pop$all_ind * sum(samp[[pop_ind]])
+ind_occ_min1.all  <- ind_occ_min1.all + one_pop.long$one_pop$all_ind * (sum(samp[[pop_ind]]) - 1)
 pop_cov.bd.all    <- rbind(pop_cov.bd.all, one_pop.long$pop_cov.bd)
 ind_in_pop.all    <- c(ind_in_pop.all, rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind))))
+expdat.all        <- rbind(expdat.all, one_pop$expdat)
 }
 
 }
 
+## clean up expdat.all
+expdat.all %<>% ungroup() %>% 
+  arrange(pop, ind, all_times) %>% 
+  mutate(ind = interaction(ind, pop)) %>% 
+  mutate(ind = factor(ind, levels = unique(ind))) %>% 
+  mutate(ind = as.numeric(ind))
+  
 ## And the last few pieces outside of the loop
 ind_occ_min1_size.all <- ind_occ_size.all - 1
 
 ## Fix the individual numbers in X_bd.m.all
 if (n_pop > 1) {
 for (i in 2:n_pop) {
-  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
+  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + 
+    max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
 }
 }
 
@@ -146,65 +142,123 @@ phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(in
 p_first_index <- (ind_occ_p.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
   summarize(first_index = min(index)))$first_index
 
-## Adjust population-specific convariates into the correct structure
+## --------------- ##
+## Latent bd is estimated over the whole time period and not just for the capture occasions,
+ ## though bd on the capture occasions are used to determine detection and survival. Need to
+  ## determine what entries of phi, and p correspond to the full time period bd. This is done here
+temp_dat <- expdat.all %>% 
+  rename(sampling_events_phi = all_times) %>%
+  ungroup() %>%
+  arrange(ind, periods, times) %>% 
+  mutate(index = seq(n())) 
 
-## for bd
-temp <- pop_cov.bd.all %>% pivot_wider(., values_from = temp, names_from = pop)
-temp <- as.matrix(temp[, -1])
+phi.bd.index <- (left_join(
+  ind_occ_phi.all %>% dplyr::select(ind, sampling_events_phi)
+, temp_dat     %>% dplyr::select(ind, sampling_events_phi, index)
+  ))$index
 
-## for phi
+ind_occ_phi.all %<>% mutate(phi_bd_index = phi.bd.index)
 
+# ind_occ_phi.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_phi = index))
 
-## for p
+temp_dat <- expdat.all %>%
+  rename(sampling_events_p = all_times) %>%
+  ungroup() %>%
+  arrange(ind, periods, times) %>% 
+  mutate(index = seq(n())) 
 
+p.bd.index <- (left_join(
+  ind_occ_p.all %>% dplyr::select(ind, sampling_events_p)
+, temp_dat     %>% dplyr::select(ind, sampling_events_p, index)
+  ))$index
+
+ind_occ_p.all %<>% mutate(p_bd_index = p.bd.index)
+
+# ind_occ_p.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_p = index))
+
+temp_dat <- expdat.all %>% 
+  ungroup() %>%
+  arrange(ind, periods, times) %>% 
+  mutate(index = seq(n())) %>% 
+  group_by(ind, periods) %>%
+  summarize(
+    first_index = min(index)
+  , last_index  = max(index)
+    )
+
+bd_first_index <- temp_dat$first_index
+bd_last_index  <- temp_dat$last_index
+
+temp_dat <- expdat.all %>% 
+  dplyr::select(-times) %>%
+  rename(times = all_times) %>%
+  ungroup() %>%
+  arrange(ind, periods, times) %>% 
+  mutate(index = seq(n()))
+
+X.bd.index <- (left_join(
+  X_bd.m.all   %>% dplyr::select(ind, times)
+, temp_dat %>% dplyr::select(ind, times, index)
+  ))$index
+
+X_bd.m.all %<>% mutate(X_bd_index = X.bd.index)
+
+## -- end of this confusing section -- ##
 
 ####
-## Finally, run the stan model
+## Run the stan model
 ####
-
-## NOTE: OCT 15: Will need to seriously think about what to do if we want times and periods to vary by population
 
 stan_data     <- list(
   
   ## dimensional indexes 
    n_pop           = n_pop
- , n_periods       = periods[1, ] 
- , n_ind           = all_ind.all        
- , n_times         = times[1, ] * periods[1, ]
- , times_within    = times[1, ]
- , ind_occ         = ind_occ.all
- , ind_occ_min1    = ind_occ_min1.all
+ , n_ind           = all_ind.all
+ , ind_per_period  = sum(periods * each_ind.all)
   
-  ## short vector indexes 
- , time              = rep(seq(times[1, ]), periods[1, ])
- , time_per_period   = matrix(data = seq(times[1, ] * periods[1, ]), nrow = times, ncol = periods[1, ])
- , periods           = one_pop$periods_time
- , ind_occ_size      = ind_occ_size.all
- , ind_occ_min1_size = ind_occ_min1_size.all
- , ind_in_pop        = ind_in_pop.all
+ , ind_time        = sum(
+   (expdat.all %>% group_by(pop) %>% summarize(total_times   = length(unique(times))))$total_times * 
+   (expdat.all %>% group_by(pop) %>% summarize(total_periods = length(unique(periods))))$total_periods * 
+   c(each_ind.all))
+ , ind_occ         = sum(lapply(samp, sum) %>% unlist() * each_ind.all)
+ , ind_occ_min1    = sum((lapply(samp, sum) %>% unlist() - 1) * each_ind.all)
 
- , phi_first_index   = phi_first_index
+  ## short vector indexes 
+ , ind_occ_size      = rep(lapply(samp, sum) %>% unlist(), each_ind.all)
+ , ind_occ_min1_size = rep(lapply(samp, sum) %>% unlist() - 1, each_ind.all)
+
  , p_first_index     = p_first_index
+ , phi_first_index   = phi_first_index
   
   ## long vector indexes
- , ind_occ_min1_rep    = ind_occ_phi.all$ind
- , sampling_events_phi = ind_occ_phi.all$sampling_events_phi
- , offseason           = ind_occ_phi.all$offseason
- , pop_phi             = ind_occ_phi.all$pop
- , phi_zeros           = ind_occ_phi.all$phi_zeros
-
  , ind_occ_rep       = ind_occ_p.all$ind
  , sampling_events_p = ind_occ_p.all$sampling_events_p
  , periods_occ       = ind_occ_p.all$periods_occ
  , pop_p             = ind_occ_p.all$pop
  , p_zeros           = ind_occ_p.all$p_zeros
+ , p_bd_index        = ind_occ_p.all$p_bd_index
+ , gamma_index       = (ind_occ_p.all %>% mutate(ind_per = interaction(ind, periods_occ)) %>% 
+     mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
+     mutate(ind_per = as.numeric(ind_per)))$ind_per
+  
+ , ind_occ_min1_rep    = ind_occ_phi.all$ind
+ , sampling_events_phi = ind_occ_phi.all$sampling_events_p
+ , offseason           = ind_occ_phi.all$offseason
+ , pop_phi             = ind_occ_phi.all$pop
+ , phi_zeros           = ind_occ_phi.all$phi_zeros
+ , phi_bd_index        = ind_occ_phi.all$phi_bd_index
 
+ , ind_bd_rep          = expdat.all$ind
+ , sampling_events_bd  = expdat.all$times
+ , ind_in_pop          = expdat.all$pop
+ , temp                = expdat.all$temp
+  
   ## covariates
  , N_bd            = nrow(X_bd.m.all)
  , X_bd            = X_bd.m.all$bd  
- , ii_bd           = X_bd.m.all$ind
- , tt_bd           = X_bd.m.all$times
- , temp            = temp
+ , x_bd_index      = X_bd.m.all$X_bd_index
+ , bd_first_index  = bd_first_index
+ , bd_last_index   = bd_last_index
  , time_gaps       = ind_occ_phi.all$time_gaps
   
   ## Capture data
@@ -217,7 +271,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_ind_pat_bd-p-phi_multi_recruit_free_temp_db_simple_mp_cv_ir.stan"
+  file    = "../CMR_empirical_long.stan"
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -243,10 +297,8 @@ stan.fit.samples <- extract(stan.fit)
 ## Recovery of simulated coefficients?
 ####
 
-as.data.frame(stan.fit.summary[grep("beta_p", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
-
 ## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[c(1:4), c(4, 6, 8)])
+pred_coef        <- as.data.frame(stan.fit.summary[grep("beta_p", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
@@ -318,12 +370,12 @@ stan.pred %>% {
 ####
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, type = Var3, eps = value)
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
 stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
-  reshape2::melt(.) %>% rename(type = Var2, sd = value) %>%
+  reshape2::melt(.) %>% rename(sd = value) %>%
   left_join(., stan.ind_pred_eps) %>%
   mutate(eps = eps * sd) %>% 
-  group_by(ind, type) %>%
+  group_by(ind) %>%
   summarize(
     mid = quantile(eps, 0.50)
   , lwr = quantile(eps, 0.025)
@@ -338,7 +390,6 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
 ### Need to make this functioning given the new multi-population structure
 
 stan.ind_pred_var %>% 
-  filter(type == 1) %>%
   arrange(mid) %>% 
   mutate(ind = factor(ind, levels = ind)) %>% {
   ggplot(., aes(ind, mid)) +
@@ -350,9 +401,13 @@ stan.ind_pred_var %>%
     theme(axis.text.x = element_text(size = 8))
 }
 
+expdat.all %>% group_by(ind) %>% summarize(
+  tot_bd = sum(log_bd_load)
+) %>% arrange(tot_bd)
+
 ## the most extreme individual
 most_extreme <- reshape2::melt(stan.fit.samples$X[
-  , 55
+  , 37
   , ])
 names(most_extreme) <- c("samp", "time", "value")
 most_extreme %<>% 
