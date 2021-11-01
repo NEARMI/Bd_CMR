@@ -2,7 +2,7 @@
 ## Clean up simulated data and build structure for stan model
 ####
 
-## clean up expdat.all
+## clean up expdat.all (mostly to deal with individual numbers being repeated across sims)
 expdat.all %<>% ungroup() %>% 
   arrange(pop, ind, all_times) %>% 
   mutate(ind = interaction(ind, pop)) %>% 
@@ -48,8 +48,6 @@ phi.bd.index <- (left_join(
 
 ind_occ_phi.all %<>% mutate(phi_bd_index = phi.bd.index)
 
-# ind_occ_phi.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_phi = index))
-
 temp_dat <- expdat.all %>%
   rename(sampling_events_p = all_times) %>%
   ungroup() %>%
@@ -62,8 +60,6 @@ p.bd.index <- (left_join(
   ))$index
 
 ind_occ_p.all %<>% mutate(p_bd_index = p.bd.index)
-
-# ind_occ_p.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_p = index))
 
 temp_dat <- expdat.all %>% 
   ungroup() %>%
@@ -91,6 +87,3 @@ X.bd.index <- (left_join(
   ))$index
 
 X_bd.m.all %<>% mutate(X_bd_index = X.bd.index)
-
-## -- end of this confusing section -- ##
-

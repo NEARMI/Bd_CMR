@@ -33,7 +33,7 @@ data {
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=1> int_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
+	int<lower=1> ind_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
 	int<lower=0> ind_time;				    // n_ind * n_times, summed over the sampling of all populations
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
 	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
@@ -129,7 +129,7 @@ parameters {
 // other
 // -----	
 
-	vector<lower=0,upper=1>[int_per_period] gamma;
+	vector<lower=0,upper=1>[ind_per_period] gamma;
 
 }
 

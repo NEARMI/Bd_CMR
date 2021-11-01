@@ -6,7 +6,7 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 1
+n_pop      <- 3
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
@@ -14,15 +14,21 @@ n_pop      <- 1
 ind       <- matrix(data = rep(30, n_pop)
   , ncol = 1, nrow = n_pop)        
 
-## number of primary periods (years in most cases). AS OF OCT 14 must be the same for all populations. To be updated later
+## number of primary periods (years in most cases).
 periods   <- matrix(data = rep(3, n_pop)
   , ncol = 1, nrow = n_pop)
+## Play with different periods by year
+if (n_pop > 1) {
+  periods[n_pop] <- 2
+}
 
-## individuals added in each new period. Make dynamic after I figure out the rest
-new_ind <- list(
-   rep(10, periods[1, 1] - 1)
-#, rep(3, periods[2, 1] - 1)
-)
+## individuals added in each new period. A little weird to set it up this way, can
+ ## maybe try a different method later
+new_ind         <- vector("list", n_pop)
+new_ind_per_pop <- rnbinom(n_pop, 10, .5)
+for (i in 1:n_pop) {
+  new_ind[[i]] <- rep(new_ind_per_pop[i], periods[i, 1] - 1)
+}
 
 ## number of individuals ever to exist in each population
 all_ind   <- matrix(data = ind + lapply(new_ind, sum) %>% unlist()
@@ -31,11 +37,15 @@ all_ind   <- matrix(data = ind + lapply(new_ind, sum) %>% unlist()
 ## number of time periods (in the real data probably will use weeks; e.g., May-Sep or so)
 times     <- matrix(data = rep(20, n_pop)
   , ncol = 1, nrow = n_pop)
+## Play with different times per period
+if (n_pop > 1) {
+  times[n_pop] <- 15
+}
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-# samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
-samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
+samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
+# samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
 if (n_pop == 1) {
   samp <- list(samp)
 }
@@ -81,11 +91,9 @@ bd_theta  <- matrix(
 ## logistic response coefficients for mortality across log(bd_load)
 bd_mort <- matrix(
   data = c(
-    sample(seq(-0.5, -0.05, length = n_pop), n_pop)      ## logistic slope
+    sample(seq(-0.05, -0.15, length = n_pop), n_pop)      ## logistic slope
   , rep(6, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
-
-bd_mort[1, 1] <- -0.05
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
@@ -98,9 +106,6 @@ bd_noinf <- matrix(
   data = c(
     rep(0.1, n_pop)
   ), nrow = n_pop, ncol = 1, byrow = F)
-
-## OCT 14 NOTE: bd sampling sampling scheme (see Individual_CMR_expanding.R for various sampling schemes,
- ## for now just using PAT here (assume patchy bd swabbing among all captured individuals))
 
 ## proportion of all captures with bd swabs taken
 bd_perc <- matrix(data = rep(.50, n_pop)

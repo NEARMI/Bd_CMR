@@ -9,6 +9,11 @@
 ## First pass (still very rough -- will need lots of cleanup for use in a power analysis or w/e) 
  ## to explore variation in sampling and the ability of the model to 
   ## recover parameter estimates 
+## !!! Plan will be to make the parameters script use columns for sims or lists of lists to loop over
+ ## all parameters that the user feels like changing.
+ ## -- Not really a priority right now though given the need to:
+  ## 1) explore collapsing the model to better reflect much more of the real data
+  ## 2) continue with the real data (explore many more covaraites)
 
 ####
 ## Packages and misc

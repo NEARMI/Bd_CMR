@@ -6,11 +6,10 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of OCT 29:
+## Notes as of Nov 1:
 ####
 
-## -- Simulation code updated for long-form bd submodel. Working (recovers simulated parameter values) but code 
- ## needs quite a bit of cleaning (e.g., a number of things are still not very dynamic)
+## -- Still need some parameter cleaning
 
 ## Next need to explore:
  ## 1) For USGS explore sampling schemes for bd -- what is needed to recover parameter values?
@@ -113,7 +112,13 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "../CMR_empirical_long.stan"
+  file    = {
+    if (n_pop == 1) {
+    "../CMR_empirical_long.stan"
+    } else {
+    "../CMR_empirical_pr_long.stan"
+    }
+    }
 , data    = stan_data
 , chains  = 1
 , iter    = stan.iter
@@ -123,21 +128,14 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-# stan.fit <- readRDS("stan.fit.mi.Rds")
+stan.fit.summary <- summary(stan.fit)[[1]]
+stan.fit.samples <- extract(stan.fit)
 
 ####
 ## CMR Diagnostics
 ####
 
-## NOTE: OCT 15: just a tiny bit moved from Individual_CRM_expanding.R
- ## need to more thoroughly clean this up to accommodate "long" form
-  ## will also need quite a bit of cleanup when bd parameters start varying by population
-stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
-
-####
-## Recovery of simulated coefficients?
-####
+## --- Recovery of simulated coefficients? --- ##
 
 ## Primary Bd effects
 pred_coef        <- as.data.frame(stan.fit.summary[grep("beta_p"
@@ -208,9 +206,7 @@ stan.pred %>% {
     xlab("Log of Bd Load") + ylab("Predicted detection probability")
 }
 
-####
-## Individual random effect estimates
-####
+## --- Individual random effect estimates --- ##
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value)
@@ -224,13 +220,6 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
   , lwr = quantile(eps, 0.025)
   , upr = quantile(eps, 0.975)
   ) %>% ungroup()
-#  %>% left_join(., expdat %>% group_by(ind) %>% summarize(total_capt = sum(bd_swabbed))) %>% 
-#  left_join(., expdat %>% group_by(ind, periods) %>% summarize(total_detect = sum(detected)) %>% 
-#      filter(total_detect > 0) %>% summarize(total_periods = n())) %>% 
-#  mutate(CI_width = upr - lwr) %>% 
-#  mutate(order_pred = seq(n()))
-
-### Need to make this functioning given the new multi-population structure
 
 stan.ind_pred_var %>% 
   arrange(mid) %>% 
@@ -248,7 +237,7 @@ expdat.all %>% group_by(ind) %>% summarize(
   tot_bd = sum(log_bd_load)
 ) %>% arrange(tot_bd)
 
-## the most extreme individual
+## just take a peek at the most extreme individuals (not dynamic)
 most_extreme <- reshape2::melt(stan.fit.samples$X[
   , 37
   , ])
@@ -270,9 +259,7 @@ most_extreme %>% {
     facet_wrap(~period)
 }
 
-####
-## Population random effect estimates
-####
+## --- Population random effect estimates --- ##
 
 stan.ind_pred_eps <- stan.fit.samples$phi_delta_pop_eps %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value)
