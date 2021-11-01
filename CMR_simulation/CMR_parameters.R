@@ -20,7 +20,7 @@ periods   <- matrix(data = rep(3, n_pop)
 
 ## individuals added in each new period. Make dynamic after I figure out the rest
 new_ind <- list(
-  rep(5, periods[1, 1] - 1)
+   rep(10, periods[1, 1] - 1)
 #, rep(3, periods[2, 1] - 1)
 )
 
@@ -34,7 +34,8 @@ times     <- matrix(data = rep(20, n_pop)
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
+# samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
+samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
 if (n_pop == 1) {
   samp <- list(samp)
 }
@@ -62,7 +63,7 @@ bd_beta <- matrix(
   data = c(
     sample(seq(-3, 3, length = n_pop), n_pop)       ## Intercept
   , rep(-0.2, n_pop) ## Time effect
-  , rep(0.3, n_pop)  ## Linear effect of temp on bd
+  , rep(0.2, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
 
 ## error
@@ -73,7 +74,7 @@ bd_sigma  <- matrix(data = rep(20, n_pop)
 bd_theta  <- matrix(
   data = c(
     rep(1, n_pop)    ## Intercept
-  , rep(0.3, n_pop) ## Time effect
+  , rep(0.3, n_pop)  ## Time effect
   , rep(0.2, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
 
@@ -83,6 +84,8 @@ bd_mort <- matrix(
     sample(seq(-0.5, -0.05, length = n_pop), n_pop)      ## logistic slope
   , rep(6, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
+
+bd_mort[1, 1] <- -0.05
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(

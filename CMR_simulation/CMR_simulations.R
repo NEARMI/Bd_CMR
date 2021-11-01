@@ -40,170 +40,12 @@ source("CMR_functions.R")
 ####
 ## Run the sim to create the data
 ####
+source("CMR_datasim.R")
 
-for (pop_ind in 1:n_pop) {
-
-expdat  <- bd.simulate(
-  periods   = periods[pop_ind, ]
-, times     = times[pop_ind, ]
-, all_ind   = all_ind[pop_ind, ]
-, bd_beta   = bd_beta[pop_ind, ]
-, bd_sigma  = bd_sigma[pop_ind, ]
-, bd_theta  = bd_theta[pop_ind, ]
-, obs_noise = obs_noise[pop_ind, ]
-, bd_noinf  = bd_noinf[pop_ind, ]
-)
-
-# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line() + facet_wrap(~ind)}
-
-one_pop <- bd.sampling(
-  expdat    = expdat
-, all_ind   = all_ind[pop_ind, ]
-, new_ind   = new_ind[[pop_ind]]
-, times     = times[pop_ind, ]
-, periods   = periods[pop_ind, ]
-, when_samp = when_samp[pop_ind, ]
-, samp      = samp[[pop_ind]]
-, inbetween = inbetween[[pop_ind]]
-, between_season_duration = between_season_duration[pop_ind, ]
-, bd_mort   = bd_mort[pop_ind, ]
-, bd_detect = bd_detect[pop_ind, ]
-, p_mort    = p_mort[pop_ind, ]
-, pop_ind   = pop_ind
-)
-
-one_pop.long <- bd.stan_org(
-  one_pop  = one_pop
-, pop_ind  = pop_ind
-, times    = times[pop_ind, ]
-, periods  = periods[pop_ind, ]
-, samp     = samp[[pop_ind]]
-)
-
-print(paste("Population", pop_ind, "Simulated", sep = " "))
-
-### Put the pops together
-if (pop_ind == 1) {
-ind_occ_phi.all   <- one_pop.long$ind_occ_phi
-ind_occ_p.all     <- one_pop.long$ind_occ_p
-X_bd.m.all        <- one_pop.long$X_bd.m
-capture_range.all <- one_pop.long$one_pop$capture_range
-ind_occ_size.all  <- one_pop.long$one_pop$ind_occ_size
-all_ind.all       <- one_pop.long$one_pop$all_ind
-each_ind.all      <- one_pop.long$one_pop$all_ind
-ind_occ.all       <- one_pop.long$one_pop$all_ind * sum(samp[[pop_ind]])
-ind_occ_min1.all  <- one_pop.long$one_pop$all_ind * (sum(samp[[pop_ind]]) - 1)
-pop_cov.bd.all    <- one_pop.long$pop_cov.bd
-ind_in_pop.all    <- rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind)))
-expdat.all        <- one_pop$expdat
-} else  {
-ind_occ_phi.all   <- rbind(ind_occ_phi.all, one_pop.long$ind_occ_phi)
-ind_occ_p.all     <- rbind(ind_occ_p.all, one_pop.long$ind_occ_p)
-X_bd.m.all        <- rbind(X_bd.m.all, one_pop.long$X_bd.m)
-capture_range.all <- rbind(capture_range.all, one_pop.long$one_pop$capture_range)
-ind_occ_size.all  <- c(ind_occ_size.all, one_pop.long$one_pop$ind_occ_size)
-all_ind.all       <- all_ind.all + one_pop.long$one_pop$all_ind
-each_ind.all      <- c(each_ind.all, one_pop.long$one_pop$all_ind)
-ind_occ.all       <- ind_occ.all + one_pop.long$one_pop$all_ind * sum(samp[[pop_ind]])
-ind_occ_min1.all  <- ind_occ_min1.all + one_pop.long$one_pop$all_ind * (sum(samp[[pop_ind]]) - 1)
-pop_cov.bd.all    <- rbind(pop_cov.bd.all, one_pop.long$pop_cov.bd)
-ind_in_pop.all    <- c(ind_in_pop.all, rep(pop_ind, length(unique(one_pop.long$ind_occ_p$ind))))
-expdat.all        <- rbind(expdat.all, one_pop$expdat)
-}
-
-}
-
-## clean up expdat.all
-expdat.all %<>% ungroup() %>% 
-  arrange(pop, ind, all_times) %>% 
-  mutate(ind = interaction(ind, pop)) %>% 
-  mutate(ind = factor(ind, levels = unique(ind))) %>% 
-  mutate(ind = as.numeric(ind))
-  
-## And the last few pieces outside of the loop
-ind_occ_min1_size.all <- ind_occ_size.all - 1
-
-## Fix the individual numbers in X_bd.m.all
-if (n_pop > 1) {
-for (i in 2:n_pop) {
-  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + 
-    max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
-}
-}
-
-## convert ind_pop interaction column to individuals
-ind_occ_phi.all %<>% mutate(ind = as.numeric(ind))
-ind_occ_p.all   %<>% mutate(ind = as.numeric(ind))
-
-## Index vector for the first entry of phi and p that correspond to a new individual
-phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
-  summarize(first_index = min(index)))$first_index
-
-p_first_index <- (ind_occ_p.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
-  summarize(first_index = min(index)))$first_index
-
-## --------------- ##
-## Latent bd is estimated over the whole time period and not just for the capture occasions,
- ## though bd on the capture occasions are used to determine detection and survival. Need to
-  ## determine what entries of phi, and p correspond to the full time period bd. This is done here
-temp_dat <- expdat.all %>% 
-  rename(sampling_events_phi = all_times) %>%
-  ungroup() %>%
-  arrange(ind, periods, times) %>% 
-  mutate(index = seq(n())) 
-
-phi.bd.index <- (left_join(
-  ind_occ_phi.all %>% dplyr::select(ind, sampling_events_phi)
-, temp_dat     %>% dplyr::select(ind, sampling_events_phi, index)
-  ))$index
-
-ind_occ_phi.all %<>% mutate(phi_bd_index = phi.bd.index)
-
-# ind_occ_phi.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_phi = index))
-
-temp_dat <- expdat.all %>%
-  rename(sampling_events_p = all_times) %>%
-  ungroup() %>%
-  arrange(ind, periods, times) %>% 
-  mutate(index = seq(n())) 
-
-p.bd.index <- (left_join(
-  ind_occ_p.all %>% dplyr::select(ind, sampling_events_p)
-, temp_dat     %>% dplyr::select(ind, sampling_events_p, index)
-  ))$index
-
-ind_occ_p.all %<>% mutate(p_bd_index = p.bd.index)
-
-# ind_occ_p.all %<>% left_join(., temp_dat %>% dplyr::select(index, periods) %>% rename(sampling_events_p = index))
-
-temp_dat <- expdat.all %>% 
-  ungroup() %>%
-  arrange(ind, periods, times) %>% 
-  mutate(index = seq(n())) %>% 
-  group_by(ind, periods) %>%
-  summarize(
-    first_index = min(index)
-  , last_index  = max(index)
-    )
-
-bd_first_index <- temp_dat$first_index
-bd_last_index  <- temp_dat$last_index
-
-temp_dat <- expdat.all %>% 
-  dplyr::select(-times) %>%
-  rename(times = all_times) %>%
-  ungroup() %>%
-  arrange(ind, periods, times) %>% 
-  mutate(index = seq(n()))
-
-X.bd.index <- (left_join(
-  X_bd.m.all   %>% dplyr::select(ind, times)
-, temp_dat %>% dplyr::select(ind, times, index)
-  ))$index
-
-X_bd.m.all %<>% mutate(X_bd_index = X.bd.index)
-
-## -- end of this confusing section -- ##
+####
+## Clean up simulated data and build structure for stan model
+####
+source("CMR_dataclean.R")
 
 ####
 ## Run the stan model
@@ -298,7 +140,8 @@ stan.fit.samples <- extract(stan.fit)
 ####
 
 ## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[grep("beta_p", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
+pred_coef        <- as.data.frame(stan.fit.summary[grep("beta_p"
+  , dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
