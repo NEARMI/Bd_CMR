@@ -34,11 +34,20 @@ source("CMR_parameters.R")
 source("CMR_functions.R")
 
 ### Loop over one parameter for now
+test.what <- "perc"
 num_runs  <- 10
-samp      <- matrix(data = 4, nrow = periods, ncol = num_runs)
-samp[3, ] <- seq(1, num_runs, by = 1) 
+
+if (test.what == "samp") {
+samp      <- matrix(data = rep(seq(1, num_runs, by = 1)), nrow = periods, ncol = num_runs, byrow = T)
 if (n_pop == 1) {
   samp <- list(samp)
+}
+} else {
+bd_perc      <- matrix(data = rep(seq(0.1, 1, length = num_runs))
+                       , nrow = periods, ncol = num_runs, byrow = T)
+if (n_pop == 1) {
+  bd_perc <- list(bd_perc)
+}
 }
 
 for (samp_run in 1:num_runs) {
@@ -65,7 +74,20 @@ one_pop <- bd.sampling(
 , times     = times[pop_ind, ]
 , periods   = periods[pop_ind, ]
 , when_samp = when_samp[pop_ind, ]
-, samp      = samp[[pop_ind]][, samp_run]
+, samp      = {
+  if(test.what == "samp") {
+    samp[[pop_ind]][, samp_run]
+  } else {
+    samp[[pop_ind]]
+  }
+}
+, bd_perc   = {
+  if(test.what == "perc") {
+    bd_perc[[pop_ind]][, samp_run]
+  } else {
+    bd_perc[[pop_ind]]
+  }
+}
 , inbetween = inbetween[[pop_ind]]
 , between_season_duration = between_season_duration[pop_ind, ]
 , bd_mort   = bd_mort[pop_ind, ]
@@ -79,7 +101,13 @@ one_pop.long <- bd.stan_org(
 , pop_ind  = pop_ind
 , times    = times[pop_ind, ]
 , periods  = periods[pop_ind, ]
-, samp     = samp[[pop_ind]][, samp_run]
+, samp      = {
+  if(test.what == "samp") {
+    samp[[pop_ind]][, samp_run]
+  } else {
+    samp[[pop_ind]]
+  }
+}
 )
 
 ### Put the pops together
@@ -115,7 +143,11 @@ expdat.all        <- rbind(expdat.all, one_pop$expdat)
   
 source("CMR_dataclean.R")
   
+if (test.what == "samp") {
 samp.temp <- samp[[pop_ind]][, samp_run]
+} else {
+samp.temp <- samp[[pop_ind]]  
+}
   
 stan_data     <- list(
   

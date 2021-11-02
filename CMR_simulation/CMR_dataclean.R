@@ -24,6 +24,20 @@ for (i in 2:n_pop) {
 ind_occ_phi.all %<>% mutate(ind = as.numeric(ind))
 ind_occ_p.all   %<>% mutate(ind = as.numeric(ind))
 
+## add back period for subsetting for collapsed model
+ind_occ_phi.all %<>% left_join(.
+  , expdat.all %>% dplyr::select(ind, all_times, periods) %>% 
+    rename(sampling_events_phi = all_times))
+
+ind_occ_p.all %<>% left_join(.
+  , expdat.all %>% dplyr::select(ind, all_times, periods) %>% 
+    rename(sampling_events_p = all_times))
+
+## If running a simpler model instead of the full between day survival
+if (collapse.mod) {
+  ind_occ_phi.all 
+}
+
 ## Index vector for the first entry of phi and p that correspond to a new individual
 phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
   summarize(first_index = min(index)))$first_index

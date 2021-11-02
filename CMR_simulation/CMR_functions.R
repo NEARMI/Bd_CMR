@@ -64,7 +64,7 @@ return(expdat)
  ## for a single population
 bd.sampling <- function (
   expdat
-, all_ind, new_ind, times, periods, when_samp, samp
+, all_ind, new_ind, times, periods, when_samp, samp, bd_perc
 , inbetween, between_season_duration
 , bd_mort, bd_detect, p_mort, pop_ind
 ) {
@@ -201,7 +201,7 @@ expdat[(expdat$ind_gained > expdat$periods), ]$detect <- 0
 expdat[(expdat$ind_gained > expdat$periods), ]$mort   <- 1
 
 expdat %<>% arrange(periods, ind, times)
-
+expdat %<>% ungroup() %>% group_by(ind)
 expdat %<>% mutate(cum_surv = cumprod(mort)) 
 
 ####
@@ -321,7 +321,7 @@ expdat %<>% left_join(.
     expdat %>% 
       filter(sampling_days == 1, detected == 1) %>% 
       ungroup() %>% 
-      mutate(bd_swabbed = rbinom(n(), 1, bd_perc))
+      mutate(bd_swabbed = rbinom(n(), 1, bd_perc[periods]))
   }) 
   
 expdat %<>% mutate(

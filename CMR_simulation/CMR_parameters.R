@@ -6,12 +6,12 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 3
+n_pop      <- 1
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rep(30, n_pop)
+ind       <- matrix(data = rep(50, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases).
@@ -44,14 +44,14 @@ if (n_pop > 1) {
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
-# samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
+# samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
+samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
 if (n_pop == 1) {
   samp <- list(samp)
 }
 
 ## number of time periods that elapse between the on-season
-between_season_duration <- matrix(data = rep(28, n_pop)
+between_season_duration <- matrix(data = rep(40, n_pop)
   , ncol = 1, nrow = n_pop)   
 
 ## random = sampling occurs on a random subset of possible days
@@ -92,8 +92,10 @@ bd_theta  <- matrix(
 bd_mort <- matrix(
   data = c(
     sample(seq(-0.05, -0.15, length = n_pop), n_pop)      ## logistic slope
-  , rep(6, n_pop)        ## intercept
+  , rep(3, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
+
+bd_mort[1, 1] <- -0.1
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
@@ -108,12 +110,10 @@ bd_noinf <- matrix(
   ), nrow = n_pop, ncol = 1, byrow = F)
 
 ## proportion of all captures with bd swabs taken
-bd_perc <- matrix(data = rep(.50, n_pop)
-  , nrow = n_pop, ncol = 1)
+bd_perc <- vector("list", n_pop)
 
-bd_drop <- vector("list", n_pop)
 for (k in 1:n_pop) {
-bd_drop[[k]] <-  samp[[k]] * ind[k, 1] * (1 - bd_perc[k, 1])
+bd_perc[[k]] <- rep(.50, nrow(samp[[k]]))
 }
 
 ## Observation noise in bd
@@ -127,7 +127,7 @@ obs_noise <- matrix(data = rep(3, n_pop)
 ## mortality probability in-between periods
  ## OCT 14 NOTE: for other options see Individual_CMR_expanding.R, for now just proceeding with "max"
   ## will add back other options later
-p_mort    <- matrix(data = rep(.02, n_pop)
+p_mort    <- matrix(data = rep(.03, n_pop)
   , nrow = n_pop, ncol = 1)
 
 ####

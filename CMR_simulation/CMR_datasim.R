@@ -15,7 +15,7 @@ expdat  <- bd.simulate(
 , bd_noinf  = bd_noinf[pop_ind, ]
 )
 
-# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line() + facet_wrap(~ind)}
+# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line() + facet_wrap(~ind)}    
 
 one_pop <- bd.sampling(
   expdat    = expdat
@@ -25,6 +25,7 @@ one_pop <- bd.sampling(
 , periods   = periods[pop_ind, ]
 , when_samp = when_samp[pop_ind, ]
 , samp      = samp[[pop_ind]]
+, bd_perc   = bd_perc[[pop_ind]]
 , inbetween = inbetween[[pop_ind]]
 , between_season_duration = between_season_duration[pop_ind, ]
 , bd_mort   = bd_mort[pop_ind, ]

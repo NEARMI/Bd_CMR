@@ -60,7 +60,6 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
-	int<lower=0> X_stat_index[ind_occ_min1];
 
   // long vector indices for bd model (bd)
 	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
@@ -95,23 +94,18 @@ parameters {
 // bd submodel
 // -----
 
-	vector[4] beta_bd;				 // two slope coefficients for grand mean change in bd over time 
+	vector[2] beta_bd;				 // two slope coefficients for grand mean change in bd over time 
 
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
 	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
-
 // -----
 // survival
 // -----
 
 	vector[2] beta_phi;                  		 // intercept and slope coefficient for survival
-        
-	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
-
 
 // -----
 // detection
@@ -119,7 +113,6 @@ parameters {
 
 	vector[2] beta_p;				 // intercept and slope coefficient for detection
 	
-
 // -----
 // other
 // -----	
@@ -154,17 +147,13 @@ transformed parameters {
 	for (t in 1:ind_time) {
 
 		// latent bd model before obs error
-
-	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]]) +
-		      beta_bd[2] * sampling_events_bd[t]         +
-		      beta_bd[3] * square(sampling_events_bd[t]) + 
-		      beta_bd[4] * temp[t];      
+	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]]) + beta_bd[2] * temp[t];      
 
         }
 
 	for (t in 1:ind_per_period) {
 	 
-	 X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
+	  X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
 
 	}
 
@@ -177,12 +166,16 @@ transformed parameters {
 	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
            phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
 	 } else {
-           phi[t] = inv_logit(
-                      beta_phi[1]                    + 
-                      beta_timegaps  * time_gaps[t]  +
-                      beta_offseason * X_stat[X_stat_index[t]] * offseason[t]  +		// only called upon if offseason == 1
-                      beta_phi[2] * X[phi_bd_index[t]]
-                    );
+	  if (offseason[t] == 1) {
+
+           phi[t] = inv_logit(beta_phi[1] * time_gaps[t]);
+
+	  } else {
+
+           phi[t] = inv_logit(beta_phi[2] * X_stat[ind_occ_min1_rep[t]] * offseason[t]);
+	
+	  }
+
 	 }  
 
 	}
@@ -225,18 +218,12 @@ model {
 
 	beta_bd[1]  ~ normal(0, 5);
 	beta_bd[2]  ~ normal(0, 5);
-	beta_bd[3]  ~ normal(0, 5);
-	beta_bd[4]  ~ normal(0, 5);
 	beta_phi[1] ~ normal(0, 5);
 	beta_phi[2] ~ normal(0, 5);
 	beta_p[1]   ~ normal(0, 5);
 	beta_p[2]   ~ normal(0, 5);
 
-	beta_timegaps  ~ normal(0, 5);
-	beta_offseason ~ normal(0, 5);
-
 	bd_delta_sigma      ~ inv_gamma(1, 1);
-	
 	bd_obs              ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
