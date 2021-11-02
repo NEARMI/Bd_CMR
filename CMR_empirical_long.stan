@@ -60,7 +60,7 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
-	int<lower=0> X_stat_index[ind_occ_min1];
+	int<lower=0> X_stat_index[ind_occ_min1];	    // which entries of the summarized stat correspond to each period
 
   // long vector indices for bd model (bd)
 	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)

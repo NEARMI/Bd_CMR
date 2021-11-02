@@ -41,6 +41,7 @@ source("CMR_datasim.R")
 ####
 ## Clean up simulated data and build structure for stan model
 ####
+collapse.mod <- FALSE
 source("CMR_dataclean.R")
 
 if (length(unique(expdat.all$ind)) < 300) {

@@ -64,7 +64,7 @@ Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(Mark))) %
 ## Select a subset of sites
 A11 <- Bd_Newts_AllSites %>% 
   filter(SA == "PA") %>% 
-  filter(Site == "A11") %>%
+#  filter(Site == "A11") %>%
 # filter(Site == "A04" | Site == "A11" | Site == "A05" | Site == "A10") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 
@@ -397,6 +397,11 @@ phi_zeros.a <- c(phi_zeros.a, phi_zeros.t)
 ## Also add this one to the data frame for ease of debugging
 capt_history.phi$phi_zeros <- phi_zeros.a
 
+## Index for 
+capt_history.phi %<>% 
+  mutate(X_stat_index = paste(interaction(Mark, year),"a",sep="_")) %>% 
+  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
+  mutate(X_stat_index = as.numeric(X_stat_index))
 
 ### --- Data for latent bd --- ###
 
@@ -511,6 +516,7 @@ stan_data     <- list(
  , pop_phi             = as.numeric(as.factor(capt_history.phi$Site))
  , phi_zeros           = capt_history.phi$phi_zeros
  , phi_bd_index        = capt_history.phi$phi_bd_index
+ , X_stat_index        = capt_history.phi$X_stat_index
 
  , ind_bd_rep          = capt_history$Mark
  , sampling_events_bd  = capt_history$week
