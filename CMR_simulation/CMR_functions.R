@@ -200,7 +200,7 @@ expdat %<>% rbind(off_season, .)
 expdat[(expdat$ind_gained > expdat$periods), ]$detect <- 0
 expdat[(expdat$ind_gained > expdat$periods), ]$mort   <- 1
 
-expdat %<>% arrange(periods, ind, times)
+expdat %<>% arrange(ind, periods, times)
 expdat %<>% ungroup() %>% group_by(ind)
 expdat %<>% mutate(cum_surv = cumprod(mort)) 
 
@@ -366,6 +366,7 @@ return(list(
 , capture_range      = capture_range
 , present            = present
 , bd_probs           = bd_probs
+, off_season         = off_season
 ))
 
 }

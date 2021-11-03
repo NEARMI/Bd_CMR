@@ -11,7 +11,7 @@ n_pop      <- 1
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rep(50, n_pop)
+ind       <- matrix(data = rep(60, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases).
@@ -25,9 +25,9 @@ if (n_pop > 1) {
 ## individuals added in each new period. A little weird to set it up this way, can
  ## maybe try a different method later
 new_ind         <- vector("list", n_pop)
-new_ind_per_pop <- rnbinom(n_pop, 10, .5)
+new_ind_per_pop <- rnbinom(n_pop, 30, .5)
 for (i in 1:n_pop) {
-  new_ind[[i]] <- rep(new_ind_per_pop[i], periods[i, 1] - 1)
+ new_ind[[i]] <- rep(new_ind_per_pop[i], periods[i, 1] - 1)
 }
 
 ## number of individuals ever to exist in each population
@@ -45,7 +45,7 @@ if (n_pop > 1) {
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 # samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
-samp  <- matrix(data = 4, nrow = periods, ncol = n_pop)
+samp  <- matrix(data = 12, nrow = periods, ncol = n_pop)
 if (n_pop == 1) {
   samp <- list(samp)
 }
@@ -72,9 +72,11 @@ if (n_pop == 1) {
 bd_beta <- matrix(
   data = c(
     sample(seq(-3, 3, length = n_pop), n_pop)       ## Intercept
-  , rep(-0.2, n_pop) ## Time effect
-  , rep(0.2, n_pop)  ## Linear effect of temp on bd
+  , rep(-0.1, n_pop) ## Time effect
+  , rep(0.3, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
+
+bd_beta[1, 1] <- 0
 
 ## error
 bd_sigma  <- matrix(data = rep(20, n_pop)
@@ -83,7 +85,7 @@ bd_sigma  <- matrix(data = rep(20, n_pop)
 ## random effect variance covariance
 bd_theta  <- matrix(
   data = c(
-    rep(1, n_pop)    ## Intercept
+    rep(0.5, n_pop)    ## Intercept
   , rep(0.3, n_pop)  ## Time effect
   , rep(0.2, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
@@ -92,15 +94,15 @@ bd_theta  <- matrix(
 bd_mort <- matrix(
   data = c(
     sample(seq(-0.05, -0.15, length = n_pop), n_pop)      ## logistic slope
-  , rep(3, n_pop)        ## intercept
+  , rep(4, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
 
-bd_mort[1, 1] <- -0.1
+bd_mort[1, 1] <- -0.05
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
   data = c(
-    rep(0.1, n_pop)   ## logistic slope
+    rep(0.2, n_pop)   ## logistic slope
   , rep(-0.5, n_pop)  ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
 
@@ -127,7 +129,7 @@ obs_noise <- matrix(data = rep(3, n_pop)
 ## mortality probability in-between periods
  ## OCT 14 NOTE: for other options see Individual_CMR_expanding.R, for now just proceeding with "max"
   ## will add back other options later
-p_mort    <- matrix(data = rep(.03, n_pop)
+p_mort    <- matrix(data = rep(.025, n_pop)
   , nrow = n_pop, ncol = 1)
 
 ####

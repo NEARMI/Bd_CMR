@@ -6,14 +6,23 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of Nov 2:
+## Notes as of Nov 3:
 ####
 
-## Starting to try a collapsed model. Little progress in trying to get a simpler model
- ## to fit reasonably
-  ## (also did catch a bug, so who knows though --- continue tomorrow)
+## Somewhat fixed the double dipping with offseason, time gaps and bd.
+ ## 1) There is still a small issue with survival from the last time time point through the
+  ## offseason because survival from the last point to the end of the season is ignored
+   ## need to try modifying the data so that the transition retains both info 
+    ## drop offseason duration but keep the full linear predictor I think will work best
+  ## 2) Need to adjust the simulation to return the actual between season survival values
+   ## for diagnostics
 
-## Think it may be best to first add other covariates and then step back to a collapsed model
+## !! Also a big issue in that now detection is being underpredicted for w/e reason. Either
+ ## something isn't lining up anymore or there is some issue in my simulation
+
+## Collapsed model still a mess
+
+## Starting on adding other covaraites to the empirical model (see model_fitting.R)
 
 ####
 ## Packages and misc
@@ -145,11 +154,11 @@ stan_data     <- list(
   
   )
 
-stan.fit  <- stan(
+stan.fit2  <- stan(
   file    = {
     if (n_pop == 1) {
-  #  "../CMR_empirical_long.stan"
-      "CMR_collapsed.stan"
+    "../CMR_empirical_long.stan"
+  #    "CMR_collapsed.stan"
     } else {
     "../CMR_empirical_pr_long.stan"
     }
@@ -163,10 +172,10 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-shinystan::launch_shinystan(stan.fit)
+shinystan::launch_shinystan(stan.fit2)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
+stan.fit.samples <- extract(stan.fit2)
 
 ####
 ## CMR Diagnostics
@@ -324,4 +333,35 @@ stan.ind_pred_var %>%
       , linetype = "dashed", lwd = 1, colour = "firebrick3") +
     scale_colour_brewer(palette = "Dark2") +
     theme(axis.text.x = element_text(size = 8))
-}
+  }
+
+## mean survival per period
+ind_occ_phi.all %<>% mutate(pred_phi = colMeans(stan.fit.samples$phi))
+ind_occ_phi.all %<>% left_join(.
+  , expdat.all %>% filter(sampling_days == 1) %>% rename(sampling_events_phi = all_times) %>%
+    dplyr::select(ind, sampling_events_phi, cum_surv)
+  )
+
+ind_occ_phi.all %>% filter(offseason == 1)
+
+ind_occ_phi.all %>% 
+  group_by(ind, periods) %>% 
+  mutate(real_surv = cum_surv / lag(cum_surv, 1))
+
+ind_occ_phi.all %>% filter(pred_phi > 0) %>% 
+  group_by(offseason) %>%
+  summarize(
+    mean_phi = mean(pred_phi)
+  )
+
+hist(stan.fit.samples$phi[, 117], breaks = 100)
+
+ind_occ_p.all %<>% 
+     mutate(ind_per = interaction(ind, periods_occ)) %>% 
+     mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
+     mutate(ind_per = as.numeric(ind_per))
+
+ind_occ_p.all
+
+hist(stan.fit.samples$gamma[, 52])
+
