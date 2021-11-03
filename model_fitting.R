@@ -3,19 +3,24 @@
 ########################################
 
 ####
-## Notes as of OCT 28:
+## Notes as of NOV 3:
 ####
 
-## 1) Multi-population fit went ok, but with some divergent transitions.
- ## There are definitely some weird populations, for example, A05, in which every individual was only captured a single time each
+## Some issues:
+ ## -- Calculating individual size brings me back to a problem from before, which is that I am still estimating
+  ## bd curves for the periods prior to an individual being captured for the first time.
+ ## It is potentially important to estimate bd curves for this period because detection | bd could be biased if you
+  ## don't use those potential captures to inform the detection probability.
+  ## -- The issue that arises here is that you also don't know the animals size (which could impact bd)
+   ## in that unobserved period, which introduces another form of error
 
-### Next steps:
- ## 1) Add back the summary of bd informing between season survival for the long-form model
- ## 2) Step back to a single population and start adding other covariates
-   ## -- Other individual-level covaraites
-   ## -- more complicated detection model
- ## 3) Play with decreasing the number of sampling periods and try just estimating between season survival as 
-  ## a function of average estimated bd load
+## Starting to add covariates
+ ## Also, started trying to collapse the model, but was running into a number of issues. Waiting on this
+  ## until after my meeting
+
+### Afterwards:
+ ## 1) More complicated detection model
+ ## 2) Actually figure out collapsing the model
 
 ####
 ## Packages and functions
@@ -63,13 +68,17 @@ Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(Mark))) %
 
 ## Select a subset of sites
 A11 <- Bd_Newts_AllSites %>% 
-  filter(SA == "PA") %>% 
-#  filter(Site == "A11") %>%
+# filter(SA == "PA") %>% 
+  filter(Site == "A11") %>%
 # filter(Site == "A04" | Site == "A11" | Site == "A05" | Site == "A10") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 
   filter(!is.na(Site)) %>% 
   arrange(Site)
+
+## Other covariates to include for populations
+# Area
+# Density
 
 n_sites <- length(unique(A11$Site))
 u_sites <- unique(A11$Site)
@@ -142,6 +151,70 @@ capt_history.t <-
   , log_bd_load = log(bd_load + 1)                           ### eeek!
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load) ### eeek X2!!
   )
+
+## Before converting Mark to a numeric, find the individual specific covariates to be used later
+ ## Other covariates to include for individuals  
+  # SVL
+  # Sex
+ind_cov <- A11.i %>% group_by(Mark, year, week) %>% 
+  summarize(
+    size = mean(SVL, na.rm = T)  ## returns the one value or a mean if caught multiple times in one week
+  , sex  = Sex)
+
+## -- Tidy up messy data -- ##
+## Sex
+uni_ind <- unique(ind_cov$Mark)
+for (z in seq_along(uni_ind)) {
+  
+## Need to come back to this (NOV 3)
+temp.ind_cor <- ind_cov %>% 
+  filter(Mark == uni_ind[z]) %>% 
+  group_by(Mark, year, week) %>%
+  summarize(size = mean(size), sex = sex[1]) 
+
+if (length(unique(temp.ind_cor$sex)) > 1) {
+  tt        <- table(temp.ind_cor$sex, useNA = c("ifany"))
+  real_sex  <- names(tt[which(tt == max(tt))])
+  
+  num_entry <- length(real_sex)
+  an_na     <- any(is.na(real_sex))
+  
+  if ((num_entry == 2) & an_na) {
+    temp.ind_cor$sex <- real_sex[which(!is.na(real_sex))]
+  } else if ((num_entry == 2) & !an_na) {
+    temp.ind_cor$sex <- "U"
+  } else if ((num_entry == 1) & an_na) {
+    temp.ind_cor$sex <- "U"
+  } else if ((num_entry == 1) & !an_na) {
+    temp.ind_cor$sex <- real_sex
+  } else if (num_entry == 3) {
+    temp.ind_cor$sex <- "U"
+  }
+  
+} else {
+  if (is.na(temp.ind_cor$sex)) {
+    temp.ind_cor$sex <- "U"
+  }
+}
+
+if (z == 1) {
+  temp.ind_cor.a <- temp.ind_cor
+} else {
+  temp.ind_cor.a <- rbind(temp.ind_cor.a, temp.ind_cor)
+}
+
+}
+
+## Size
+temp.ind_cor.a %<>% group_by(Mark, year) %>% 
+  mutate(size = mean(size, na.rm = T))
+ ## NOV 3: for now (TO CHANGE to multiple imputation eventually)
+need_size <- which(is.na(temp.ind_cor.a$size))
+for (z in seq_along(need_size)) {
+ temp.ind_cor.a[need_size[z], ]$size <- mean(temp.ind_cor.a[(temp.ind_cor.a$year == tsize$year) & (temp.ind_cor.a$sex == tsize$sex), ]$size, na.rm = T)
+}
+
+capt_history.t %<>% left_join(., temp.ind_cor.a)
 
 ## Jump through a few hoops to name unique individuals. 
  ## NOTE: this is an issue if individuals move populations
@@ -450,6 +523,8 @@ capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
 ## Finally, deal with any other needed covariates 
 ####
 
+## -- Temp -- ##
+
 temp <- A11 %>% 
   group_by(year, week, Site) %>% 
   summarize(temp = mean(Site_temp, na.rm = T))
@@ -473,6 +548,16 @@ temp.need <- left_join(temp.need, temp) %>% left_join(., predvals) %>%
   dplyr::select(-predvals)
 
 capt_history %<>% left_join(., temp.need)
+
+## -- Individual specific covariates -- ##
+
+ind.sex  <- (capt_history %>% group_by(Mark) %>% 
+    filter(captured == 1) %>% slice(1))$sex %>% as.factor() %>% as.numeric()
+
+## LOTS of problems with size. For now just 
+ind.size <- (capt_history %>% group_by(Mark) %>%
+  summarize(size = mean(size, na.rm = T)))$size
+ind.size <- scale(ind.size)[, 1]
 
 ####
 ## Run the stan model
@@ -530,6 +615,8 @@ stan_data     <- list(
  , bd_first_index  = bd_first_index
  , bd_last_index   = bd_last_index
  , time_gaps       = capt_history.phi$time_gaps
+ , ind_size        = ind.size
+ , ind_sex         = ind.sex
   
   ## Capture data
  , N_y             = nrow(capt_history.p)
@@ -541,7 +628,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_empirical_long.stan"
+  file    = "CMR_empirical_long_cov.stan"
 , data    = stan_data
 , chains  = 1
 , refresh = 20
