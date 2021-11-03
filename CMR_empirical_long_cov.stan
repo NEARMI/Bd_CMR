@@ -75,6 +75,8 @@ data {
 	int<lower=0> bd_first_index[ind_per_period];	    // First entry of latent bd associated with each individual 'by' period
 	int<lower=0> bd_last_index[ind_per_period];	    // Last entry of latent bd associated with each individual 'by' period
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
+	real         ind_size[n_ind];
+	int<lower=0> ind_sex[n_ind];
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -102,6 +104,9 @@ parameters {
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
+	real<lower=0> beta_bd_ind_size;
+	vector[3] beta_bd_ind_sex;
+
 
 // -----
 // survival
@@ -110,7 +115,10 @@ parameters {
 	vector[2] beta_phi;                  		 // intercept and slope coefficient for survival
         
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
+	real beta_offseason;				 // season survival probability, maybe maybe not as a function of bd
+
+	real<lower=0> beta_phi_ind_size;
+	vector[3] beta_phi_ind_sex;
 
 
 // -----
@@ -118,6 +126,9 @@ parameters {
 // -----
 
 	vector[2] beta_p;				 // intercept and slope coefficient for detection
+
+	real<lower=0> beta_p_ind_size;
+	vector[3] beta_p_ind_sex;
 	
 
 // -----
@@ -147,7 +158,9 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i] = bd_delta_sigma * bd_delta_eps[i];  
+  	  bd_ind[i] = bd_delta_sigma    * bd_delta_eps[i] + 
+                       beta_bd_ind_size * ind_size[i]     + 
+                       beta_bd_ind_sex[ind_sex[i]];  
 
 	}
 
@@ -157,8 +170,8 @@ transformed parameters {
 
 	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]])            +
 		      beta_bd[2] * sampling_events_bd[t]         +
-		      beta_bd[3] * square(sampling_events_bd[t]) + 
-		      beta_bd[4] * temp[t];      
+		      beta_bd[3] * temp[t]                       + 
+		      beta_bd[4] * square(temp[t]);   
 
         }
 
@@ -179,10 +192,12 @@ transformed parameters {
 	 } else {
 
            phi[t] = inv_logit(
-                      beta_phi[1]                      + 
-                      beta_phi[2] * X[phi_bd_index[t]] +
-                      beta_timegaps  * time_gaps[t]    +
-                      beta_offseason * X_stat[X_stat_index[t]] * offseason[t]		// only called upon if offseason == 1
+                      beta_phi[1]                        + 
+                      beta_phi[2]   * X[phi_bd_index[t]] +
+                      beta_timegaps * time_gaps[t]       +
+		      beta_phi_ind_size * ind_size[ind_occ_min1_rep[t]]  +
+		      beta_phi_ind_sex[ind_sex[ind_occ_min1_rep[t]]]     +
+                      beta_offseason * X_stat[X_stat_index[t]] * offseason[t] 
                     );
 
 	 }  
@@ -198,10 +213,24 @@ transformed parameters {
 		// p_zeros is = 1 in each season prior to an individual being caught for the first time
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
-	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]);
+	 if (p_zeros[t] == 1) {	
+			
+          p[t] = inv_logit(
+beta_p[1] + 
+beta_p[2]*X[p_bd_index[t]] + 
+beta_p_ind_size*ind_size[ind_occ_rep[t]] + 
+beta_p_ind_sex[ind_sex[ind_occ_rep[t]]]
+);
+
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
+
+          p[t] = inv_logit(
+beta_p[1] + 
+beta_p[2]*X[p_bd_index[t]] + 
+beta_p_ind_size*ind_size[ind_occ_rep[t]] + 
+beta_p_ind_sex[ind_sex[ind_occ_rep[t]]]
+)* gamma[gamma_index[t]];
+
 	 }
 
 	}
@@ -236,6 +265,15 @@ model {
 
 	beta_timegaps  ~ normal(0, 5);
 	beta_offseason ~ normal(0, 5);
+
+	beta_bd_ind_size ~ normal(0, 5);
+	beta_bd_ind_sex  ~ normal(0, 5);
+
+	beta_phi_ind_size ~ normal(0, 5);
+	beta_phi_ind_sex  ~ normal(0, 5);
+
+	beta_p_ind_size ~ normal(0, 5);
+	beta_p_ind_sex  ~ normal(0, 5);
 
 	bd_delta_sigma      ~ inv_gamma(1, 1);
 	
