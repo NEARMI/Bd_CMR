@@ -3,20 +3,43 @@
 ########################################
 
 ####
-## Notes as of NOV 3:
+## Notes as of NOV 5:
 ####
 
-## Some issues:
- ## -- Calculating individual size brings me back to a problem from before, which is that I am still estimating
+## While the collapsed model seems reasonably promising for the simulated data, at least the newt model for one site (A11) 
+ ## doesn't have enough information to resolve anything really. 
+
+## To try and move forward:
+
+## 1) Stepping back to make sure that the model is sensible _in general_ by removing all bd and checking within and between season survival
+ ## -- Ok, model is sensible
+## 2) Try and add an individual covariate or a squared term to the collapsed model in the hopes of explaining more of the variance in bd
+ ## -- Tried a random effect for individual survival and cumulative temperature and neither of those helped much
+## 3) Not ready to give up on the model yet: maybe Newts just are not really affected by bd ??
+ ## -- Try some other populations
+ ## -- Tidy up what I can in the simulation model code and the time gaps for phi on the offseason 
+
+## Mostly work in CMR_simulations.R -- see that script for details. Leaving Nov 3 notes here below untouched
+
+### Some issues:
+ ## 1) Calculating individual size brings me back to a problem from before, which is that I am still estimating
   ## bd curves for the periods prior to an individual being captured for the first time.
- ## It is potentially important to estimate bd curves for this period because detection | bd could be biased if you
+ ## -- It is potentially important to estimate bd curves for this period because detection | bd could be biased if you
   ## don't use those potential captures to inform the detection probability.
-  ## -- The issue that arises here is that you also don't know the animals size (which could impact bd)
+  ## ^^ The issue that arises here is that you also don't know the animals size (which could impact bd)
    ## in that unobserved period, which introduces another form of error
 
-## Starting to add covariates
- ## Also, started trying to collapse the model, but was running into a number of issues. Waiting on this
-  ## until after my meeting
+ ## 2) Relatively little headway in the collapsed model so far. Still need to figure out how to specify both
+  ## simulated data and model in a sensible way to capture between season survival but ignore within while still
+   ## modeling full bd spectrum
+
+### Next to do:
+ ## 1) Add individual covaraites into the multi-population model
+ ## 2) Add population covaraites into the multi-population model
+ ## 3) Get set up on YETI to run all locations info-borrowing model
+ ##  ^^ While this is happening:
+  ## A) Try fitting MA locations by themselves
+  ## B) Continue to work on the model collapsing step
 
 ### Afterwards:
  ## 1) More complicated detection model
@@ -53,7 +76,7 @@ Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date))
 }
 
 ## Some parameters
-red_ind        <- TRUE    ## TRUE   = reduce the number of individuals for debugging purposes
+red_ind        <- FALSE    ## TRUE   = reduce the number of individuals for debugging purposes
 if (red_ind) {
   red_ind.count <- 50
 }
@@ -69,7 +92,7 @@ Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(Mark))) %
 ## Select a subset of sites
 A11 <- Bd_Newts_AllSites %>% 
 # filter(SA == "PA") %>% 
-  filter(Site == "A11") %>%
+  filter(Site == "SC38") %>%
 # filter(Site == "A04" | Site == "A11" | Site == "A05" | Site == "A10") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 
@@ -211,7 +234,7 @@ temp.ind_cor.a %<>% group_by(Mark, year) %>%
  ## NOV 3: for now (TO CHANGE to multiple imputation eventually)
 need_size <- which(is.na(temp.ind_cor.a$size))
 for (z in seq_along(need_size)) {
- temp.ind_cor.a[need_size[z], ]$size <- mean(temp.ind_cor.a[(temp.ind_cor.a$year == tsize$year) & (temp.ind_cor.a$sex == tsize$sex), ]$size, na.rm = T)
+ temp.ind_cor.a[need_size[z], ]$size <- mean(temp.ind_cor.a[(temp.ind_cor.a$year == temp.ind_cor.a$year) & (temp.ind_cor.a$sex == temp.ind_cor.a$sex), ]$size, na.rm = T)   
 }
 
 capt_history.t %<>% left_join(., temp.ind_cor.a)
@@ -372,8 +395,9 @@ p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>%
 first_capt <- capt_history.p %>% 
   group_by(Mark, year, Site) %>% 
   summarize(capt = sum(captured)) %>% 
-  mutate(capt = cumsum(capt)) %>% 
+  ungroup(year) %>%
 ## And then in all future times from the current time these individuals _could_ be here
+  mutate(capt = cumsum(capt)) %>% 
   mutate(capt = ifelse(capt > 0, 1, 0)) 
 
 ## For each individual extract which time periods we do not know if an individual was present or not
@@ -547,6 +571,9 @@ temp.need <- left_join(temp.need, temp) %>% left_join(., predvals) %>%
   mutate(temp = ifelse(is.na(temp), predvals, temp)) %>% 
   dplyr::select(-predvals)
 
+## try temp:weeks
+temp.need %<>% group_by(year) %>% mutate(temp = cumsum(temp))
+
 capt_history %<>% left_join(., temp.need)
 
 ## -- Individual specific covariates -- ##
@@ -628,18 +655,20 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "CMR_empirical_long_cov.stan"
+# file    = "CMR_empirical_long2.stan"
+  file    = "CMR_simulation/CMR_collapsed.stan"
+# file    = "CMR_simulation/CMR_simple.stan"
 , data    = stan_data
 , chains  = 1
 , refresh = 20
-, iter    = stan.iter
+, iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
   
-# saveRDS(stan.fit, "stan.fit.empirical.Rds")
-# stan.fit <- readRDS("stan.fit.empirical.Rds")
+# saveRDS(stan.fit, "stan.fit.empirical.red.Rds")
+# stan.fit <- readRDS("stan.fit.empirical.red.Rds")
 # stan.fit.samples <- readRDS("CMR_simulation/phi.samples.Rds")
 
 shinystan::launch_shinystan(stan.fit)
@@ -699,9 +728,9 @@ stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
   , from = unique(log_bd_load), to = bd_levels))
 stan.pred        %<>% group_by(log_bd_load) %>% 
   summarize(
-    lwr = quantile(mortality, c(0.025))
+    lwr = quantile(mortality, c(0.25))
   , mid = quantile(mortality, c(0.5))
-  , upr = quantile(mortality, c(0.975))
+  , upr = quantile(mortality, c(0.75))
   )
 
 stan.pred %>% {
@@ -742,6 +771,18 @@ between_seas %>% {
     xlab("Between Year Survival") +
     ylab("Frequency")
 }
+
+which(capt_history.phi$offseason == 1)
+
+## 
+
+test_vals <- stan.fit.samples$phi[, which(capt_history.phi$offseason == 1 & phi_zeros == 1)]
+test_vals <- test_vals[test_vals != 0]
+
+ggplot(data.frame(vals = test_vals), aes(x = vals)) + 
+  geom_histogram(aes(y = stat(count) / sum(count)), bins = 500) +
+    xlab("Between Year Survival") +
+    ylab("Frequency")
 
 ####
 ## What does predicted overall bd look like?
