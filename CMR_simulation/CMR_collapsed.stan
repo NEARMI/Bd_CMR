@@ -95,7 +95,7 @@ parameters {
 // bd submodel
 // -----
 
-	vector[2] beta_bd;				 // two slope coefficients for grand mean change in bd over time 
+	vector[2] beta_bd;				 // population average bd and bd as a function of cumulative temperature up to the time point
 
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
 	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
@@ -106,9 +106,9 @@ parameters {
 // survival
 // -----
 
-	real beta_phi;                  		 // intercept and slope coefficient for survival
+	real beta_phi;                  		 // survival between seasons as a function of bd
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
+	real beta_offseason;  				 // survival as a function of bd stress
 
 // -----
 // detection
@@ -131,9 +131,9 @@ transformed parameters {
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
 	real X[ind_time];			   // latent bd
-	real X_stat[ind_per_period];		   // yearly summaries of bd
  		
-	real bd_ind[n_ind];                        // Individual random effect deviates
+	real bd_ind[n_ind];                        // Individual random effect deviates for bd
+	
 
 // -----
 // bd submodel, contained to estimating within-season bd
@@ -143,22 +143,16 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i] = bd_delta_sigma * bd_delta_eps[i];  
+  	  bd_ind[i]  = bd_delta_sigma * bd_delta_eps[i];  
 
 	}
 
 	for (t in 1:ind_time) {
 
 		// latent bd model before obs error
-	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]]) + beta_bd[2] * temp[t];      
+	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]]) + beta_bd[2] * temp[t];	// need to update here so that temp is cumulative until time t      
 
         }
-
-	for (t in 1:ind_per_period) {
-	 
-	  X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
-
-	}
 
 // -----
 // Survival probability over the whole period
@@ -169,13 +163,23 @@ transformed parameters {
 	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
            phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
 	 } else {
+
+		// Idea here is that survival operates with two processes: within season and between season survival
+			// While it is likely that bd affects within-season survival I don't think we have the ability to measure that
+			// For now just focus on using the individual 	
+
 	  if (offseason[t] == 0) {
 
            phi[t] = inv_logit(beta_phi + beta_timegaps * time_gaps[t]);
 
-	  } else {
+	 } else {
 
-           phi[t] = inv_logit(beta_phi + beta_offseason * X_stat[X_stat_index[t]]);
+		// The only real problem I still see here is that the time between the last measure on-season and the end of the season 
+			// is ignored and pulled into offseason survival. 
+		// Can test adding beta_timegaps * time_gaps[t] back into the offseason (where timegaps is from the date till the end of the season)
+
+           phi[t] = inv_logit(beta_offseason * bd_ind[ind_occ_min1_rep[t]]);
+			// For the real model can add some individual-specific random effects directly into phi
 	
 	  }
 
@@ -221,12 +225,12 @@ model {
 
 	beta_bd[1]  ~ normal(0, 5);
 	beta_bd[2]  ~ normal(0, 5);
-	beta_p[1]   ~ normal(0, 5);
-	beta_p[2]   ~ normal(0, 5);
+	beta_p[1]   ~ normal(0, 1.5);
+	beta_p[2]   ~ normal(0, 1.5);
 
-	beta_phi       ~ normal(0, 5);
-	beta_timegaps  ~ normal(0, 5);
-	beta_offseason ~ normal(0, 5);
+	beta_phi       ~ normal(0, 1.5);
+	beta_timegaps  ~ normal(0, 1.5);
+	beta_offseason ~ normal(0, 1.5);
 
 	bd_delta_sigma      ~ inv_gamma(1, 1);
 	bd_obs              ~ inv_gamma(1, 1);

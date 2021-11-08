@@ -99,8 +99,8 @@ parameters {
 
 	vector[4] beta_bd;				 // two slope coefficients for grand mean change in bd over time 
 
-	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_ind_eps[n_ind];                          // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
@@ -158,7 +158,7 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i] = bd_delta_sigma    * bd_delta_eps[i] + 
+  	  bd_ind[i] = bd_ind_sigma      * bd_ind_eps[i] + 
                        beta_bd_ind_size * ind_size[i]     + 
                        beta_bd_ind_sex[ind_sex[i]];  
 
@@ -275,12 +275,12 @@ model {
 	beta_p_ind_size ~ normal(0, 5);
 	beta_p_ind_sex  ~ normal(0, 5);
 
-	bd_delta_sigma      ~ inv_gamma(1, 1);
+	bd_ind_sigma      ~ inv_gamma(1, 1);
 	
 	bd_obs              ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i]   ~ normal(0, 3);
+	  bd_ind_eps[i]   ~ normal(0, 3);
 	}
          
         gamma       ~ uniform(0, 1);

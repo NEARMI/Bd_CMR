@@ -6,23 +6,27 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of Nov 3:
+## Notes as of Nov 8:
 ####
 
-## Somewhat fixed the double dipping with offseason, time gaps and bd.
+## Recap:
+ ## Collapsed model doing an ok job for simulated data but poor job with real data; but:
+  ## 1) Think my prior was too wide given that I only have one predictor in the plogis (need 1.5)
+   ## Hopefully this will help to resolve some of the posterior problems with spikes at 1
+  ## 2) Explore addition of one or two other covariates to the real data
+  ## 3) Try multi-population model in the simulation
+
+## Eventually:
+## 1) Explore what is able to be recaptured with multi-pop model with the simulated data. 
+ ## Can redo the sampling_range script and try like 10 fits
+
+## Also:
  ## 1) There is still a small issue with survival from the last time time point through the
   ## offseason because survival from the last point to the end of the season is ignored
    ## need to try modifying the data so that the transition retains both info 
     ## drop offseason duration but keep the full linear predictor I think will work best
   ## 2) Need to adjust the simulation to return the actual between season survival values
    ## for diagnostics
-
-## !! Also a big issue in that now detection is being underpredicted for w/e reason. Either
- ## something isn't lining up anymore or there is some issue in my simulation
-
-## Collapsed model still a mess
-
-## Starting on adding other covaraites to the empirical model (see model_fitting.R)
 
 ####
 ## Packages and misc
@@ -154,11 +158,11 @@ stan_data     <- list(
   
   )
 
-stan.fit2  <- stan(
+stan.fit  <- stan(
   file    = {
     if (n_pop == 1) {
-    "../CMR_empirical_long.stan"
-  #    "CMR_collapsed.stan"
+  #  "../CMR_empirical_long.stan"
+      "CMR_collapsed.stan"
     } else {
     "../CMR_empirical_pr_long.stan"
     }
@@ -172,10 +176,10 @@ stan.fit2  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-shinystan::launch_shinystan(stan.fit2)
+shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit2)
+stan.fit.samples <- extract(stan.fit)
 
 ####
 ## CMR Diagnostics
@@ -354,14 +358,16 @@ ind_occ_phi.all %>% filter(pred_phi > 0) %>%
     mean_phi = mean(pred_phi)
   )
 
-hist(stan.fit.samples$phi[, 117], breaks = 100)
+data.frame(vals = stan.fit.samples$phi[, 234]) %>% {
+  ggplot(., aes(x = vals)) + geom_histogram(bins = 50, alpha = 0.5) +
+    xlab("Between Season Survival") +
+    ylab("Samples") +
+    geom_vline(xintercept = 0.77, colour = "firebrick3")
+}
+
+hist(stan.fit.samples$phi[, 234], breaks = 100)
 
 ind_occ_p.all %<>% 
      mutate(ind_per = interaction(ind, periods_occ)) %>% 
      mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
      mutate(ind_per = as.numeric(ind_per))
-
-ind_occ_p.all
-
-hist(stan.fit.samples$gamma[, 52])
-

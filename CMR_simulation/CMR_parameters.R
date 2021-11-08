@@ -45,7 +45,7 @@ if (n_pop > 1) {
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 # samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
-samp  <- matrix(data = 12, nrow = periods, ncol = n_pop)
+samp  <- matrix(data = 3, nrow = periods, ncol = n_pop)
 if (n_pop == 1) {
   samp <- list(samp)
 }

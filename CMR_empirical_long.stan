@@ -97,8 +97,8 @@ parameters {
 
 	vector[4] beta_bd;				 // two slope coefficients for grand mean change in bd over time 
 
-	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_ind_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
@@ -147,7 +147,7 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i] = bd_delta_sigma * bd_delta_eps[i];  
+  	  bd_ind[i] = bd_ind_sigma * bd_ind_eps[i];  
 
 	}
 
@@ -195,7 +195,7 @@ transformed parameters {
 	
 	for (t in 1:ind_occ) {
 
-		// p_zeros is = 1 in each season prior to an individual being caught for the first time
+		// p_zeros is = 0 in each season prior to an individual being caught for the first time
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
@@ -237,12 +237,12 @@ model {
 	beta_timegaps  ~ normal(0, 5);
 	beta_offseason ~ normal(0, 5);
 
-	bd_delta_sigma      ~ inv_gamma(1, 1);
+	bd_ind_sigma      ~ inv_gamma(1, 1);
 	
 	bd_obs              ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i]   ~ normal(0, 3);
+	  bd_ind_eps[i]   ~ normal(0, 3);
 	}
          
         gamma       ~ uniform(0, 1);

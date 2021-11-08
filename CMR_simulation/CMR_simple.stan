@@ -60,6 +60,7 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
+	int<lower=0> X_stat_index[ind_occ_min1];	    // which entries of the summarized stat correspond to each period
 
   // long vector indices for bd model (bd)
 	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
@@ -71,6 +72,8 @@ data {
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
+	int<lower=0> bd_first_index[ind_per_period];	    // First entry of latent bd associated with each individual 'by' period
+	int<lower=0> bd_last_index[ind_per_period];	    // Last entry of latent bd associated with each individual 'by' period
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
   // captures
@@ -89,43 +92,19 @@ transformed data {
 parameters {
 
 // -----
-// bd submodel
-// -----
-
-	real beta_bd_int_pop;				 // population-specific intercepts in bd load
-	vector[3] beta_bd;				 // two slope coefficients for grand mean change in bd over time + slope for temp
-
-	real<lower=0> bd_pop_sigma;			 // change in Bd by pop (normal random effect variance)
-	real bd_pop_eps[n_pop];				 // the conditions modes of the random effect (each populations intercept (for now))
-
-	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_ind_eps[n_ind];               	         // the conditions modes of the random effect (each individual's intercept (for now))
-
-	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
-
-
-// -----
 // survival
 // -----
 
-	real beta_phi;       	          	 	 // grand intercept and slope for survival
-
-	real<upper=0> beta_phi_slope_pop;	    	 // population specific slopes for survival (as bd increases survival decreases)
-
-	real<lower=0> phi_pop_sigma;			 // change in Bd by individual (normal random effect variance)
-	real phi_pop_eps[n_pop];
-        
+	real beta_phi;                  		 // survival between seasons as a function of bd
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real<upper=0> beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
-
+	real beta_offseason;  				 // survival as a function of bd stress
 
 // -----
 // detection
 // -----
 
-	vector[2] beta_p;				 // intercept and slope coefficient for detection
+	real beta_p;					 // intercept and slope coefficient for detection
 	
-
 // -----
 // other
 // -----	
@@ -140,40 +119,6 @@ transformed parameters {
 	real<lower=0,upper=1> p[ind_occ];          // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
-	real X[ind_time];			   // latent bd
- 		
-	real bd_ind[n_ind];                        // Individual random effect deviates
-	real bd_pop[n_pop];
-	real phi_pop[n_pop];
-
-// -----
-// bd submodel, contained to estimating within-season bd
-// -----
-
-	for (pp in 1:n_pop) {
-	 bd_pop[pp]  = beta_bd_int_pop + bd_pop_sigma * bd_pop_eps[pp];
-	 phi_pop[pp] = beta_phi_slope_pop + phi_pop_sigma * phi_pop_eps[pp];
-	} 
-
-	for (i in 1:n_ind) {
-	    
-		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
-
-  	  bd_ind[i] = bd_ind_sigma * bd_ind_eps[i];  
-
-	}
-
-	for (t in 1:ind_time) {
-
-		// latent bd model before obs error
-
-	  X[t] = (bd_pop[ind_in_pop[t]] + bd_ind[ind_bd_rep[t]]) +
-		      beta_bd[1] * sampling_events_bd[t]         +
-		      beta_bd[2] * square(sampling_events_bd[t]) + 
-		      beta_bd[3] * temp[t];      
-
-        }
-
 // -----
 // Survival probability over the whole period
 // -----
@@ -183,12 +128,21 @@ transformed parameters {
 	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
            phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
 	 } else {
-           phi[t] = inv_logit(
-                      beta_phi                       + 
-                      beta_timegaps  * time_gaps[t]  +
-                      beta_offseason * offseason[t]  +	
-                      phi_pop[pop_phi[t]] * X[phi_bd_index[t]]
-                    );
+
+		// Idea here is that survival operates with two processes: within season and between season survival
+			// While it is likely that bd affects within-season survival I don't think we have the ability to measure that
+			// For now just focus on using the individual 	
+
+	  if (offseason[t] == 0) {
+
+           phi[t] = inv_logit(beta_phi + beta_timegaps * time_gaps[t]);
+
+	 } else {
+
+           phi[t] = inv_logit(beta_offseason);
+	
+	  }
+
 	 }  
 
 	}
@@ -203,9 +157,9 @@ transformed parameters {
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]);
+          p[t] = inv_logit(beta_p);
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
+          p[t] = inv_logit(beta_p) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -229,46 +183,13 @@ model {
 // Priors
 // -----
 
-	beta_bd[1] ~ normal(0, 5);
-	beta_bd[2] ~ normal(0, 5);
-	beta_bd[3] ~ normal(0, 5);
-	beta_phi   ~ normal(0, 5);
-	beta_p[1]  ~ normal(0, 5);
-	beta_p[2]  ~ normal(0, 5);
-
+	beta_p      ~ normal(0, 5);
+	beta_phi       ~ normal(0, 5);
 	beta_timegaps  ~ normal(0, 5);
 	beta_offseason ~ normal(0, 5);
-
-	beta_bd_int_pop    ~ normal(0, 5);
-	beta_phi_slope_pop ~ normal(0, 5);
-
-	bd_ind_sigma  ~ inv_gamma(1, 1);
-	bd_pop_sigma  ~ inv_gamma(1, 1);
-	phi_pop_sigma ~ inv_gamma(1, 1);
-	
-	bd_obs              ~ inv_gamma(1, 1);
-
-	for (pp in 1:n_pop) {
-	 bd_pop_eps[pp]  ~ normal(0, 5);
-	 phi_pop_eps[pp] ~ normal(0, 5);
-	}
-
-	for (i in 1:n_ind) {
-	  bd_ind_eps[i]   ~ normal(0, 3);
-	}
          
         gamma       ~ uniform(0, 1);
 
-
-// -----
-// Bd Process and Data Model
-// -----
-
-		// observed bd is the linear predictor + some observation noise
-
-	for (t in 1:N_bd) {
-          X_bd[t] ~ normal(X[x_bd_index[t]], bd_obs); 
-	} 
     
 // -----
 // Capture model
