@@ -3,47 +3,23 @@
 ########################################
 
 ####
-## Notes as of NOV 5:
+## Notes as of NOV 8:
 ####
 
-## While the collapsed model seems reasonably promising for the simulated data, at least the newt model for one site (A11) 
- ## doesn't have enough information to resolve anything really. 
+## Notes from quick impromptu meeting:
+ ## Things to try for fitting
+  ## 1) Tighter prior on obs error from resampling data
+  ## 2) Tighter prior on temp growth rate from lab data 
+   ## -- which could require reworking the bd submodel to a discrete time steps problem
+  ## 3) Try forcing negative between season survival and see what happens with mixing for the newts 
+  ## 4) Try a "validation" species where we really expect between season survival to be negative and see what comes of it
+  ## 5) Play with size vs load outside of the CMR and see if a prior could be informed.
+   ## -- In general explore the use of size a bit more extensively
+  ## 6) More complicated detection model needed
 
-## To try and move forward:
-
-## 1) Stepping back to make sure that the model is sensible _in general_ by removing all bd and checking within and between season survival
- ## -- Ok, model is sensible
-## 2) Try and add an individual covariate or a squared term to the collapsed model in the hopes of explaining more of the variance in bd
- ## -- Tried a random effect for individual survival and cumulative temperature and neither of those helped much
-## 3) Not ready to give up on the model yet: maybe Newts just are not really affected by bd ??
- ## -- Try some other populations
- ## -- Tidy up what I can in the simulation model code and the time gaps for phi on the offseason 
-
-## Mostly work in CMR_simulations.R -- see that script for details. Leaving Nov 3 notes here below untouched
-
-### Some issues:
- ## 1) Calculating individual size brings me back to a problem from before, which is that I am still estimating
-  ## bd curves for the periods prior to an individual being captured for the first time.
- ## -- It is potentially important to estimate bd curves for this period because detection | bd could be biased if you
-  ## don't use those potential captures to inform the detection probability.
-  ## ^^ The issue that arises here is that you also don't know the animals size (which could impact bd)
-   ## in that unobserved period, which introduces another form of error
-
- ## 2) Relatively little headway in the collapsed model so far. Still need to figure out how to specify both
-  ## simulated data and model in a sensible way to capture between season survival but ignore within while still
-   ## modeling full bd spectrum
-
-### Next to do:
- ## 1) Add individual covaraites into the multi-population model
- ## 2) Add population covaraites into the multi-population model
- ## 3) Get set up on YETI to run all locations info-borrowing model
- ##  ^^ While this is happening:
-  ## A) Try fitting MA locations by themselves
-  ## B) Continue to work on the model collapsing step
-
-### Afterwards:
- ## 1) More complicated detection model
- ## 2) Actually figure out collapsing the model
+ ## Other needed steps 
+  ## 1) Finish out the more extensive simulation script
+  ## 2) Try the multi-population random effects model formulation in the simulated data model
 
 ####
 ## Packages and functions
