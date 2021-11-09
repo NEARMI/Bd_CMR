@@ -117,8 +117,8 @@ if (when_samp == "random") {
    mutate(last_sample = min(times)) %>%
    filter(!is.na(time_gaps))
  
- time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps <- 
-   time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps + between_season_duration
+# time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps <- 
+#   time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps + between_season_duration
    
   time_gaps <- time_gaps$time_gaps
   

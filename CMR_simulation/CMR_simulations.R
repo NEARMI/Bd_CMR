@@ -158,7 +158,6 @@ stan_data     <- list(
   
  , first           = capture_range.all$first
  , last            = capture_range.all$final
-  
   )
 
 stan.fit  <- stan(
@@ -168,7 +167,7 @@ stan.fit  <- stan(
       "CMR_collapsed.stan"
     } else {
   #  "../CMR_empirical_pr_long.stan"
-      "CMR_collapsed_pr.stan"
+      "CMR_collapsed_pr_adj.stan"
     }
     }
 , data    = stan_data
@@ -179,7 +178,8 @@ stan.fit  <- stan(
 , refresh = 10
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
-saveRDS(stan.fit, "stan.fit.mpr.Rds")
+
+saveRDS(stan.fit, "stan.fit.mpr2.Rds")
 
 shinystan::launch_shinystan(stan.fit)
 
