@@ -31,6 +31,7 @@ one_pop <- bd.sampling(
 , bd_mort   = bd_mort[pop_ind, ]
 , bd_detect = bd_detect[pop_ind, ]
 , p_mort    = p_mort[pop_ind, ]
+, background_mort = background_mort[pop_ind, ]
 , pop_ind   = pop_ind
 )
 

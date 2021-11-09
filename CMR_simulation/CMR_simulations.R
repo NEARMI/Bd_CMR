@@ -179,6 +179,7 @@ stan.fit  <- stan(
 , refresh = 10
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+saveRDS(stan.fit, "stan.fit.mpr.Rds")
 
 shinystan::launch_shinystan(stan.fit)
 

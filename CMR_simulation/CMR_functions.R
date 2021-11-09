@@ -66,7 +66,7 @@ bd.sampling <- function (
   expdat
 , all_ind, new_ind, times, periods, when_samp, samp, bd_perc
 , inbetween, between_season_duration
-, bd_mort, bd_detect, p_mort, pop_ind
+, bd_mort, bd_detect, p_mort, background_mort, pop_ind
 ) {
 
 ## drop new_ind random individuals from each prior period to simulate individuals that migrated into the population
@@ -190,7 +190,7 @@ for (i in 1:nrow(off_season)) {
 ## if (p_mort_type == "max")
  ## NOTE: OCT 15: only max supported for now 
   off_season[i, ]$log_bd_load <- temp_row$max_bd
-  off_season[i, ]$mort        <- with(off_season[i, ], 1 - ((1 - mort) * log_bd_load))
+  off_season[i, ]$mort        <- plogis(background_mort + p_mort * off_season[i, ]$log_bd_load)
 
 }
 

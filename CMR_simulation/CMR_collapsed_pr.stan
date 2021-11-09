@@ -115,7 +115,7 @@ parameters {
 	real phi_pop_eps[n_pop];
 
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real beta_offseason;  				 // survival as a function of bd stress
+	vector[2] beta_offseason;  			 // survival as a function of bd stress
 
 	real<lower=0> offseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
 	real offseason_pop_eps[n_pop];
@@ -206,7 +206,7 @@ transformed parameters {
 			// is ignored and pulled into offseason survival. 
 		// Can test adding beta_timegaps * time_gaps[t] back into the offseason (where timegaps is from the date till the end of the season)
 
-           phi[t] = inv_logit((beta_offseason + offseason_pop[pop_phi[t]]) * bd_ind[ind_occ_min1_rep[t]]);
+           phi[t] = inv_logit(beta_offseason[1] + (beta_offseason[2] + offseason_pop[pop_phi[t]]) * bd_ind[ind_occ_min1_rep[t]]);
 	
 	  }
 
@@ -261,7 +261,8 @@ model {
 
 	beta_phi       ~ normal(0, 1.5);
 	beta_timegaps  ~ normal(0, 1.5);
-	beta_offseason ~ normal(0, 1.5);
+	beta_offseason[1] ~ normal(0, 1.5);
+	beta_offseason[2] ~ normal(0, 1.5);
 
 	bd_ind_sigma   ~ inv_gamma(1, 1);
 

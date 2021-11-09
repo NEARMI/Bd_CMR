@@ -135,9 +135,9 @@ obs_noise <- matrix(data = rep(1, n_pop)
 ####
 
 ## mortality probability in-between periods
- ## OCT 14 NOTE: for other options see Individual_CMR_expanding.R, for now just proceeding with "max"
-  ## will add back other options later
-p_mort    <- matrix(data = rep(.025, n_pop)
+p_mort          <- matrix(data = rlnorm(n_pop, -2.5, 0.5) * -1 #rep(.025, n_pop)
+  , nrow = n_pop, ncol = 1)
+background_mort <- matrix(data = rep(1, n_pop)
   , nrow = n_pop, ncol = 1)
 
 ####
