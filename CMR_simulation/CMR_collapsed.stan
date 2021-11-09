@@ -108,7 +108,7 @@ parameters {
 
 	real beta_phi;                  		 // survival between seasons as a function of bd
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real<upper=0> beta_offseason;  			 // survival as a function of bd stress
+	vector[2] beta_offseason;  			 // survival as a function of bd stress
 
 // -----
 // detection
@@ -131,6 +131,7 @@ transformed parameters {
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
 	real X[ind_time];			   // latent bd
+	real X_stat[ind_per_period];		   // yearly summaries of bd
  		
 	real bd_ind[n_ind];                        // Individual random effect deviates for bd
 	
@@ -153,6 +154,12 @@ transformed parameters {
 	  X[t] = (beta_bd[1] + bd_ind[ind_bd_rep[t]]) + beta_bd[2] * temp[t];	// need to update here so that temp is cumulative until time t      
 
         }
+
+	for (t in 1:ind_per_period) {
+	 
+	  X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
+
+	}
 
 // -----
 // Survival probability over the whole period
@@ -178,7 +185,7 @@ transformed parameters {
 			// is ignored and pulled into offseason survival. 
 		// Can test adding beta_timegaps * time_gaps[t] back into the offseason (where timegaps is from the date till the end of the season)
 
-           phi[t] = inv_logit(beta_offseason * bd_ind[ind_occ_min1_rep[t]]);
+           phi[t] = inv_logit(beta_offseason[1] + beta_offseason[2] * X_stat[X_stat_index[t]]);
 			// For the real model can add some individual-specific random effects directly into phi
 	
 	  }
