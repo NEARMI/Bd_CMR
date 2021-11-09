@@ -108,7 +108,7 @@ parameters {
 
 	real beta_phi;                  		 // survival between seasons as a function of bd
 	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	real beta_offseason;  				 // survival as a function of bd stress
+	real<upper=0> beta_offseason;  			 // survival as a function of bd stress
 
 // -----
 // detection
