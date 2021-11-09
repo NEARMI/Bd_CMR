@@ -68,7 +68,8 @@ Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(Mark))) %
 ## Select a subset of sites
 A11 <- Bd_Newts_AllSites %>% 
 # filter(SA == "PA") %>% 
-  filter(Site == "SC38") %>%
+# filter(Site == "SC38") %>%
+  filter(Site == "A11") %>%
 # filter(Site == "A04" | Site == "A11" | Site == "A05" | Site == "A10") %>%
   group_by(year) %>%  
   mutate(week = ceiling(julian / 7)) %>% 

@@ -15,7 +15,7 @@ expdat  <- bd.simulate(
 , bd_noinf  = bd_noinf[pop_ind, ]
 )
 
-# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line() + facet_wrap(~ind)}    
+# expdat %>% filter(periods == 1) %>% {ggplot(., aes(times, log_bd_load)) + geom_line(aes(group = ind))}    
 
 one_pop <- bd.sampling(
   expdat    = expdat

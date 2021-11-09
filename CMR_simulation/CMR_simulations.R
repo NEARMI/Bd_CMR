@@ -9,6 +9,9 @@
 ## Notes as of Nov 8:
 ####
 
+## Most pressing current problem[s]:
+ ## 1) Multi-pop model individuals not aligning properly (specifically with X_bd.m.all -- individual number mismatch)
+
 ## Recap:
  ## Collapsed model doing an ok job for simulated data but poor job with real data; but:
   ## 1) Think my prior was too wide given that I only have one predictor in the plogis (need 1.5)
@@ -164,7 +167,8 @@ stan.fit  <- stan(
   #  "../CMR_empirical_long.stan"
       "CMR_collapsed.stan"
     } else {
-    "../CMR_empirical_pr_long.stan"
+  #  "../CMR_empirical_pr_long.stan"
+      "CMR_collapsed_pr.stan"
     }
     }
 , data    = stan_data

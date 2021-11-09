@@ -198,7 +198,7 @@ transformed parameters {
 
 	  if (offseason[t] == 0) {
 
-           phi[t] = inv_logit(beta_phi + phi_pop[ind_occ_min1_rep[t]] + beta_timegaps * time_gaps[t]);
+           phi[t] = inv_logit(beta_phi + phi_pop[pop_phi[t]] + beta_timegaps * time_gaps[t]);
 
 	 } else {
 
@@ -206,7 +206,7 @@ transformed parameters {
 			// is ignored and pulled into offseason survival. 
 		// Can test adding beta_timegaps * time_gaps[t] back into the offseason (where timegaps is from the date till the end of the season)
 
-           phi[t] = inv_logit((beta_offseason + offseason_pop[ind_occ_min1_rep[t]]) * bd_ind[ind_occ_min1_rep[t]]);
+           phi[t] = inv_logit((beta_offseason + offseason_pop[pop_phi[t]]) * bd_ind[ind_occ_min1_rep[t]]);
 	
 	  }
 
@@ -228,9 +228,9 @@ transformed parameters {
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit((beta_p[1] + p_pop[ind_occ[t]]) + beta_p[2] * X[p_bd_index[t]]);
+          p[t] = inv_logit((beta_p[1] + p_pop[pop_p[t]]) + beta_p[2] * X[p_bd_index[t]]);
 	 } else {
-          p[t] = inv_logit((beta_p[1] + p_pop[ind_occ[t]]) + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
+          p[t] = inv_logit((beta_p[1] + p_pop[pop_p[t]]) + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -263,7 +263,7 @@ model {
 	beta_timegaps  ~ normal(0, 1.5);
 	beta_offseason ~ normal(0, 1.5);
 
-	bd_ind_sigma        ~ inv_gamma(1, 1);
+	bd_ind_sigma   ~ inv_gamma(1, 1);
 
 	for (i in 1:n_ind) {
 	  bd_ind_eps[i]   ~ normal(0, 3);

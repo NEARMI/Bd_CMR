@@ -231,7 +231,8 @@ never_detected <- expdat %>%
   summarize(total_detection = sum(detected)) %>% 
   filter(total_detection == 0)
 
-expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>% droplevels()
+expdat %<>% dplyr::filter(ind %notin% never_detected$ind) %>% droplevels() %>%
+  mutate(ind = as.factor(ind)) %>% mutate(ind = as.numeric(ind))
 
 ## total number of individuals ever captured
 all_ind     <- length(unique(expdat$ind))
