@@ -146,7 +146,7 @@ set.seed(10002)
 
 ## Data from WI, MA, and PA
 # Bd_Newts_AllSites <- read.csv("Bd_Newts_AllSites.csv")
-Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_9.12.21.csv")
+Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_10.1.21.csv")
 
 ## Stupid dates in R
 if (length(grep("/", Bd_Newts_AllSites$Date[1])) > 0) {
@@ -701,4 +701,21 @@ capt_history %>% mutate(event = as.factor(Date)) %>% {
     , legend.text = element_text(size = 12)
     , legend.key.size = unit(.55, "cm")
     ) 
+}
+
+####
+## New Section about Individual values and Bd
+####
+
+Bd_Newts_AllSites %>% filter(copies.swab < 1E7) %>% {
+  ggplot(., aes(SVL, copies.swab)) + geom_jitter() +
+    scale_y_continuous(trans = "pseudo_log"
+      , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6, 4E6, 8E6))
+}
+
+Bd_Newts_AllSites %>% filter(copies.swab < 1E7) %>% 
+  filter(!is.na(Sex)) %>% {
+  ggplot(., aes(Sex, copies.swab)) + geom_violin() +
+    scale_y_continuous(trans = "pseudo_log"
+      , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6, 4E6, 8E6))
 }

@@ -19,7 +19,6 @@
 
  ## Other needed steps 
   ## 1) Finish out the more extensive simulation script
-  ## 2) Try the multi-population random effects model formulation in the simulated data model
 
 ####
 ## Packages and functions
