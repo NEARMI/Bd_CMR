@@ -6,12 +6,12 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 1
+n_pop      <- 12
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rep(60, n_pop)
+ind       <- matrix(data = rpois(n_pop, 50) # rep(50, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases).
@@ -25,7 +25,8 @@ if (n_pop > 1) {
 ## individuals added in each new period. A little weird to set it up this way, can
  ## maybe try a different method later
 new_ind         <- vector("list", n_pop)
-new_ind_per_pop <- rnbinom(n_pop, 30, .5)
+new_ind_per_pop <- rnbinom(n_pop, 10, .6)
+new_ind_per_pop <- ifelse(new_ind_per_pop == 0, 1, new_ind_per_pop)
 for (i in 1:n_pop) {
  new_ind[[i]] <- rep(new_ind_per_pop[i], periods[i, 1] - 1)
 }
@@ -35,7 +36,7 @@ all_ind   <- matrix(data = ind + lapply(new_ind, sum) %>% unlist()
   , ncol = 1, nrow = n_pop)
 
 ## number of time periods (in the real data probably will use weeks; e.g., May-Sep or so)
-times     <- matrix(data = rep(20, n_pop)
+times     <- matrix(data = rpois(n_pop, 15) #rep(20, n_pop)
   , ncol = 1, nrow = n_pop)
 ## Play with different times per period
 if (n_pop > 1) {
@@ -44,14 +45,15 @@ if (n_pop > 1) {
 
 ## number of sampling events occurring over 'times'
  ## for now assume same number of periods per year, but this model allows variable sampling dates by season
-# samp  <- apply(periods, 1, FUN = function(x) rpois(x, 8))
-samp  <- matrix(data = 3, nrow = periods, ncol = n_pop)
-if (n_pop == 1) {
-  samp <- list(samp)
+samp         <- vector("list", n_pop)
+samp_prop    <- 0.2 ## on average, what proportion of times are sampling events
+
+for (i in 1:n_pop) {
+ samp[[i]] <- rpois(periods[i, 1], round(times[i, 1] * 0.3)) + 1
 }
 
 ## number of time periods that elapse between the on-season
-between_season_duration <- matrix(data = rep(40, n_pop)
+between_season_duration <- matrix(data = rpois(n_pop, 30) #rep(40, n_pop)
   , ncol = 1, nrow = n_pop)   
 
 ## random = sampling occurs on a random subset of possible days
@@ -59,9 +61,9 @@ when_samp <- matrix(data = rep("random", n_pop)
   , ncol = 1, nrow = n_pop)    
 
 ## vector to designate the offseasons
-inbetween <- apply(periods, 1, FUN = function(x) seq(1.5, x, by = 1))
-if (n_pop == 1) {
-  inbetween <- list(inbetween)
+inbetween    <- vector("list", n_pop)
+for (i in 1:n_pop) {
+ inbetween[[i]] <- seq(1.5, periods[i, 1], by = 1)
 }
 
 ####
@@ -76,7 +78,10 @@ bd_beta <- matrix(
   , rep(0.3, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
 
-bd_beta[1, 1] <- 0
+## For debugging of a single population
+if (n_pop == 1) {
+ bd_beta[1, 1] <- 0
+}
 
 ## error
 bd_sigma  <- matrix(data = rep(20, n_pop)
@@ -85,7 +90,7 @@ bd_sigma  <- matrix(data = rep(20, n_pop)
 ## random effect variance covariance
 bd_theta  <- matrix(
   data = c(
-    rep(0.5, n_pop)    ## Intercept
+    rep(0.5, n_pop)  ## Intercept
   , rep(0.3, n_pop)  ## Time effect
   , rep(0.2, n_pop)  ## Linear effect of temp on bd
 ), nrow = n_pop, ncol = 3, byrow = F)
@@ -97,13 +102,16 @@ bd_mort <- matrix(
   , rep(4, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
 
-bd_mort[1, 1] <- -0.05
+## For debugging of a single population
+if (n_pop == 1) {
+ bd_mort[1, 1] <- -0.05
+}
 
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
   data = c(
     rep(0.2, n_pop)   ## logistic slope
-  , rep(-0.5, n_pop)  ## intercept
+  , sample(seq(0, -1, length = n_pop), n_pop) ## intercept 
 ), nrow = n_pop, ncol = 2, byrow = F)
 
 bd_noinf <- matrix(
@@ -115,11 +123,11 @@ bd_noinf <- matrix(
 bd_perc <- vector("list", n_pop)
 
 for (k in 1:n_pop) {
-bd_perc[[k]] <- rep(.50, nrow(samp[[k]]))
+ bd_perc[[k]] <- rep(.50, length(samp[[k]]))
 }
 
 ## Observation noise in bd
-obs_noise <- matrix(data = rep(3, n_pop)
+obs_noise <- matrix(data = rep(1, n_pop)
   , nrow = n_pop, ncol = 1)  
 
 ####

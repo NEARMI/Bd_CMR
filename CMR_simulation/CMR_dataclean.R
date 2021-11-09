@@ -5,20 +5,17 @@
 ## clean up expdat.all (mostly to deal with individual numbers being repeated across sims)
 expdat.all %<>% ungroup() %>% 
   arrange(pop, ind, all_times) %>% 
-  mutate(ind = interaction(ind, pop)) %>% 
-  mutate(ind = factor(ind, levels = unique(ind))) %>% 
+  mutate(ind_pop = interaction(ind, pop)) %>% 
+  mutate(ind = factor(ind_pop, levels = unique(ind_pop))) %>% 
   mutate(ind = as.numeric(ind))
   
 ## And the last few pieces outside of the loop
 ind_occ_min1_size.all <- ind_occ_size.all - 1
 
 ## Fix the individual numbers in X_bd.m.all
-if (n_pop > 1) {
-for (i in 2:n_pop) {
-  X_bd.m.all[X_bd.m.all$pop == i, ]$ind <- X_bd.m.all[X_bd.m.all$pop == i, ]$ind + 
-    max(X_bd.m.all[X_bd.m.all$pop == (i - 1), ]$ind)
-}
-}
+X_bd.m.all %<>% mutate(ind_pop = interaction(ind, pop)) %>% 
+  dplyr::select(-ind) %>% 
+  left_join(. , expdat.all %>% dplyr::select(ind, ind_pop) %>% distinct())
 
 ## convert ind_pop interaction column to individuals
 ind_occ_phi.all %<>% mutate(ind = as.numeric(ind))
@@ -32,11 +29,6 @@ ind_occ_phi.all %<>% left_join(.
 ind_occ_p.all %<>% left_join(.
   , expdat.all %>% dplyr::select(ind, all_times, periods) %>% 
     rename(sampling_events_p = all_times))
-
-## If running a simpler model instead of the full between day survival
-if (collapse.mod) {
-  ind_occ_phi.all 
-}
 
 ## Index vector for the first entry of phi and p that correspond to a new individual
 phi_first_index <- (ind_occ_phi.all %>% mutate(index = seq(n())) %>% group_by(ind) %>% 
