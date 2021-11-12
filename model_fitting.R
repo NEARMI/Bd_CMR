@@ -3,8 +3,13 @@
 ########################################
 
 ####
-## Notes as of NOV 8:
+## Notes as of NOV 12:
 ####
+
+### Try non-log scale???
+
+
+### Notes from earlier in the week
 
 ## Notes from quick impromptu meeting:
  ## Things to try for fitting

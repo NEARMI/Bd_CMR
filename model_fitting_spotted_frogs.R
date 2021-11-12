@@ -1,0 +1,551 @@
+####
+## Modified "model_fitting.R" for other sampling structure (spotted frogs)
+####
+
+####
+## Notes as of NOV 12:
+####
+
+## Starting on a modified model for few primary periods (e.g., a week when we think the population is closed) for each year
+ ## i.e., a structure where there are 1-3 primary periods in a year and a primary period may consist of 1-6 back to back visits in a span
+  ## of a week or two
+
+## Different from the model I have been working on so far because survival is assumed to be 1 but detection is still estimated
+ ## Thus need a new-ish structure where survival is estimated between primary periods within a year and also between years (different process)
+
+## Script in progress --BUT-- very non-dynamic. 
+ ## 1) Need to adjust the script to be able to dynamically modify all data sets without writing unique code for each. 
+ ## 2) Need to set up the parsing script to accommodate data like this and data like in the newts
+
+## Model in progress.
+ ## 1) All time-specific info has been dropped (for now). Just average estimates for each individual predicted for now. When adding other
+  ## populations need to add this back to separate seasonal effects from individual effects
+ ## 2) Will need to add back individual covaraites soon and site covariates (e.g., temp) when I get them
+ ## 3) Lots of debugging to undertake still
+
+
+####
+## Packages and functions
+####
+needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
+lapply(needed_packages, require, character.only = TRUE)
+source("../ggplot_theme.R")
+set.seed(10002)
+'%notin%' <- Negate('%in%')
+
+frogs <- readxl::read_excel("JonesLubrecht_RALU_CMR2018-2021_10Nov21_BJT_Morgan.xlsx"
+  , sheet = "JonesLubrecht_RALU_CMR2018-Aug2") %>%
+  mutate(CaptureDate = as.Date(CaptureDate)) %>% 
+  rename(bd_load = `TargetCopies/swab`) %>%
+  mutate(bd_load = as.numeric(bd_load))
+
+recaps <- frogs %>% 
+  group_by(PitTagCode) %>% 
+  summarize(num_capt = n()) %>%
+  filter(PitTagCode != "NA") %>%
+  arrange(desc(num_capt))
+
+frogs %>% group_by(PitTagCode, Month, Year) %>%
+  summarize(n_swabs = sum(BdSample)) %>%
+  arrange(desc(n_swabs))
+
+recaps %>% {
+    ggplot(., aes(x = num_capt)) + geom_histogram(bins = 40)
+  }
+
+frogs %>% mutate(Month = as.factor(Month)) %>% {
+    ggplot(., aes(Month, bd_load)) + 
+    geom_violin() +
+    scale_y_continuous(trans = "pseudo_log"
+      , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6)) 
+}
+
+frogs %>% filter(PitTagCode %in% recaps$PitTagCode[1:30]) %>% {
+    ggplot(., aes(Month, bd_load)) + 
+    geom_point(aes(colour = as.factor(Year))) +
+    scale_y_continuous(trans = "pseudo_log"
+      , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6)) +
+    scale_x_continuous(breaks = c(6, 7, 8))
+}
+
+####
+## Set up data to run model
+####
+
+A11 <- frogs %>%
+  rename(Mark = PitTagCode) %>% 
+  filter(!is.na(Mark)) %>%
+  filter(Year != 2021)
+
+n_sites <- unique(A11$Site) %>% length()
+u_sites <- unique(A11$Site)
+
+## Find the first and last week and year ever sampled in each population
+week_range <- A11 %>% 
+  group_by(Site) %>% 
+  summarize(
+    min_week = min(Month)
+  , max_week = max(Month)
+  )
+
+year_range <- A11 %>% 
+  group_by(Site) %>% 
+  summarize(
+    n_years = length(unique(Year))
+  )
+
+## Find the unique weeks sampled in each year
+sampled_weeks <- A11 %>% 
+  group_by(Site, Year) %>%
+  summarize(Month = unique(Month)) %>%
+  left_join(.
+    , A11 %>% 
+  group_by(Site, Year, Month) %>%
+  summarize(SecNumConsec = unique(SecNumConsec))
+    ) %>% 
+  mutate(sampled = 1) %>%
+  arrange(Site, Month, SecNumConsec) 
+
+all_ind <- 0
+for (i in 1:n_sites) {
+  
+## Extract a given site and sampling characteristics of that site
+week_range.i    <- week_range %>% filter(Site == u_sites[i])
+A11.i           <- A11 %>% filter(Site == u_sites[i])
+sampled_weeks.i <- sampled_weeks %>% filter(Site == u_sites[i])
+  
+capt_history.t <- 
+  ## First create that "all possible combinations" data frame
+  expand.grid(
+  Month = seq(from = week_range.i$min_week, to = week_range.i$max_week, by = 1)
+, Year = unique(A11.i$Year)
+, Site = u_sites[i]
+, Mark = unique(A11.i$Mark)) %>% 
+  ## Add in which weeks were sampled and which individuals were sampled
+  left_join(., sampled_weeks.i) %>% 
+  left_join(., (A11.i %>% dplyr::select(Month, Year,  Mark, SecNumConsec, Species, bd_load))) %>% 
+  ## drop the times that were never sampled
+  filter(!is.na(SecNumConsec)) %>% 
+  ## left_join figures out which days were sampled and which were not
+  mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
+  rename(
+  ## just using a random non-na column to find captures (convenient given how left-join works)
+    captured = Species) %>% 
+  ## convert other nas to 0s
+  mutate(
+    captured = ifelse(is.na(captured), 0, 1)
+  , swabbed  = ifelse(is.na(bd_load), 0, 1)) %>%
+  ## collapsing to week (there are a _very_ few number of individuals captured multiple times in the same week,
+    ## so this will have an extremely negligable effect)
+  group_by(Mark, Month, Year, Site, SecNumConsec) %>%
+  summarize(
+    sampled  = sum(sampled)
+  , captured = sum(captured, na.rm = T)
+  , swabbed  = sum(swabbed , na.rm = T)
+  , bd_load  = sum(bd_load , na.rm = T)
+  ) %>% 
+  mutate(
+    sampled     = ifelse(sampled  > 1, 1, sampled)
+  , captured    = ifelse(captured > 1, 1, captured)
+  , swabbed     = ifelse(swabbed  > 1, 1, swabbed)
+  ## Need to do better here
+  , log_bd_load = log(bd_load + 1)                           ### eeek!
+  , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load) ### eeek X2!!
+  )
+
+## Jump through a few hoops to name unique individuals. 
+ ## NOTE: this is an issue if individuals move populations
+capt_history.t %<>% mutate(Mark = as.factor(Mark)) %>%
+  mutate(Mark = as.numeric(Mark))
+n_inds <- max(capt_history.t$Mark)
+capt_history.t %<>% mutate(Mark = Mark + all_ind)
+all_ind <- all_ind + n_inds
+
+## Add in other needed indexing columns
+capt_history.t %<>% ungroup() %>% 
+  arrange(Year, Month, SecNumConsec, Mark, Site) %>% 
+  mutate(
+## weeks counted from the first week in each year
+   month_year  = interaction(Month, Year)
+ , month_year  = as.factor(month_year)
+ , month_year  = as.numeric(month_year)
+## calculating continuous weeks from the first capture opportunity onward
+ , year_f      = as.numeric(as.factor(Year)) - 1
+)
+
+if (i == 1) {
+capt_history <- capt_history.t
+} else {
+capt_history <- rbind(capt_history, capt_history.t)
+}
+   
+print(paste("Through", i, "of", n_sites, "sites", sep = " "))
+
+}
+
+## Sort data frame in the appropriate order (counting through consecutive weeks one individual at a time)
+capt_history %<>% arrange(Mark, Year, Site, Month, SecNumConsec)
+
+## individuals' measured bd 
+capt_history.bd_load <- capt_history %>% 
+  ungroup() %>%
+  arrange(Mark, month_year) %>%
+  filter(swabbed == 1)
+
+## first and last _OF THE CAPTURE EVENTS_ in which each individual was captured
+ ## (possible min and max will vary by which population individuals are in)
+capture_range  <- capt_history %>% 
+  group_by(Mark) %>% 
+  filter(sampled == 1) %>%  
+  summarize(
+    first = min(which(captured == 1))
+  , final = max(which(captured == 1))) %>% 
+  dplyr::select(first, final) %>% 
+  ## Remove all individuals in the data set that were never captured (in case there are any for w/e reason)
+  filter(!is.infinite(first) | !is.infinite(final))
+
+if (length(unique(capt_history$Mark)) < 300) {
+capt_history %>% {
+  ggplot(., aes(SecNumConsec, Mark, fill = as.factor(captured))) + 
+    geom_tile(aes(alpha = sampled)) +
+    geom_point(data = 
+        capt_history %>% 
+        filter(swabbed == 1)
+      , aes(x = SecNumConsec, y = Mark, z = NULL), lwd = 0.7) +
+    xlab("Sampling Event") +
+    ylab("Individual") +
+    scale_fill_manual(
+        values = c("dodgerblue4", "firebrick4")
+      , name   = "Detected?"
+      , labels = c("No", "Yes")) +
+    guides(alpha = FALSE) +
+    theme(
+      axis.text.y = element_text(size = 6)
+    , legend.text = element_text(size = 12)
+    , legend.key.size = unit(.55, "cm")
+    ) 
+  }
+}
+
+
+####
+## Data in the needed structure for the stan model
+####
+
+## total number of individuals
+n_ind     <- length(unique(capt_history$Mark))             
+
+## individuals per population
+n_ind.per <- capt_history %>% group_by(Site) %>%
+  summarize(n_ind = length(unique(Mark))) %>% 
+  dplyr::select(-Site) %>% as.matrix()
+
+## samoling occasions per population per year
+n_occ     <- sampled_weeks %>% 
+  group_by(Year, Site) %>%
+  summarize(n_occ = length(unique(SecNumConsec))) %>% 
+  mutate(Site = factor(Site, levels = u_sites)) %>%
+  arrange(Site) %>%
+  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  arrange(Year) %>%
+  ungroup() %>%
+  dplyr::select(-Year) %>% as.matrix()
+n_occ[is.na(n_occ)] <- 0
+
+###
+## Note: The way the "long-form / database-form" model works is to have long vectors of the
+## data and outcomes and index vectors giving details/grouping associations about each data point
+## Given the structure of the stan model, the easiest way to set up the correct structure is to 
+## subest the complete data frame into three that are of the appropraite length and go from there
+###
+
+### --- Data for detection (.p for detection) --- ###
+capt_history.p   <- capt_history %>% 
+  filter(sampled == 1) %>% 
+  ungroup()
+
+## Which entries of p correspond to a new individual (the first entry for each individual)
+p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>% 
+  group_by(Mark) %>% 
+  summarize(first_index = min(index)))$first_index
+
+## determine the first period (for now year) in which each individual was _known_ to be present
+first_capt <- capt_history.p %>% 
+  group_by(Mark, Year, Site) %>% 
+  summarize(capt = sum(captured)) %>% 
+  ungroup(Year) %>%
+## And thenin all future times from the current time these individuals _could_ be here
+  mutate(capt = cumsum(capt)) %>% 
+  mutate(capt = ifelse(capt > 0, 1, 0)) 
+
+## For each individual extract which time periods we do not know if an individual was present or not
+for (k in 1:n_sites) {
+p_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, u_sites[k]]))
+for (i in 1:n_ind.per[k, 1]) {
+  tdat <- first_capt %>% filter(Site == u_sites[k])
+  tdat %<>% filter(Mark == unique(tdat$Mark)[i])
+  ## For each individual repeat 0s and 1s for each sampling occasions in all years that they were
+   ## never captured (0s) and captured (1s) or after a first capture year (1s) 
+  rep.t <- n_occ[, u_sites[k]]; rep.t <- rep.t[which(rep.t != 0)]
+  p_zeros[i, ] <- rep(tdat$capt, rep.t)
+  p_zeros[i, ] <- ifelse(cumsum(p_zeros[i, ]) > 0, 1, 0)
+}
+p_zeros.t   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+
+if (k == 1) {
+p_zeros.a <- p_zeros.t
+} else {
+p_zeros.a <- c(p_zeros.a, p_zeros.t)
+}
+}
+
+## Add the p_zeros to the detection data frame for easier debugging
+capt_history.p$p_zeros <- p_zeros.a
+
+## These p_zeros are used to inform a scaling factor on detection probability (one scaling factor for each
+ ## individual in each primary period). Need an index for these scaling factors
+capt_history.p %<>% 
+  mutate(gamma_index = paste(interaction(Mark, Year, Month),"a",sep="_")) %>% 
+  mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
+  mutate(gamma_index = as.numeric(gamma_index))
+  
+### --- Data for survival (.phi for survival) --- ###
+
+## phi not calculable on the last time step so drop it
+last_week        <- capt_history %>% 
+  group_by(Site) %>% 
+  filter(sampled == 1) %>% 
+  summarize(last_week = max(SecNumConsec))
+
+capt_history.phi <- capt_history %>% 
+  left_join(., last_week) %>%
+  filter(SecNumConsec != last_week, sampled == 1) %>% 
+  ungroup()
+
+## Determine the number of time periods that elapse between back to back samples.
+ ## Do this with the data without the last date dropped (as phi is survival to the next)
+  ## and then add to capt_history.phi
+time_gaps <- (capt_history %>% 
+  filter(sampled == 1) %>%
+  group_by(Site, Mark, Year) %>% 
+  mutate(time_gaps =  Month - lag(Month, 1)) %>% 
+  mutate(time_gaps = ifelse(is.na(time_gaps), 0, time_gaps)) %>%
+  ungroup(Year) %>%
+  mutate(time_gaps = c(time_gaps[-1], NA)) %>% 
+    filter(!is.na(time_gaps)))$time_gaps
+ 
+capt_history.phi %<>% mutate(time_gaps = time_gaps)
+
+## Offseason vector 
+capt_history.phi %<>% 
+  group_by(Site, Mark) %>%
+  mutate(offseason = Year - lag(Year, 1)) %>% 
+  mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
+  mutate(offseason = c(offseason[-1], 0)) %>% 
+  ungroup()
+  
+## Which entries of phi correspond to a new individual (the first entry for each individual)
+phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% 
+    group_by(Mark) %>% 
+    summarize(first_index = min(index)))$first_index
+
+## Indices for which entries of phi must be 0. See above notes for p_zeros. Similar idea here, but 
+ ## here the differentiation for 0s and 1s are for prior to and after an individual was captured for the first time
+for (k in 1:n_sites) {
+phi_zeros <- matrix(data = 0, nrow = n_ind.per[k, 1], ncol = sum(n_occ[, u_sites[k]]) - 1)
+
+for (i in 1:n_ind.per[k, 1]) {
+  tdat <- first_capt %>% filter(Site == u_sites[k])
+  tdat %<>% filter(Mark == unique(tdat$Mark)[i])
+  this_ind <- tdat$Mark[1]
+
+  phi_zeros[i, ] <- c(
+    rep(1, capture_range$first[this_ind] - 1)
+  , rep(0, ncol(phi_zeros) - (capture_range$first[this_ind] - 1))
+  )
+  
+}
+
+phi_zeros.t   <- (phi_zeros %>% reshape2::melt() %>% arrange(Var1))$value
+
+if (k == 1) {
+phi_zeros.a <- phi_zeros.t
+} else {
+phi_zeros.a <- c(phi_zeros.a, phi_zeros.t)
+}
+}
+
+## Also add this one to the data frame for ease of debugging
+capt_history.phi$phi_zeros <- phi_zeros.a
+
+## Index for the summary of individual bd in each time period
+capt_history.phi %<>% 
+  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
+  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
+  mutate(X_stat_index = as.numeric(X_stat_index))
+
+## periods where we assume survival is guaranteed
+capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
+
+### --- Data for latent bd --- ###
+
+## Latent bd is estimated over the whole time period and not just for the capture occasions,
+ ## though bd on the capture occasions are used to determine detection and survival. Need to
+  ## determine what entries of phi, and p correspond to the full time period bd. This is done here
+
+## for calculating summaries of latent bd for between season survival
+bd_first_index <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, Year, Site) %>% 
+  summarize(first_index = min(index)))$first_index
+bd_last_index  <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, Year, Site) %>% 
+  summarize(last_index = max(index)))$last_index
+  
+## Index for every entry of bd (all time points)
+capt_history %<>% mutate(index = seq(n()))
+
+## Which of all of the time entries correspond to the correct phi entries 
+phi_bd_index <- (left_join(
+  capt_history.phi %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history     %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+## to put it another way, the phi_bd_index of the latent bd vector is the bd associated with the nth row
+ ## of capt_history.phi
+capt_history.phi %<>% mutate(phi_bd_index = phi_bd_index)
+
+## same thing for p
+p_bd_index <- (left_join(
+  capt_history.p %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history   %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+capt_history.p %<>% mutate(p_bd_index = p_bd_index)
+
+## And finally, what actual measured bd values inform the latent bd process?
+x_bd_index <- (left_join(
+  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history         %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
+
+####
+## Finally, deal with any other needed covariates 
+####
+
+## -- Temp -- ##
+
+temp <- A11 %>% 
+  group_by(year, week, Site) %>% 
+  summarize(temp = mean(Site_temp, na.rm = T))
+
+temp.lm <- lm(
+  temp ~ week
+, data = temp
+)
+
+temp.need <- capt_history %>% 
+  group_by(week, year, Site) %>% 
+  summarize(num_mark = length(unique(Mark))) %>% dplyr::select(-num_mark)
+
+predvals <- data.frame(
+  week     = sort(unique(temp.need$week))
+, predvals = predict(temp.lm, newdata = data.frame(week = sort(unique(temp.need$week))))
+  )
+
+temp.need <- left_join(temp.need, temp) %>% left_join(., predvals) %>% 
+  mutate(temp = ifelse(is.na(temp), predvals, temp)) %>% 
+  dplyr::select(-predvals)
+
+## try temp:weeks
+temp.need %<>% group_by(year) %>% mutate(temp = cumsum(temp))
+
+capt_history %<>% left_join(., temp.need)
+
+## -- Individual specific covariates -- ##
+
+ind.sex  <- (capt_history %>% group_by(Mark) %>% 
+    filter(captured == 1) %>% slice(1))$sex %>% as.factor() %>% as.numeric()
+
+## LOTS of problems with size. For now just 
+ind.size <- (capt_history %>% group_by(Mark) %>%
+  summarize(size = mean(size, na.rm = T)))$size
+ind.size <- scale(ind.size)[, 1]
+
+####
+## Run the stan model
+####
+
+stan.iter     <- 1500
+stan.burn     <- 500
+stan.thin     <- 1
+stan.length   <- (stan.iter - stan.burn) / stan.thin
+
+stan_data     <- list(
+  
+  ## dimensional indexes 
+   n_pop              = n_sites
+ , n_ind              = n_ind
+ , ind_per_period_bd  = max(capt_history.phi$X_stat_index)
+ , ind_per_period_p   = max(capt_history.p$gamma_index) 
+  
+ , ind_time        = nrow(capt_history)
+ , ind_occ         = nrow(capt_history.p)
+ , ind_occ_min1    = nrow(capt_history.phi)
+  
+  ## short vector indexes 
+ , ind_occ_size      = rep(colSums(n_occ), n_ind.per)
+ , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)
+
+ , p_first_index     = p_first_index
+ , phi_first_index   = phi_first_index
+  
+  ## long vector indexes
+ , ind_occ_rep       = capt_history.p$Mark
+ , periods_occ       = as.numeric(as.factor(capt_history.p$Year))
+ , pop_p             = as.numeric(as.factor(capt_history.p$Site))
+ , p_zeros           = capt_history.p$p_zeros
+ , p_bd_index        = capt_history.p$p_bd_index
+ , gamma_index       = capt_history.p$gamma_index
+  
+ , ind_occ_min1_rep    = capt_history.phi$Mark
+ , offseason           = capt_history.phi$offseason
+ , pop_phi             = as.numeric(as.factor(capt_history.phi$Site))
+ , phi_zeros           = capt_history.phi$phi_zeros
+ , phi_ones            = capt_history.phi$phi_ones
+ , phi_bd_index        = capt_history.phi$phi_bd_index
+ , X_stat_index        = capt_history.phi$X_stat_index
+
+ , ind_bd_rep          = capt_history$Mark
+ , ind_in_pop          = as.numeric(as.factor(capt_history$Site))
+
+  ## covariates
+ , N_bd            = nrow(capt_history.bd_load)
+ , X_bd            = capt_history.bd_load$log_bd_load  
+ , X_ind           = capt_history.bd_load$Mark
+# , x_bd_index      = capt_history.bd_load$x_bd_index
+# , bd_first_index  = bd_first_index
+# , bd_last_index   = bd_last_index
+ , time_gaps       = capt_history.phi$time_gaps
+  
+  ## Capture data
+ , N_y             = nrow(capt_history.p)
+ , y               = capt_history.p$captured
+  
+ , first           = capture_range$first
+ , last            = capture_range$final
+
+  )
+
+stan.fit  <- stan(
+  file    = "CMR_simulation/CMR_collapsed_frogs.stan"
+, data    = stan_data
+, chains  = 1
+, refresh = 20
+, iter    = stan.iter            
+, warmup  = stan.burn
+, thin    = stan.thin
+, control = list(adapt_delta = 0.92, max_treedepth = 12)
+  )
+

@@ -719,3 +719,12 @@ Bd_Newts_AllSites %>% filter(copies.swab < 1E7) %>%
     scale_y_continuous(trans = "pseudo_log"
       , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6, 4E6, 8E6))
 }
+
+Bd_Newts_AllSites %>% filter(copies.swab < 1E7) %>% {
+  ggplot(., aes(SVL, copies.swab)) + geom_jitter(alpha = 0.3) +
+    scale_y_continuous(trans = "pseudo_log"
+      , breaks = c(1E1, 1E2, 1E3, 1E4, 1E5, 1E6, 4E6, 8E6)) +
+    scale_x_continuous(trans = "pseudo_log") +
+    facet_wrap(~Site)
+}
+
