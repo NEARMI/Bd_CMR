@@ -149,21 +149,23 @@ transformed parameters {
 
 	  if (phi_ones[t] == 1) {
            phi[t] = 1;
-	  }
-
-	  if (offseason[t] == 0) {
-
-           phi[t] = inv_logit(beta_phi[1] + beta_phi[2] * X[ind_occ_min1_rep[t]]);
-
 	  } else {
 
-           phi[t] = inv_logit(beta_offseason[1] + beta_offseason[2] * X[ind_occ_min1_rep[t]]);
+	   if (offseason[t] == 0) {
+
+            phi[t] = inv_logit(beta_phi[1] + beta_phi[2] * X[ind_occ_min1_rep[t]]);
+
+	   } else {
+
+            phi[t] = inv_logit(beta_offseason[1] + beta_offseason[2] * X[ind_occ_min1_rep[t]]);
 	
-	  }
+	   }
 
-	 }  
+	   }
 
-	}
+	  }  
+
+	 }
 
 // -----
 // Detection probability over the whole period
