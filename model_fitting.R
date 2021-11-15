@@ -6,8 +6,9 @@
 ## Notes as of NOV 12:
 ####
 
-### Try non-log scale???
+## Working in a different script for the spotted from data
 
+## Maybe try non-log scale for individual variation?
 
 ### Notes from earlier in the week
 

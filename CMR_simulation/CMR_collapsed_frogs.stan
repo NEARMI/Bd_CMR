@@ -121,7 +121,7 @@ transformed parameters {
 
 	real X[n_ind];			  	   // individuals unique average bd
  		
-	real bd_ind[n_ind];                        // Individual random effect deviates for bd
+	real bd_ind[n_ind];                        // individual random effect deviates for bd
 	
 
 // -----
@@ -244,7 +244,7 @@ model {
 
 	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
 
-	  }
+	 }
 
 }
 

@@ -1,4 +1,3 @@
-
 ## -- survival over time -- ##
 
 out.pred <- matrix(nrow = 1000, ncol = 10)
