@@ -6,7 +6,7 @@
 ## Notes as of NOV 15:
 ####
 
-## 1) Some fits to try:
+## 1) Some fits to try (with and without 2021[?]):
  ## A) Log bd + bd affects within-year survival
  ## B) Log bd + bd does not affect within-year survival
  ## C) no log bd + A
@@ -17,6 +17,7 @@
   ## -- size, sex, month, year
  ## G) mix of more complicated survival models:
   ## -- size, sex, month, year
+ ## H) force smaller obs error?
 
 ## Starting on a modified model for few primary periods (e.g., a week when we think the population is closed) for each year
  ## i.e., a structure where there are 1-3 primary periods in a year and a primary period may consist of 1-6 back to back visits in a span
@@ -122,6 +123,20 @@ frogs %>% filter(bd_load > 0) %>% {
 
 frogs %>% mutate(MassG = as.numeric(MassG)) %>% {
   ggplot(., aes(MassG, MeHgConc)) + geom_point() 
+}
+
+frogs %>% group_by(Month, Year) %>% 
+  filter(BdSample == 1) %>% 
+  mutate(log_bd_load = log(bd_load + 1)) %>%
+  summarize(
+    lwr = quantile(log_bd_load, c(0.20), na.rm = T)
+  , mid = quantile(log_bd_load, c(0.50), na.rm = T)
+  , upr = quantile(log_bd_load, c(0.80), na.rm = T)
+  ) %>% {
+    ggplot(., aes(Month, mid)) + 
+      geom_point(aes(colour = as.factor(Year)), position = position_dodge(0.7)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+     facet_wrap(~Year)
   }
 
 ####
@@ -130,7 +145,7 @@ frogs %>% mutate(MassG = as.numeric(MassG)) %>% {
 
 A11 <- frogs %>%
   rename(Mark = PitTagCode) %>% 
-  filter(!is.na(Mark)) # %>% filter(Year != 2021)
+  filter(!is.na(Mark)) %>% filter(Year != 2021)
 
 n_sites <- unique(A11$Site) %>% length()
 u_sites <- unique(A11$Site)
@@ -207,6 +222,18 @@ capt_history.t <-
   , log_bd_load = log(bd_load + 1)                           ### eeek!
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load) ### eeek X2!!
   )
+
+## Before converting Mark to a numeric, find the individual specific covariates to be used later
+ ## Other covariates to include for individuals  
+  # SVL
+  # Sex
+ind_cov <- A11.i %>% group_by(Mark, Year, Month) %>% 
+  summarize(
+    merc = mean(MeHgConc, na.rm = T)
+  , size = mean(as.numeric(MassG), na.rm = T)  ## returns the one value or a mean if caught multiple times in one week
+    ) %>% distinct()
+
+capt_history.t %<>% left_join(., ind_cov)
 
 ## Jump through a few hoops to name unique individuals. 
  ## NOTE: this is an issue if individuals move populations
@@ -287,10 +314,15 @@ capt_history %>%
       axis.text.y = element_text(size = 6)
     , legend.text = element_text(size = 12)
     , legend.key.size = unit(.55, "cm")
-    ) +
-        facet_wrap(~Year, nrow = 1)
+    ) + facet_wrap(~Year, nrow = 1)
   }
 }
+
+capt_history %>% 
+  filter(Year == 2020) %>% 
+  group_by(Mark, Month) %>%
+  summarize(tot_capts = sum(captured)) %>% 
+  mutate(tot_capts = ifelse(tot_capts > 0, 1, 0))
 
 ####
 ## Data in the needed structure for the stan model
@@ -510,44 +542,17 @@ capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
 ## Finally, deal with any other needed covariates 
 ####
 
-## -- Temp -- ##
-
-temp <- A11 %>% 
-  group_by(year, week, Site) %>% 
-  summarize(temp = mean(Site_temp, na.rm = T))
-
-temp.lm <- lm(
-  temp ~ week
-, data = temp
-)
-
-temp.need <- capt_history %>% 
-  group_by(week, year, Site) %>% 
-  summarize(num_mark = length(unique(Mark))) %>% dplyr::select(-num_mark)
-
-predvals <- data.frame(
-  week     = sort(unique(temp.need$week))
-, predvals = predict(temp.lm, newdata = data.frame(week = sort(unique(temp.need$week))))
-  )
-
-temp.need <- left_join(temp.need, temp) %>% left_join(., predvals) %>% 
-  mutate(temp = ifelse(is.na(temp), predvals, temp)) %>% 
-  dplyr::select(-predvals)
-
-## try temp:weeks
-temp.need %<>% group_by(year) %>% mutate(temp = cumsum(temp))
-
-capt_history %<>% left_join(., temp.need)
-
 ## -- Individual specific covariates -- ##
 
-ind.sex  <- (capt_history %>% group_by(Mark) %>% 
-    filter(captured == 1) %>% slice(1))$sex %>% as.factor() %>% as.numeric()
-
-## LOTS of problems with size. For now just 
 ind.size <- (capt_history %>% group_by(Mark) %>%
   summarize(size = mean(size, na.rm = T)))$size
+ind.size[which(is.na(ind.size))] <- mean(ind.size[-which(is.na(ind.size))])
 ind.size <- scale(ind.size)[, 1]
+
+ind.hg <- (capt_history %>% group_by(Mark) %>%
+  summarize(merc = mean(merc, na.rm = T)))$merc
+ind.hg[which(is.na(ind.hg))] <- mean(ind.hg[-which(is.na(ind.hg))])
+ind.hg <- scale(ind.hg)[, 1]
 
 ####
 ## Run the stan model
@@ -608,6 +613,9 @@ stan_data     <- list(
 # , bd_last_index   = bd_last_index
  , time_gaps       = capt_history.phi$time_gaps
   
+ , ind_size = ind.size
+ , ind_hg   = ind.hg
+  
   ## Capture data
  , N_y             = nrow(capt_history.p)
  , y               = capt_history.p$captured
@@ -628,6 +636,8 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
+stan.fit <- readRDS("stan.fitA.Rds")
+
 shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
@@ -644,11 +654,20 @@ capt_history.phi %<>% mutate(
 
 capt_history.phi %>% 
   dplyr::select(Mark, Month, Year, time_gaps, offseason, phi_zeros, phi_ones, pred_phi) %>% 
-  filter(Mark == 5) %>% as.data.frame()
+  filter(Mark == 9) %>% as.data.frame()
+
+capt_history.p %<>% mutate(
+  pred_p   = colMeans(stan.fit.samples$p)
+, pred_chi = colMeans(stan.fit.samples$chi)
+)
+
+capt_history.p %>% 
+  dplyr::select(Mark, Month, Year, time_gaps, p_zeros, pred_p, pred_chi) %>% 
+  filter(Mark == 9) %>% as.data.frame()
 
 ## -- survival over time -- ##
 
-out.pred <- matrix(nrow = 1000, ncol = 10)
+out.pred <- matrix(nrow = 4000, ncol = 10)
 ttg <- seq(1, 10, by = 1)
 
 for (i in 1:ncol(out.pred)) {
@@ -672,7 +691,7 @@ reshape2::melt(out.pred) %>%
 
 ## -- survival between years -- ##
 
-out.pred <- matrix(nrow = 1000, ncol = 15)
+out.pred <- matrix(nrow = 4000, ncol = 15)
 ttg <- seq(1, 15, by = 1)
 
 for (i in 1:ncol(out.pred)) {
@@ -689,7 +708,7 @@ reshape2::melt(out.pred) %>% rename(iter = Var1, gap = Var2) %>%
   ggplot(., aes(gap, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
     geom_line(lwd = 2) +
-    xlab("Average Bd") +
+    xlab("Average Bd Load") +
     ylab("Probability animal remains in population")
   }
 
@@ -716,10 +735,17 @@ stan.pred %>% {
     ylab("Predicted detection probability")
 }
 
+## Strong correlation here, check samples
+data.frame(
+  stan.fit.samples$beta_p[, 2]
+, stan.fit.samples$beta_phi[, 2]
+) %>% plot()
+
 ## -- individual variation in bd -- ##
 
 stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value)
+
 stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
   reshape2::melt(.) %>% left_join(., stan.ind_pred_eps) %>%
   mutate(eps = eps * value) %>% group_by(ind) %>%
@@ -730,25 +756,44 @@ stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
   ) %>% arrange(mid) %>%
   mutate(ind = factor(ind, levels = ind))
 
-stan.ind_pred_var %>% {
-  ggplot(., aes(as.factor(ind), mid)) + geom_point() +
+stan.ind_pred_var <- stan.fit.samples$X %>%
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
+  group_by(ind) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% arrange(mid) %>%
+  mutate(ind = factor(ind, levels = ind))
+
+ind_order.r <- capt_history %>% 
+    group_by(Mark) %>% 
+  summarize(
+   n_swabs = sum(swabbed)
+) %>% left_join(
+  .,capt_history %>%
+  filter(swabbed == 1) %>%
+  group_by(Mark) %>% 
+  summarize(
+   tot_bd = mean(log_bd_load)
+)) %>% arrange(desc(tot_bd)) %>% 
+  mutate(order_real = seq(n()), Mark = as.character(Mark)) 
+
+ind_order.p <- stan.ind_pred_var %>% 
+  arrange(desc(mid)) %>% 
+  mutate(order_pred = seq(n()), ind = as.character(ind)) %>% 
+  rename(Mark = ind)
+
+ind_order %>% {
+  ggplot(., aes(order_real, mid)) + 
+    geom_point() +
     geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+    geom_point(aes(order_real, tot_bd), colour = "firebrick3") +
     xlab("Individual") + 
     ylab("Random Effect Deviate") +
     geom_hline(yintercept = 0, linetype = "dashed", lwd = 1, colour = "firebrick3") +
-    theme(
-      axis.text.x = element_text(size = 8)
-    )
+    theme(axis.text.x = element_text(size = 8))
 }
-
-ind_order <- capt_history %>% group_by(Mark) %>% summarize(
-  tot_bd = max(log_bd_load)
-) %>% arrange(desc(tot_bd)) %>% mutate(order_real = seq(n()), Mark = as.character(Mark)) %>% 
-  left_join(.
-    , {
-      stan.ind_pred_var %>% arrange(desc(mid)) %>% 
-        mutate(order_pred = seq(n()), ind = as.character(ind)) %>% rename(Mark = ind)
-    })
 
 low_ind  <- unique((capt_history %>% filter(Mark %in% (ind_order %>% arrange(order_real) %>% tail(10))$Mark))$Mark)
 high_ind <- unique((capt_history %>% filter(Mark %in% (ind_order %>% arrange(order_real) %>% head(10))$Mark))$Mark)
@@ -771,6 +816,10 @@ ggplot(ind_order, aes(order_real, order_pred)) +
   scale_color_brewer(palette = "Dark2", name = "Individual type", labels = c("Middle", "Lowest Bd", "Highest Bd")) +
   xlab("Individual Ordered by Average of Measured Bd") +
   ylab("Predicted Order")
+
+ind.pred <- reshape2::melt(
+  plogis(sweep(stan.fit.samples$bd_ind, 1, stan.fit.samples$beta_offseason[, 2], "*"))
+)
 
 ind.pred %>% filter(Var2 %in% low_ind) %>% {
   ggplot(., aes(x = value)) + 
