@@ -177,7 +177,7 @@ transformed parameters {
 
 	for (t in 1:ind_per_period) {
 	 
-	 X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
+	  X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
 
 	}
 

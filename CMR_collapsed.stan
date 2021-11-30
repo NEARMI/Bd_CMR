@@ -46,6 +46,7 @@ data {
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
+	int<lower=0> p_month[ind_occ];	
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
@@ -99,14 +100,16 @@ parameters {
 // survival
 // -----
 
-	vector[2] beta_phi;                  		 // survival between seasons as a function of bd
-	vector[3] beta_offseason;  			 // survival as a function of bd stress
+	vector[4] beta_phi;                  		 // survival between seasons as a function of bd
+	vector[4] beta_offseason;  			 // survival as a function of bd stress
 
 // -----
 // detection
 // -----
 
-	vector[2] beta_p;				 // intercept and slope coefficient for detection
+	vector[4] beta_p;				 // intercept and slope coefficient for detection
+	vector[3] beta_p_y;
+	vector[3] beta_p_m;
 	
 // -----
 // other
@@ -180,9 +183,9 @@ transformed parameters {
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]] + beta_p[3] * ind_size[ind_occ_rep[t]] + beta_p[4] * ind_hg[ind_occ_rep[t]]);
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]] + beta_p[3] * ind_size[ind_occ_rep[t]] + beta_p[4] * ind_hg[ind_occ_rep[t]] + beta_p_y[periods_occ[t]] + beta_p_m[p_month[t]]);
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]] + beta_p[3] * ind_size[ind_occ_rep[t]] + beta_p[4] * ind_hg[ind_occ_rep[t]]) * gamma[gamma_index[t]];
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]] + beta_p[3] * ind_size[ind_occ_rep[t]] + beta_p[4] * ind_hg[ind_occ_rep[t]] + beta_p_y[periods_occ[t]] + beta_p_m[p_month[t]]) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -209,21 +212,29 @@ model {
 	beta_bd[1]  ~ normal(0, 5);
 	beta_bd[2]  ~ normal(0, 5);
 
-	beta_p[1]   ~ normal(0, 1.5);
-	beta_p[2]   ~ normal(0, 1.5);
-	beta_p[3]   ~ normal(0, 1.5);
-	beta_p[4]   ~ normal(0, 1.5);
+	beta_p[1]   ~ normal(0, 1);
+	beta_p[2]   ~ normal(0, 1);
+	beta_p[3]   ~ normal(0, 1);
+	beta_p[4]   ~ normal(0, 1);
 
-	beta_phi[1] ~ normal(0, 1.5);
-	beta_phi[2] ~ normal(0, 1.5);
-	beta_phi[3] ~ normal(0, 1.5);
-	beta_phi[4] ~ normal(0, 1.5);
+	beta_p_m    ~ normal(0, 1);
+	beta_p_y    ~ normal(0, 1);
 
-	bd_delta_sigma ~ inv_gamma(1, 1);
-	bd_obs         ~ inv_gamma(1, 1);
+	beta_phi[1] ~ normal(0, 1);
+	beta_phi[2] ~ normal(0, 1);
+	beta_phi[3] ~ normal(0, 1);
+	beta_phi[4] ~ normal(0, 1);
+
+	beta_offseason[1] ~ normal(0, 1);
+	beta_offseason[2] ~ normal(0, 1);
+	beta_offseason[3] ~ normal(0, 1);
+	beta_offseason[4] ~ normal(0, 1);
+
+	bd_delta_sigma ~ inv_gamma(8, 15);
+	bd_obs         ~ inv_gamma(10, 4);
 
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i]   ~ normal(0, 3);
+	  bd_delta_eps[i] ~ normal(0, 3);
 	}
          
         gamma ~ uniform(0, 1);
