@@ -1,0 +1,286 @@
+####
+## CMR model Diagnostics
+####
+
+## First just check that phi is estimated when it should be
+capt_history.phi %<>% mutate(
+  pred_phi = colMeans(stan.fit.samples$phi)
+)
+
+capt_history.phi %>% filter(pred_phi != 0) %>% {
+  ggplot(., aes(phi_ones, pred_phi)) + 
+    geom_jitter(width = 0.1) +
+    ggtitle("Should see a mix of values at phi_ones = 0 and only 1s at phi_ones = 1")
+}
+
+capt_history.p %<>% mutate(
+  pred_p   = colMeans(stan.fit.samples$p)
+, pred_chi = colMeans(stan.fit.samples$chi)
+)
+
+capt_history.p %>% {
+  ggplot(., aes(p_zeros, pred_p)) + 
+    geom_jitter(width = 0.1) +
+    ggtitle("Should see pretty low values at p_zeros = 0 and overall higher values at p_zeros = 1")
+}
+
+## -- Apparent survival between primary periods within a year as a function of bd and size -- ##
+
+outval   <- seq(1, 10, by = 1)
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+  out.pred[, i] <- plogis(
+    stan.fit.samples$beta_phi[, 1] + 
+    stan.fit.samples$beta_phi[, 2] * outval[i] +
+    stan.fit.samples$beta_phi[, 3] * 0 +
+    stan.fit.samples$beta_phi[, 4] * 0
+    )
+}
+
+out.pred.bd <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "bd")
+
+outval   <- seq(-2, 2, by = .1)
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+  out.pred[, i] <- plogis(
+    stan.fit.samples$beta_phi[, 1] + 
+    stan.fit.samples$beta_phi[, 2] * 5 +
+    stan.fit.samples$beta_phi[, 3] * outval[i] +
+    stan.fit.samples$beta_phi[, 4] * 0
+    )
+}
+
+out.pred.s <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "size")
+
+out.pred <- rbind(out.pred.bd, out.pred.s)
+
+out.pred %>%
+  group_by(gap, variable) %>%
+  summarize(
+    lwr = quantile(value, 0.1)
+  , mid = quantile(value, 0.5)
+  , upr = quantile(value, 0.9)
+  ) %>% {
+  ggplot(., aes(gap, mid)) + 
+      geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+      geom_line(lwd = 2) +
+      facet_wrap(~variable, scales = "free") +
+    xlab("bd load") +
+    ylab("Probability animal remains in population")
+  }
+
+## -- survival between years as a function of bd, size, and mercury -- ##
+
+outval   <- matrix(seq(1, 10, by = 1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_offseason[, 1] + 
+    stan.fit.samples$beta_offseason[, 2] * outval[i] +
+    stan.fit.samples$beta_offseason[, 3] * 0 +
+    stan.fit.samples$beta_offseason[, 4] * 0
+    )
+}
+
+out.pred.bd <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "bd")
+
+outval   <- matrix(seq(-2, 2, by = .1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_offseason[, 1] + 
+    stan.fit.samples$beta_offseason[, 2] * 5 +
+    stan.fit.samples$beta_offseason[, 3] * outval[i] +
+    stan.fit.samples$beta_offseason[, 4] * 0
+    )
+}
+
+out.pred.s <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "size")
+
+outval   <- matrix(seq(-2, 2, by = .1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_offseason[, 1] + 
+    stan.fit.samples$beta_offseason[, 2] * 5 +
+    stan.fit.samples$beta_offseason[, 3] * 0 +
+    stan.fit.samples$beta_offseason[, 4] * outval[i] 
+    )
+}
+
+out.pred.m <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "Methylmercury")
+
+out.pred <- rbind(out.pred.bd, out.pred.s, out.pred.m)
+
+out.pred %>%
+  group_by(gap, variable) %>%
+  summarize(
+    lwr = quantile(value, 0.1)
+  , mid = quantile(value, 0.5)
+  , upr = quantile(value, 0.9)
+  ) %>% {
+  ggplot(., aes(gap, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line(lwd = 2) +
+    facet_wrap(~variable, scales = "free") +
+    theme(panel.spacing = unit(2, "lines")) +
+    xlab("") +
+    ylab("Probability animal remains in population")
+  }
+
+## -- detection as a function of bd, mercury, size -- ##
+
+outval   <- matrix(seq(1, 10, by = 1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_p[, 1] + 
+    stan.fit.samples$beta_p[, 2] * outval[i] +
+    stan.fit.samples$beta_p[, 3] * 0 +
+    stan.fit.samples$beta_p[, 4] * 0
+    )
+}
+
+out.pred.bd <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "bd")
+
+outval   <- matrix(seq(-2, 2, by = .1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_p[, 1] + 
+    stan.fit.samples$beta_p[, 2] * 5 +
+    stan.fit.samples$beta_p[, 3] * outval[i] +
+    stan.fit.samples$beta_p[, 4] * 0
+    )
+}
+
+out.pred.s <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "size")
+
+outval   <- matrix(seq(-2, 2, by = .1))
+out.pred <- matrix(nrow = stan.length, ncol = length(outval))
+
+for (i in 1:ncol(out.pred)) {
+   out.pred[, i] <- plogis(
+    stan.fit.samples$beta_p[, 1] + 
+    stan.fit.samples$beta_p[, 2] * 5 +
+    stan.fit.samples$beta_p[, 3] * 0 +
+    stan.fit.samples$beta_p[, 4] * outval[i] 
+    )
+}
+
+out.pred.m <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "Methylmercury")
+
+out.pred <- rbind(out.pred.bd, out.pred.s, out.pred.m)
+
+out.pred %>%
+  group_by(gap, variable) %>%
+  summarize(
+    lwr = quantile(value, 0.1)
+  , mid = quantile(value, 0.5)
+  , upr = quantile(value, 0.9)
+  ) %>% {
+  ggplot(., aes(gap, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
+    geom_line(lwd = 2) +
+    facet_wrap(~variable, scales = "free") +
+    theme(panel.spacing = unit(2, "lines")) +
+    xlab("") +
+    ylab("Detection Probability")
+  }
+
+## -- estimated individual variation in bd -- ##
+
+stan.ind_pred_var <- stan.fit.samples$X %>%
+  reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
+  group_by(ind) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% arrange(mid) %>%
+  mutate(ind = factor(ind, levels = ind))
+
+ind_order.r <- capt_history %>% 
+  group_by(Mark) %>% 
+  summarize(
+   n_swabs = sum(swabbed)
+) %>% left_join(
+  .,capt_history %>%
+  filter(swabbed == 1) %>%
+  group_by(Mark) %>% 
+  summarize(
+   tot_bd = mean(log_bd_load)
+)) %>% arrange(desc(tot_bd)) %>% 
+  mutate(order_real = seq(n()), Mark = as.character(Mark)) %>% 
+  filter(!is.na(tot_bd))
+
+ind_order.p <- stan.ind_pred_var %>% 
+  arrange(desc(mid)) %>% 
+  mutate(order_pred = seq(n()), ind = as.character(ind)) %>% 
+  rename(Mark = ind)
+
+ind_order <- left_join(ind_order.r, ind_order.p)
+
+ind_order %>% {
+  ggplot(., aes(order_real, mid)) + 
+    geom_point() +
+    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+    geom_point(aes(order_real, tot_bd), colour = "firebrick3") +
+    xlab("Individual") + 
+    ylab("Random Effect Deviate") +
+    theme(axis.text.x = element_text(size = 8)) +
+    geom_hline(yintercept = mean(ind_order$mid)) +
+    geom_hline(yintercept = mean(ind_order$tot_bd, na.rm = T), colour = "firebrick3")
+}
+
+low_ind  <- unique((capt_history %>% filter(Mark %in% (ind_order %>% arrange(order_real) %>% tail(10))$Mark))$Mark)
+high_ind <- unique((capt_history %>% filter(Mark %in% (ind_order %>% arrange(order_real) %>% head(10))$Mark))$Mark)
+
+ind_order$ind_type <- 0
+ind_order[ind_order$Mark %in% low_ind, ]$ind_type  <- 1
+ind_order[ind_order$Mark %in% high_ind, ]$ind_type <- 2
+
+ggplot(ind_order, aes(order_real, order_pred)) + 
+  geom_point(aes(colour = as.factor(ind_type)), size = 2) +
+  scale_color_brewer(palette = "Dark2", name = "Individual type", labels = c("Middle", "Lowest Bd", "Highest Bd")) +
+  xlab("Individual Ordered by Average of Measured Bd") +
+  ylab("Predicted Order")

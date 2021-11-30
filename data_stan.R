@@ -1,0 +1,194 @@
+############################################################
+## Data and indexing vectors in the needed structure for  ##
+## the "long form" or "database form" stan model          ##
+############################################################
+
+## total number of individuals across all populations
+n_ind     <- length(unique(capt_history$Mark))
+
+## individuals per population
+n_ind.per <- capt_history %>% group_by(Site) %>%
+  summarize(n_ind = length(unique(Mark))) %>% 
+  dplyr::select(-Site) %>% as.matrix()
+
+## total number of sampling occasions (primary and secondary) per population per year
+n_occ     <- sampled_weeks %>% 
+  group_by(Year, Site) %>%
+  summarize(n_occ = length(unique(SecNumConsec))) %>% 
+  mutate(Site = factor(Site, levels = u_sites)) %>%
+  arrange(Site) %>%
+  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  arrange(Year) %>%
+  ungroup() %>%
+  dplyr::select(-Year) %>% as.matrix()
+n_occ[is.na(n_occ)] <- 0
+
+## number of secondary periods in each of the primary periods in each site
+n_occ.m <- sampled_weeks %>% 
+  group_by(Year, Month, Site) %>%
+  summarize(n_occ = length(unique(SecNumConsec))) %>% 
+  mutate(Site = factor(Site, levels = u_sites)) %>%
+  arrange(Site) %>%
+  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  arrange(Year) %>%
+  ungroup() %>%
+  dplyr::select(-Year, -Month) %>% 
+  as.matrix()
+
+###
+## Note: The way the "long-form / database-form" model works is to have long vectors of the
+## data and outcomes and index vectors giving details/grouping associations about each data point
+
+## The easiest way to set up the correct structure is to subset the complete capture history
+## data frame into three (given the need for slightly different lengths for survival, 
+## detection, and bd given the structure of the model)
+###
+
+####
+## Data for detection (.p for detection)
+####
+
+capt_history.p   <- capt_history %>% 
+  filter(sampled == 1) %>% 
+  ungroup()
+
+## Index vector that designates which entries of a single vector of detection probabilities
+ ## corresponds to a new individual (i.e., the first entry for each individual)
+p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>% 
+  group_by(Mark) %>% 
+  summarize(first_index = min(index)))$first_index
+
+## determine the first primary in which each individual was captured, and thus _known_ to be present
+first_capt <- capt_history.p %>% 
+  group_by(Mark, Year, Month, Site) %>% 
+  summarize(capt = sum(captured)) %>% 
+  ungroup(Year, Month) %>%
+## And then in all future times from the current time these individuals _could_ be here but not captured
+  mutate(capt = cumsum(capt)) %>% 
+  mutate(capt = ifelse(capt > 0, 1, 0)) 
+
+## For each individual extract which time periods we do not know if an individual was present or not 
+ ## (all periods in advance of first capturing them)
+capt_history.p %<>% 
+  ungroup() %>% 
+  group_by(Mark, Month, Year) %>% 
+  mutate(p_zeros = ifelse(any(captured == 1), 1, 0)) %>%
+  ungroup() %>%
+  group_by(Mark) %>%
+  mutate(p_zeros = cumsum(p_zeros)) %>% 
+  mutate(p_zeros = ifelse(p_zeros > 0, 1, 0))
+
+## These p_zeros are used to inform a scaling factor on detection probability (one scaling factor for each
+ ## individual in each primary period). Need an index for these scaling factors
+capt_history.p %<>% 
+  mutate(gamma_index = paste(interaction(Mark, Year, Month),"a",sep="_")) %>% 
+  mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
+  mutate(gamma_index = as.numeric(gamma_index))
+
+
+####
+## Data for survival (.phi for survival)
+####
+
+## phi not calculable on the last time step so drop it
+last_period <- capt_history %>% 
+  group_by(Site) %>% 
+  filter(sampled == 1) %>% 
+  summarize(last_period = max(SecNumConsec))
+
+capt_history.phi <- capt_history %>% 
+  left_join(., last_period) %>%
+  filter(SecNumConsec != last_period, sampled == 1) %>% 
+  ungroup()
+
+## Find the transitions between primary periods within the same year. This is the first of the survival processes.
+ ## Designated with "time_gaps" because in some populations the time period between primary periods may
+  ## be longer than in other populations. Want to control for this
+time_gaps <- (capt_history %>% 
+  filter(sampled == 1) %>%
+  group_by(Site, Mark, Year) %>% 
+  mutate(time_gaps =  Month - lag(Month, 1)) %>% 
+  mutate(time_gaps = ifelse(is.na(time_gaps), 0, time_gaps)) %>%
+  ungroup(Year) %>%
+  mutate(time_gaps = c(time_gaps[-1], NA)) %>% 
+    filter(!is.na(time_gaps)))$time_gaps
+ 
+capt_history.phi %<>% mutate(time_gaps = time_gaps)
+
+## The second of the survival processes concerns survival between years
+ ## Designated with "offseason"
+capt_history.phi %<>% 
+  group_by(Site, Mark) %>%
+  mutate(offseason = Year - lag(Year, 1)) %>% 
+  mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
+  mutate(offseason = c(offseason[-1], 0)) %>% 
+  ungroup()
+  
+## Which entries of phi correspond to a new individual (the first entry for each individual)
+phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% 
+    group_by(Mark) %>% 
+    summarize(first_index = min(index)))$first_index
+
+## Index for which entries of phi cant inform survival (1s prior to when an individual is caught for the first time;
+ ## which are periods that cant inform survival)
+capt_history.phi %<>% 
+  ungroup() %>% 
+  group_by(Mark) %>% 
+  mutate(phi_zeros = cumsum(captured)) %>% 
+  mutate(phi_zeros = 1 - ifelse(phi_zeros > 0, 1, 0))
+
+## Index for periods over which to take summary values of bd to inform between season survival
+capt_history.phi %<>% 
+  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
+  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
+  mutate(X_stat_index = as.numeric(X_stat_index))
+
+## The third and last survival process being that we assume survival is guaranteed between secondary samples
+capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
+
+
+####
+## Data for latent bd 
+####
+
+## Latent bd is estimated over the whole time period and not just for the capture occasions,
+ ## though bd on the capture occasions are used to determine detection and survival. Need to
+  ## determine what entries of phi, and p correspond to the full time period bd. This is done here
+
+## Index for summaries of latent bd for between season survival
+bd_first_index <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, Year, Site) %>% 
+  summarize(first_index = min(index)))$first_index
+bd_last_index  <- (capt_history %>% mutate(index = seq(n())) %>% 
+  group_by(Mark, Year, Site) %>% 
+  summarize(last_index = max(index)))$last_index
+
+## Index for every entry of bd (all time points)
+capt_history %<>% mutate(index = seq(n()))
+
+## Determine which of the latent bd entries matches each of the phi and p estimates.
+ ## To put it another way, the phi_bd_index of the latent bd vector is the bd associated with the nth row of capt_history.phi
+phi_bd_index <- (left_join(
+  capt_history.phi %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history     %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+capt_history.phi %<>% ungroup() %>% mutate(phi_bd_index = phi_bd_index)
+
+## same thing for p
+p_bd_index <- (left_join(
+  capt_history.p %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history   %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+capt_history.p %<>% ungroup() %>% mutate(p_bd_index = p_bd_index)
+
+## And finally, what actual measured bd values inform the latent bd process?
+x_bd_index <- (left_join(
+  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history         %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  ))$index
+
+capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
+
+
