@@ -190,5 +190,3 @@ x_bd_index <- (left_join(
   ))$index
 
 capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
-
-
