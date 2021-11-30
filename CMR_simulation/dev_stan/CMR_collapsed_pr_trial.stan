@@ -64,7 +64,6 @@ data {
 
   // long vector indices for bd model (bd)
 	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
-	int<lower=0> sampling_events_bd[ind_time];	    // All of the weeks on which latent bd is modeled in each population 
 	int<lower=1> ind_in_pop[ind_time];		    // population associated with each estimated bd level
 	real	     temp[ind_time];			    // temperature associated with each estimated bd level
 	  

@@ -65,7 +65,6 @@ data {
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
-	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
 	real ind_size[n_ind];
 	real ind_hg[n_ind];
@@ -127,7 +126,8 @@ transformed parameters {
 
 	real X[n_ind];			  	   // individuals unique average bd
  		
-	real bd_ind[n_ind];                        // individual random effect deviates for bd
+	// individual random effect deviates
+	real bd_ind[n_ind];
 	
 
 // -----
