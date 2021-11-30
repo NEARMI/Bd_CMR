@@ -227,6 +227,26 @@ out.pred %>%
     ylab("Detection Probability")
   }
 
+stan.fit.samples$beta_p_y %>% reshape2::melt() %>% 
+  mutate(Year = as.factor(Var2)) %>% 
+  mutate(Year = plyr::mapvalues(Year, from = unique(Year), to = c(2018, 2019, 2020))) %>% {
+  ggplot(., aes(x = value, y = (..count..)/sum(..count..))) + 
+    geom_histogram(aes(colour = Year, fill = Year), bins = 75, alpha = 0.3) +
+    scale_colour_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+      facet_wrap(~Year)
+}
+
+stan.fit.samples$beta_p_m %>% reshape2::melt() %>% 
+  mutate(Month = as.factor(Var2)) %>% 
+  mutate(Month = plyr::mapvalues(Month, from = unique(Month), to = c("June", "July", "Aug"))) %>% {
+  ggplot(., aes(x = value, y = (..count..)/sum(..count..))) + 
+    geom_histogram(aes(colour = Month, fill = Month), bins = 75, alpha = 0.3) +
+    scale_colour_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+      facet_wrap(~Month)
+}
+
 ## -- estimated individual variation in bd -- ##
 
 stan.ind_pred_var <- stan.fit.samples$X %>%
