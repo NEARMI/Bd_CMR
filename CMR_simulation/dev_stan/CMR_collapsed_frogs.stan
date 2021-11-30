@@ -204,11 +204,15 @@ model {
 // -----
 
 	beta_bd     ~ normal(0, 5);
+
 	beta_p[1]   ~ normal(0, 1.5);
 	beta_p[2]   ~ normal(0, 1.5);
 
 	beta_phi[1] ~ normal(0, 1.5);
 	beta_phi[2] ~ normal(0, 1.5);
+
+	beta_offseason[1] ~ normal(0, 1.5);
+	beta_offseason[2] ~ normal(0, 1.5);
 
 	bd_delta_sigma ~ inv_gamma(1, 1);
 	bd_obs         ~ inv_gamma(1, 1);

@@ -8,8 +8,6 @@
 
 ## Working in a different script for the spotted from data
 
-## Maybe try non-log scale for individual variation?
-
 ### Notes from earlier in the week
 
 ## Notes from quick impromptu meeting:
@@ -35,7 +33,7 @@ source("../ggplot_theme.R")
 set.seed(10002)
 '%notin%' <- Negate('%in%')
 
-Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_10.1.21.csv")
+Bd_Newts_AllSites   <- read.csv("data/xlsx/Bd_Newts_AllSites_10.1.21.csv")
 
 ## Stupid dates
 if (length(grep("/", Bd_Newts_AllSites$Date[1])) > 0) {
@@ -63,7 +61,8 @@ if (red_ind) {
 }
 
 ## Quick look at some of the data
-Bd_Newts_AllSites %>% group_by(Site) %>% summarize(n_y = length(unique(Mark))) %>% {
+Bd_Newts_AllSites %>% 
+  group_by(Site) %>% summarize(n_y = length(unique(Mark))) %>% {
   ggplot(., aes(x = n_y)) + 
     geom_histogram(bins = nrow(.)) +
     xlab("Number of Individuals") +
