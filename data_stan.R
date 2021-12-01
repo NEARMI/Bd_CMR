@@ -12,7 +12,7 @@ n_ind.per <- capt_history %>% group_by(Site) %>%
   dplyr::select(-Site) %>% as.matrix()
 
 ## total number of sampling occasions (primary and secondary) per population per year
-n_occ     <- sampled_weeks %>% 
+n_occ     <- sampled_periods %>% 
   group_by(Year, Site) %>%
   summarize(n_occ = length(unique(SecNumConsec))) %>% 
   mutate(Site = factor(Site, levels = u_sites)) %>%
@@ -24,7 +24,7 @@ n_occ     <- sampled_weeks %>%
 n_occ[is.na(n_occ)] <- 0
 
 ## number of secondary periods in each of the primary periods in each site
-n_occ.m <- sampled_weeks %>% 
+n_occ.m <- sampled_periods %>% 
   group_by(Year, Month, Site) %>%
   summarize(n_occ = length(unique(SecNumConsec))) %>% 
   mutate(Site = factor(Site, levels = u_sites)) %>%
@@ -84,7 +84,6 @@ capt_history.p %<>%
   mutate(gamma_index = paste(interaction(Mark, Year, Month),"a",sep="_")) %>% 
   mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
   mutate(gamma_index = as.numeric(gamma_index))
-
 
 ####
 ## Data for survival (.phi for survival)

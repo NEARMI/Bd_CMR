@@ -9,7 +9,6 @@ stan_data     <- list(
  , n_ind             = n_ind
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_per_period_p  = max(capt_history.p$gamma_index) 
- , ind_time          = nrow(capt_history)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
   
@@ -70,6 +69,8 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+
+## shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
