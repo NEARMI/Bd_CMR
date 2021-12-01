@@ -31,8 +31,11 @@ one_pop <- bd.sampling(
 , bd_mort   = bd_mort[pop_ind, ]
 , bd_detect = bd_detect[pop_ind, ]
 , p_mort    = p_mort[pop_ind, ]
+, p_mort_within = p_mort_within[pop_ind, ]
 , background_mort = background_mort[pop_ind, ]
 , pop_ind   = pop_ind
+, use_prim_sec = use_prim_sec
+, sec_per_time = sec_per_time[pop_ind, ]
 )
 
 one_pop.long <- bd.stan_org(
@@ -41,6 +44,7 @@ one_pop.long <- bd.stan_org(
 , times    = times[pop_ind, ]
 , periods  = periods[pop_ind, ]
 , samp     = samp[[pop_ind]]
+, use_prim_sec = use_prim_sec
 )
 
 print(paste("Population", pop_ind, "Simulated", sep = " "))

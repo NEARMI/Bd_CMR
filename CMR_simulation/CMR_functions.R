@@ -66,7 +66,8 @@ bd.sampling <- function (
   expdat
 , all_ind, new_ind, times, periods, when_samp, samp, bd_perc
 , inbetween, between_season_duration
-, bd_mort, bd_detect, p_mort, background_mort, pop_ind
+, bd_mort, bd_detect, p_mort, p_mort_within, background_mort, pop_ind
+, use_prim_sec, sec_per_time
 ) {
 
 ## drop new_ind random individuals from each prior period to simulate individuals that migrated into the population
@@ -111,16 +112,38 @@ if (when_samp == "random") {
    mutate(all_times = as.numeric(all_times))
  
  ## Determine the number of time periods that elapse between back to back samples
- time_gaps   <- sampling_days %>% filter(sampling_days == 1) %>%
+time_gaps.df <- sampling_days %>% filter(sampling_days == 1) %>%
    ungroup() %>% mutate(time_gaps = (all_times - lag(all_times, 1))) %>%
    group_by(periods) %>%  
    mutate(last_sample = min(times)) %>%
-   filter(!is.na(time_gaps))
- 
-# time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps <- 
-#   time_gaps[(time_gaps$times == time_gaps$last_sample) & (time_gaps$periods != min(time_gaps$periods)), ]$time_gaps + between_season_duration
-   
-  time_gaps <- time_gaps$time_gaps
+   ungroup() %>%
+   mutate(time_gaps = c(time_gaps[-1], NA))
+
+for (i in 1:length(unique(time_gaps.df$periods))) {
+  temp_frame <- time_gaps.df %>% filter(periods == unique(time_gaps.df$periods)[i])
+  temp_frame %<>% mutate(sec_per = 1)
+  
+  for (j in 2:nrow(temp_frame)) {
+   temp_frame$sec_per[j] <- temp_frame$sec_per[j - 1] + 
+     ifelse(temp_frame$time_gaps[j - 1] > sec_per_time, 1, 0)
+  }
+  
+  if (i == 1) {
+    temp_frame.a <- temp_frame
+  } else {
+    temp_frame.a <- rbind(temp_frame.a, temp_frame)
+  }
+  
+}
+
+time_gaps.df <- temp_frame.a
+
+  time_gaps <- time_gaps.df$time_gaps
+  time_gaps <- time_gaps[!is.na(time_gaps)]
+  
+  expdat %<>% left_join(.
+  , time_gaps.df %>% dplyr::select(periods, times, time_gaps, sampling_days, sec_per)) %>% 
+  mutate(sampling_days = ifelse(is.na(sampling_days), 0, 1)) 
   
   if (length(time_gaps) != (sum(samp) - 1)) {
     print("time_gaps is an incorrect length, check parameters"); break
@@ -156,6 +179,22 @@ expdat %<>%
   group_by(ind) %>%
   arrange(periods, ind, times)
 
+if (use_prim_sec) {
+  
+expdat %<>% mutate(
+    mort = ifelse(sampling_days == 1
+      , mort * p_mort_within
+      , mort)
+  ) %>% 
+  mutate(
+    mort = ifelse(sampling_days == 1 & !is.na(time_gaps)
+      , ifelse(time_gaps <= sec_per_time, 1, mort)
+      , mort
+  )
+  )   
+
+}
+
 ## calculate a summary of the bd load within a period for mortality between periods
 expdat.bd_sum <- expdat %>% 
   group_by(periods, ind) %>%
@@ -171,11 +210,11 @@ expdat.bd_sum <- expdat %>%
    , temp        = 0
    , bd_load     = 0
    , log_bd_load = 0
-   , mort        = 1 - p_mort
-   , detect      = 0
     )
  
 off_season %<>% left_join(., which_new_ind)
+
+off_season %<>% mutate(time_gaps = 0, sampling_days = 0, sec_per = 0, mort = 0, detect = 0)
 
 for (i in 1:nrow(off_season)) {
   temp_per <- off_season[i, ]$periods
@@ -379,6 +418,7 @@ bd.stan_org <- function (
 , times
 , periods
 , samp
+, use_prim_sec
 ) {
   
 ## Indices to determine which of the latent bd values can be informed by measured bd
@@ -417,11 +457,29 @@ phi_zeros   <- (phi_zeros %>% reshape2::melt() %>% arrange(Var1))$value
 indiv_index <- rep(sum(samp), each = one_pop$all_ind)
 
 ## Index for whether an individual was known to be present in the population at each time
-p_zeros <- matrix(data = 0, nrow = one_pop$all_ind, ncol = sum(samp))
-for (i in 1:one_pop$all_ind) {
-  p_zeros[i, ] <- rep(one_pop$present[i, ], samp)
+if (use_prim_sec) {
+
+p_zeros <- (one_pop$expdat %>% filter(sampling_days == 1) %>%
+  ungroup() %>%
+  group_by(ind, periods, sec_per) %>%
+  mutate(p_zeros = ifelse(any(detected == 1), 1, 0)) %>%
+  ungroup() %>%
+  group_by(ind) %>%
+  mutate(p_zeros = cumsum(p_zeros)) %>% 
+  mutate(p_zeros = ifelse(p_zeros > 0, 1, 0)))$p_zeros
+  
+} else {
+  
+p_zeros <- (one_pop$expdat %>% filter(sampling_days == 1) %>%
+  ungroup() %>%
+  group_by(ind, periods) %>%
+  mutate(p_zeros = ifelse(any(detected == 1), 1, 0)) %>%
+  ungroup() %>%
+  group_by(ind) %>%
+  mutate(p_zeros = cumsum(p_zeros)) %>% 
+  mutate(p_zeros = ifelse(p_zeros > 0, 1, 0)))$p_zeros 
+  
 }
-p_zeros   <- (p_zeros %>% reshape2::melt() %>% arrange(Var1))$value
 
 ind_time <-  data.frame(
    ind_time_rep  = rep(seq(one_pop$all_ind), each = times * periods)

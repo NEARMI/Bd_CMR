@@ -6,7 +6,7 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 12
+n_pop      <- 3
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
@@ -44,12 +44,11 @@ if (n_pop > 1) {
 }
 
 ## number of sampling events occurring over 'times'
- ## for now assume same number of periods per year, but this model allows variable sampling dates by season
 samp         <- vector("list", n_pop)
-samp_prop    <- 0.2 ## on average, what proportion of times are sampling events
+samp_prop    <- 0.5 ## on average, what proportion of times are sampling events
 
 for (i in 1:n_pop) {
- samp[[i]] <- rpois(periods[i, 1], round(times[i, 1] * 0.3)) + 1
+ samp[[i]] <- rbinom(periods[i, 1], times[i, 1], samp_prop)
 }
 
 ## number of time periods that elapse between the on-season
@@ -137,8 +136,19 @@ obs_noise <- matrix(data = rep(1, n_pop)
 ## mortality probability in-between periods
 p_mort          <- matrix(data = rlnorm(n_pop, -2.5, 0.5) * -1 #rep(.025, n_pop)
   , nrow = n_pop, ncol = 1)
+
 background_mort <- matrix(data = rep(1, n_pop)
   , nrow = n_pop, ncol = 1)
+
+
+## Values that are used if the sim is set up to try and better approximate primary and secondary periods
+use_prim_sec    <- TRUE
+
+p_mort_within   <- matrix(data = plogis(rnorm(n_pop, 3, 0.5))
+  , nrow = n_pop, ncol = 1)
+
+## time gaps over which we assume the population is closed
+sec_per_time    <- matrix(data = 1, nrow = n_pop, ncol = 1)
 
 ####
 ## other parameters for outside the function

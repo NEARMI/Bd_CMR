@@ -3,7 +3,8 @@
 ####
 
 ## clean up expdat.all (mostly to deal with individual numbers being repeated across sims)
-expdat.all %<>% ungroup() %>% 
+expdat.all %<>%
+  ungroup() %>% 
   arrange(pop, ind, all_times) %>% 
   mutate(ind_pop = interaction(ind, pop)) %>% 
   mutate(ind = factor(ind_pop, levels = unique(ind_pop))) %>% 

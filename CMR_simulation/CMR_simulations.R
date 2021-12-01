@@ -6,30 +6,23 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of Nov 8:
+## Notes as of Dec 1:
 ####
 
-## Most pressing current problem[s]:
- ## 1) Multi-pop model individuals not aligning properly (specifically with X_bd.m.all -- individual number mismatch)
+ ## 1) Adjust simulation model to allow for a simulation that matches both model styles (closed population
+  ## within primary periods and the other long-form model that just estimates survival between all sampling
+   ## events based on time between them)
+    ## -- Think I am close. Need to run both models and check for reasonable correspondance in parameter
+     ## estimates. A job for Dec 2
 
-## Recap:
- ## Collapsed model doing an ok job for simulated data but poor job with real data; but:
-  ## 1) Think my prior was too wide given that I only have one predictor in the plogis (need 1.5)
-   ## Hopefully this will help to resolve some of the posterior problems with spikes at 1
-  ## 2) Explore addition of one or two other covariates to the real data
-  ## 3) Try multi-population model in the simulation
-
-## Eventually:
-## 1) Explore what is able to be recaptured with multi-pop model with the simulated data. 
- ## Can redo the sampling_range script and try like 10 fits
-
-## Also:
- ## 1) There is still a small issue with survival from the last time time point through the
+ ## 2) There is still a small issue with survival from the last time time point through the
   ## offseason because survival from the last point to the end of the season is ignored
    ## need to try modifying the data so that the transition retains both info 
     ## drop offseason duration but keep the full linear predictor I think will work best
-  ## 2) Need to adjust the simulation to return the actual between season survival values
-   ## for diagnostics
+  ## -- Fixed this in the empirical script, but maybe not here I guess. Need to double check to adjust
+   ## the use of time gaps in the offseason phi estimate
+
+  ## 3) Need to adjust the simulation to return the actual between season survival values for diagnostics
 
 ####
 ## Packages and misc
@@ -43,6 +36,7 @@ set.seed(10002)
 ## Parameters 
 ####
 source("CMR_parameters.R")
+use_prim_sec    <- FALSE
 
 ####
 ## Functions for simulation
@@ -58,7 +52,12 @@ source("CMR_datasim.R")
 ## Clean up simulated data and build structure for stan model
 ####
 collapse.mod <- FALSE
-source("CMR_dataclean.R")
+
+if (use_prim_sec) {
+  source("CMR_dataclean_collapsed.R")
+} else {
+  source("CMR_dataclean.R")
+}
 
 if (length(unique(expdat.all$ind)) < 300) {
 expdat.all %>% {
@@ -95,96 +94,11 @@ expdat.all %>% {
 ## Run the stan model
 ####
 
-stan_data     <- list(
-  
-  ## dimensional indexes 
-   n_pop           = n_pop
- , n_ind           = all_ind.all
- , ind_per_period  = sum(periods * each_ind.all)
-  
- , ind_time        = sum(
-   (expdat.all %>% group_by(pop) %>% summarize(total_times   = length(unique(times))))$total_times * 
-   (expdat.all %>% group_by(pop) %>% summarize(total_periods = length(unique(periods))))$total_periods * 
-   c(each_ind.all))
- , ind_occ         = sum(lapply(samp, sum) %>% unlist() * each_ind.all)
- , ind_occ_min1    = sum((lapply(samp, sum) %>% unlist() - 1) * each_ind.all)
-
-  ## short vector indexes 
- , ind_occ_size      = rep(lapply(samp, sum) %>% unlist(), each_ind.all)
- , ind_occ_min1_size = rep(lapply(samp, sum) %>% unlist() - 1, each_ind.all)
-
- , p_first_index     = p_first_index
- , phi_first_index   = phi_first_index
-  
-  ## long vector indexes
- , ind_occ_rep       = ind_occ_p.all$ind
- , sampling_events_p = ind_occ_p.all$sampling_events_p
- , periods_occ       = ind_occ_p.all$periods_occ
- , pop_p             = ind_occ_p.all$pop
- , p_zeros           = ind_occ_p.all$p_zeros
- , p_bd_index        = ind_occ_p.all$p_bd_index
- , gamma_index       = (ind_occ_p.all %>% 
-     mutate(ind_per = interaction(ind, periods_occ)) %>% 
-     mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
-     mutate(ind_per = as.numeric(ind_per)))$ind_per
-  
- , ind_occ_min1_rep    = ind_occ_phi.all$ind
- , sampling_events_phi = ind_occ_phi.all$sampling_events_p
- , offseason           = ind_occ_phi.all$offseason
- , pop_phi             = ind_occ_phi.all$pop
- , phi_zeros           = ind_occ_phi.all$phi_zeros
- , phi_bd_index        = ind_occ_phi.all$phi_bd_index
- , X_stat_index        = (ind_occ_phi.all %>% 
-     mutate(ind_per = interaction(ind, periods)) %>% 
-     mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
-     mutate(ind_per = as.numeric(ind_per)))$ind_per
-
- , ind_bd_rep          = expdat.all$ind
- , sampling_events_bd  = expdat.all$times
- , ind_in_pop          = expdat.all$pop
- , temp                = expdat.all$temp
-  
-  ## covariates
- , N_bd            = nrow(X_bd.m.all)
- , X_bd            = X_bd.m.all$bd  
- , x_bd_index      = X_bd.m.all$X_bd_index
- , bd_first_index  = bd_first_index
- , bd_last_index   = bd_last_index
- , time_gaps       = ind_occ_phi.all$time_gaps
-  
-  ## Capture data
- , N_y             = nrow(ind_occ_p.all)
- , y               = ind_occ_p.all$captures
-  
- , first           = capture_range.all$first
- , last            = capture_range.all$final
-  )
-
-stan.fit  <- stan(
-  file    = {
-    if (n_pop == 1) {
-  #  "../CMR_empirical_long.stan"
-      "CMR_collapsed.stan"
-    } else {
-  #  "../CMR_empirical_pr_long.stan"
-      "CMR_collapsed_pr_adj.stan"
-    }
-    }
-, data    = stan_data
-, chains  = 1
-, iter    = stan.iter
-, warmup  = stan.burn
-, thin    = stan.thin
-, refresh = 10
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
-  )
-
-saveRDS(stan.fit, "stan.fit.mpr2.Rds")
-
-shinystan::launch_shinystan(stan.fit)
-
-stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
+if (use_prim_sec) {
+  source("CMR_fit_collapsed.R")
+} else {
+  source("CMR_fit.R")
+}
 
 ####
 ## CMR Diagnostics
