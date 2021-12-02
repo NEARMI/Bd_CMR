@@ -18,6 +18,7 @@ stan_data     <- list(
  , ind_occ_min1_size = rep(lapply(samp, sum) %>% unlist() - 1, each_ind.all)
  , p_first_index     = p_first_index
  , phi_first_index   = phi_first_index
+ , ind_in_pop        = ind_in_pop.all
   
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = ind_occ_p.all$ind

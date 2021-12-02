@@ -6,7 +6,7 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 3
+n_pop      <- 1
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
@@ -103,7 +103,7 @@ bd_mort <- matrix(
 
 ## For debugging of a single population
 if (n_pop == 1) {
- bd_mort[1, 1] <- -0.05
+ bd_mort[1, 1] <- -0.1
 }
 
 ## logistic response coefficients for detection across log(bd_load)
@@ -134,12 +134,11 @@ obs_noise <- matrix(data = rep(1, n_pop)
 ####
 
 ## mortality probability in-between periods
-p_mort          <- matrix(data = rlnorm(n_pop, -2.5, 0.5) * -1 #rep(.025, n_pop)
+p_mort          <- matrix(data = rlnorm(n_pop, -2.5, 0.5) * -1
   , nrow = n_pop, ncol = 1)
 
 background_mort <- matrix(data = rep(1, n_pop)
   , nrow = n_pop, ncol = 1)
-
 
 ## Values that are used if the sim is set up to try and better approximate primary and secondary periods
 use_prim_sec    <- TRUE

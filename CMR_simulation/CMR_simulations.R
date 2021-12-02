@@ -6,23 +6,67 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of Dec 1:
+## Notes as of Dec 2:
 ####
 
- ## 1) Adjust simulation model to allow for a simulation that matches both model styles (closed population
-  ## within primary periods and the other long-form model that just estimates survival between all sampling
-   ## events based on time between them)
-    ## -- Think I am close. Need to run both models and check for reasonable correspondance in parameter
-     ## estimates. A job for Dec 2
+## -- General progress update -- ##
 
- ## 2) There is still a small issue with survival from the last time time point through the
+ ## 1) Single population simulation working reasonably well for both full and collapsed simulation.
+  ## A) As expected collapsed model doesn't capture within season process well at all given that the whole
+   ## temporal dynamics of bd are ignored
+  ## B) Streamlined quite a bit of code so do need to check a few population sizes etc. to make sure expected
+   ## patterns are returned (i.e., better estimates with large populations and more sampling)
+
+ ## 2) Full list of next steps below, but the first important thing to do is to get the multi-pop model working
+  ## which has two steps really: 1) checking to make sure the code as is runs and gives sensible results; 2) adjusting
+   ## the random effects to the between season process to make the collapsed model more useful
+
+## -- Next to do -- ##
+
+ ## 1) There is now some redundancy in .stan models that have _sim_ attached and those that don't 
+  ## (specifically CMR_full_pr.stan and CMR_full_sim_pr.stan). The idea is that these will begin to diverge
+   ## once more empirical data becomes available (like the non pr models has started to do)
+
+ ## 2) The current formulation of random effects is rather non-sensible for capturing the between population
+  ## processes that we really care about for the empirical data. Thus, need to adjust the random effects and 
+   ## simulation so that between season survival (and more of a minor point--detection) are the processes
+    ## that vary among populations (and not within season survival as it is now)
+
+ ## 3) There is still a minor issue with survival from the last time time point through the
   ## offseason because survival from the last point to the end of the season is ignored
-   ## need to try modifying the data so that the transition retains both info 
-    ## drop offseason duration but keep the full linear predictor I think will work best
-  ## -- Fixed this in the empirical script, but maybe not here I guess. Need to double check to adjust
-   ## the use of time gaps in the offseason phi estimate
+   ## (that is, for offseason == 1 timegaps isn't factored in to also scale survival -- which coould
+    ## lead to a minorly biased estimate of between season survival (higher mortality than reality))
 
-  ## 3) Need to adjust the simulation to return the actual between season survival values for diagnostics
+####
+## Simulation Notes as of Dec 2, 2021
+####
+
+### -- Parameters and general simulation info -- ###
+
+## 1) Temperature is simulated as being quadratic over time, then bd is simulated as being a linear
+  ## function of temperature. The model estimates bd as a quadratic function over time
+  ## with a linear term for temperature, which is a tad different than the simulation but nearly equivalent
+## 2) Survival is estimated in two processes. Survival is first estimated over single time steps solely as
+  ## a function of simulated bd. Survival isn't explicitly modeled as a function of time, it is just emergent
+  ## that survival will differ depending on the time between samples. Survival between seasons is a separate 
+  ## process where survival is estimated between seasons with a baseline and as a function of max bd that year
+   ## Thus, things like primary and secondary periods (over which the population is assumed to be closed) can
+   ## be assessed for things like bias (as it isn't realistic at all that the population truly is closed --
+   ## though it is important to note the time frame between reality (e.g. secondary periods separated by days
+   ## and primary periods separated by months isn't perfectly represented in this simulation model. Need
+   ## some updates to the simulation to deal with this variable time frame))
+## 3) Detection is directly estimated on each sampling occasion as a function of some baseline and bd load.
+  ## This is something to consider expanding in complexity in the near future
+
+### -- Models that can be fit -- ###
+
+## Currently there are two supported models to be fit from this simulation:
+ ## 1) A "full" model that estimates the quadratic bd load and week to week survival as a function of bd.
+  ## This model requires relatively extensive sampling in order to fit
+ ## 2) A "collapsed" model that does not estimate the time dependence of bd, but instead just estimates the max
+  ## that each individual reaches (i.e., as if bd is an individual-specific trait). 
+  ## In this model secondary periods are defined with a user-defined space between sampling events that are
+  ## considered to be close enough to assume a closed population (potentially something interesting to explore)
 
 ####
 ## Packages and misc
@@ -36,7 +80,7 @@ set.seed(10002)
 ## Parameters 
 ####
 source("CMR_parameters.R")
-use_prim_sec    <- FALSE
+use_prim_sec    <- TRUE
 
 ####
 ## Functions for simulation
@@ -101,192 +145,10 @@ if (use_prim_sec) {
 }
 
 ####
-## CMR Diagnostics
+## Model diagnostics (best to open the script and run line by line because of all of the plots)
 ####
+## NOTE: Diagnostics are not yet set up to debug the multi-population simulation well
+ ## (or the collapsed model as well either, but that can be the next step as there is less to change)
+source("CMR_diagnostics.R")
 
-## --- Recovery of simulated coefficients? --- ##
 
-## Primary Bd effects
-pred_coef        <- as.data.frame(stan.fit.summary[grep("beta_p"
-  , dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)])
-names(pred_coef) <- c("lwr", "mid", "upr")
-pred_coef        %<>% mutate(param = rownames(.))
-
-pred_coef %>% {
-  ggplot(., aes(param, mid)) + 
-    geom_point() +
-    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
-    geom_point(data = data.frame(
-      param = pred_coef$param
-    , mid   = c(
-      rev(bd_mort[1, ])
-    , rev(bd_detect[1, ])
-      )
-    ), colour = "firebrick3") +
-    xlab("Parameter") + ylab("Estimate") +
-    scale_x_discrete(labels = c("Detection intercept", "Detection slope", "Survival intercept", "Survival slope")) +
-    theme(axis.text.x = element_text(size = 11))
-}
-
-## survival over Bd load
-stan.pred        <- apply(stan.fit.samples$beta_phi, 1
-  , FUN = function(x) plogis(x[1] + x[2] * one_pop$bd_probs$log_bd_load)) %>%
-  reshape2::melt(.)
-names(stan.pred) <- c("log_bd_load", "sample", "mortality")
-stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
-  , from = unique(log_bd_load), to = one_pop$bd_probs$log_bd_load))
-stan.pred        %<>% group_by(log_bd_load) %>% 
-  summarize(
-    lwr = quantile(mortality, c(0.025))
-  , mid = quantile(mortality, c(0.5))
-  , upr = quantile(mortality, c(0.975))
-  )
-
-stan.pred %>% {
-  ggplot(., aes(log_bd_load, mid)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_line() +
-    geom_line(data = (one_pop$bd_probs %>% mutate(mort = mort ))
-      , aes(log_bd_load, mort)
-      , colour = "dodgerblue4", lwd = 2) +
-    xlab("Log of Bd Load") + ylab("Predicted mortality probability")
-}
-
-## detection over Bd load
-stan.pred        <- apply(stan.fit.samples$beta_p, 1
-  , FUN = function(x) plogis(x[1] + x[2] * one_pop$bd_probs$log_bd_load)) %>%
-  reshape2::melt(.)
-names(stan.pred) <- c("log_bd_load", "sample", "detect")
-stan.pred        %<>% mutate(log_bd_load = plyr::mapvalues(log_bd_load
-  , from = unique(log_bd_load), to = one_pop$bd_probs$log_bd_load))
-stan.pred        %<>% group_by(log_bd_load) %>% 
-  summarize(
-    lwr = quantile(detect, c(0.10))
-  , mid = quantile(detect, c(0.5))
-  , upr = quantile(detect, c(0.90))
-  )
-
-stan.pred %>% {
-  ggplot(., aes(log_bd_load, mid)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_line() +
-    geom_line(data = one_pop$bd_probs, aes(log_bd_load, detect)
-      , colour = "dodgerblue4", lwd = 2) +
-    xlab("Log of Bd Load") + ylab("Predicted detection probability")
-}
-
-## --- Individual random effect estimates --- ##
-
-stan.ind_pred_eps <- stan.fit.samples$bd_delta_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
-stan.ind_pred_var <- stan.fit.samples$bd_delta_sigma %>%
-  reshape2::melt(.) %>% rename(sd = value) %>%
-  left_join(., stan.ind_pred_eps) %>%
-  mutate(eps = eps * sd) %>% 
-  group_by(ind) %>%
-  summarize(
-    mid = quantile(eps, 0.50)
-  , lwr = quantile(eps, 0.025)
-  , upr = quantile(eps, 0.975)
-  ) %>% ungroup()
-
-stan.ind_pred_var %>% 
-  arrange(mid) %>% 
-  mutate(ind = factor(ind, levels = ind)) %>% {
-  ggplot(., aes(ind, mid)) +
-    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
-    xlab("Individual") + 
-    ylab("Random Effect Deviate") +
-    geom_hline(yintercept = 0, linetype = "dashed", lwd = 1, colour = "firebrick3") +
-    scale_colour_brewer(palette = "Dark2") +
-    theme(axis.text.x = element_text(size = 8))
-}
-
-expdat.all %>% group_by(ind) %>% summarize(
-  tot_bd = sum(log_bd_load)
-) %>% arrange(desc(tot_bd))
-
-## just take a peek at the most extreme individuals (not dynamic)
-most_extreme <- reshape2::melt(stan.fit.samples$X[
-  , 37
-  , ])
-names(most_extreme) <- c("samp", "time", "value")
-most_extreme %<>% 
-  group_by(time) %>% 
-summarize(
-  lwr = quantile(value, 0.025)
-, mid = quantile(value, 0.500)
-, upr = quantile(value, 0.975)
-) %>% mutate(
-  period = rep(seq(3), each = 20)
-, time   = rep(seq(20), 3))
-
-most_extreme %>% {
-  ggplot(., aes(time, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_line() +
-    facet_wrap(~period)
-}
-
-## --- Population random effect estimates --- ##
-
-stan.ind_pred_eps <- stan.fit.samples$phi_delta_pop_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
-stan.ind_pred_var <- stan.fit.samples$phi_delta_pop_sigma %>%
-  reshape2::melt(.) %>% rename(sd = value) %>%
-  left_join(., stan.ind_pred_eps) %>%
-  mutate(eps = eps * sd) %>% 
-  group_by(ind) %>%
-  summarize(
-    mid = quantile(eps, 0.50)
-  , lwr = quantile(eps, 0.025)
-  , upr = quantile(eps, 0.975)
-  ) %>% ungroup()
-
-### Need to make this functioning given the new multi-population structure
-
-stan.ind_pred_var %>% 
-  arrange(mid) %>% 
-  mutate(ind = factor(ind, levels = ind)) %>% {
-  ggplot(., aes(ind, mid)) +
-    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
-    xlab("Population") + 
-    ylab("Random Effect Deviate") +
-    geom_hline(yintercept = 0
-      , linetype = "dashed", lwd = 1, colour = "firebrick3") +
-    scale_colour_brewer(palette = "Dark2") +
-    theme(axis.text.x = element_text(size = 8))
-  }
-
-## mean survival per period
-ind_occ_phi.all %<>% mutate(pred_phi = colMeans(stan.fit.samples$phi))
-ind_occ_phi.all %<>% left_join(.
-  , expdat.all %>% filter(sampling_days == 1) %>% rename(sampling_events_phi = all_times) %>%
-    dplyr::select(ind, sampling_events_phi, cum_surv)
-  )
-
-ind_occ_phi.all %>% filter(offseason == 1)
-
-ind_occ_phi.all %>% 
-  group_by(ind, periods) %>% 
-  mutate(real_surv = cum_surv / lag(cum_surv, 1))
-
-ind_occ_phi.all %>% filter(pred_phi > 0) %>% 
-  group_by(offseason) %>%
-  summarize(
-    mean_phi = mean(pred_phi)
-  )
-
-data.frame(vals = stan.fit.samples$phi[, 234]) %>% {
-  ggplot(., aes(x = vals)) + geom_histogram(bins = 50, alpha = 0.5) +
-    xlab("Between Season Survival") +
-    ylab("Samples") +
-    geom_vline(xintercept = 0.77, colour = "firebrick3")
-}
-
-hist(stan.fit.samples$phi[, 234], breaks = 100)
-
-ind_occ_p.all %<>% 
-     mutate(ind_per = interaction(ind, periods_occ)) %>% 
-     mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
-     mutate(ind_per = as.numeric(ind_per))

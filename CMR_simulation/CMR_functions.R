@@ -179,21 +179,23 @@ expdat %<>%
   group_by(ind) %>%
   arrange(periods, ind, times)
 
-if (use_prim_sec) {
-  
-expdat %<>% mutate(
-    mort = ifelse(sampling_days == 1
-      , mort * p_mort_within
-      , mort)
-  ) %>% 
-  mutate(
-    mort = ifelse(sampling_days == 1 & !is.na(time_gaps)
-      , ifelse(time_gaps <= sec_per_time, 1, mort)
-      , mort
-  )
-  )   
-
-}
+## Commented out for now because I think it is unrealistic to actually simulate a closed population over
+ ## time periods < X, but have this here just in case
+#if (use_prim_sec) {
+#  
+#expdat %<>% mutate(
+#    mort = ifelse(sampling_days == 1
+#      , mort * p_mort_within
+#      , mort)
+#  ) %>% 
+#  mutate(
+#    mort = ifelse(sampling_days == 1 & !is.na(time_gaps)
+ #     , ifelse(time_gaps <= sec_per_time, 1, mort)
+#      , mort
+#  )
+#  )   
+#
+#}
 
 ## calculate a summary of the bd load within a period for mortality between periods
 expdat.bd_sum <- expdat %>% 
