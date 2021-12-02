@@ -178,14 +178,26 @@ transformed parameters {
 
 	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
            phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
+
 	 } else {
+
+	 if (offseason[t] == 0)	{			// Two fundamentally different survival processes, one for within season and one for between season survival
 
            phi[t] = inv_logit(
                       beta_phi[1]                      + 
                       beta_phi[2] * X[phi_bd_index[t]] +
-                      beta_timegaps  * time_gaps[t]    +
-                      beta_offseason * X_stat[X_stat_index[t]] * offseason[t]		// only called upon if offseason == 1
+                      beta_timegaps  * time_gaps[t]
                     );
+
+	 } else {
+
+           phi[t] = inv_logit(
+		      beta_offseason[1] +
+                      beta_offseason[2] * X_stat[X_stat_index[t]] * offseason[t]
+                    );
+
+	 }
+
 
 	 }  
 

@@ -60,6 +60,7 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
+	int<lower=0> X_stat_index[ind_occ_min1];	    // which entries of the summarized stat correspond to each period
 
   // long vector indices for bd model (bd)
 	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
@@ -71,6 +72,8 @@ data {
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
+	int<lower=0> bd_first_index[ind_per_period];	    // First entry of latent bd associated with each individual 'by' period
+	int<lower=0> bd_last_index[ind_per_period];	    // Last entry of latent bd associated with each individual 'by' period
 	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
 
   // captures
@@ -141,6 +144,7 @@ transformed parameters {
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
 	real X[ind_time];			   // latent bd
+	real X_stat[ind_per_period];		   // yearly summaries of bd
  		
 	// Individual random effect deviates
 	real bd_ind[n_ind];      
@@ -173,9 +177,15 @@ transformed parameters {
 	  X[t] = (bd_pop[ind_in_pop[t]] + bd_ind[ind_bd_rep[t]]) +
 		      beta_bd[1] * sampling_events_bd[t]         +
 		      beta_bd[2] * square(sampling_events_bd[t]) + 
-		      beta_bd[3] * temp[t];      
+		      beta_bd[3] * temp[t];   
 
         }
+
+	for (t in 1:ind_per_period) {
+	 
+	 X_stat[t] = max(X[bd_first_index[t]:bd_last_index[t]]);
+
+	}
 
 // -----
 // Survival probability over the whole period
@@ -192,7 +202,7 @@ transformed parameters {
            phi[t] = inv_logit(
                       beta_phi[1]                      + 
                       (beta_phi[2] + phi_pop[pop_phi[t]]) * X[phi_bd_index[t]] +
-                      beta_timegaps  * time_gaps[t]  
+                      beta_timegaps  * time_gaps[t]    +
                     );
 
 	 } else {
@@ -204,6 +214,7 @@ transformed parameters {
 
 	 }
 
+
 	 }  
 
 	}
@@ -214,7 +225,7 @@ transformed parameters {
 	
 	for (t in 1:ind_occ) {
 
-		// p_zeros is = 1 in each season prior to an individual being caught for the first time
+		// p_zeros is = 0 in each season prior to an individual being caught for the first time
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
@@ -244,19 +255,18 @@ model {
 // Priors
 // -----
 
-	beta_bd[1] ~ normal(0, 5);
-	beta_bd[2] ~ normal(0, 5);
-	beta_bd[3] ~ normal(0, 5);
-	beta_phi   ~ normal(0, 1.5);
-	beta_p[1]  ~ normal(0, 1.5);
-	beta_p[2]  ~ normal(0, 1.5);
+	beta_bd[1]  ~ normal(0, 5);
+	beta_bd[2]  ~ normal(0, 5);
+	beta_bd[3]  ~ normal(0, 5);
+	beta_bd[4]  ~ normal(0, 5);
+	beta_phi[1] ~ normal(0, 1.5);
+	beta_phi[2] ~ normal(0, 1.5);
+	beta_p[1]   ~ normal(0, 1.5);
+	beta_p[2]   ~ normal(0, 1.5);
 
-	beta_timegaps  ~ normal(0, 1.5);
+	beta_timegaps     ~ normal(0, 1.5);
 	beta_offseason[1] ~ normal(0, 1.5);
 	beta_offseason[2] ~ normal(0, 1.5);
-
-	beta_bd_int_pop    ~ normal(0, 1.5);
-	beta_phi_slope_pop ~ normal(0, 1.5);
 
 	bd_ind_sigma  ~ inv_gamma(10, 4);
 	bd_pop_sigma  ~ inv_gamma(10, 4);
@@ -264,13 +274,13 @@ model {
 	
 	bd_obs        ~ inv_gamma(10, 4);
 
+	for (i in 1:n_ind) {
+	  bd_ind_eps[i]   ~ normal(0, 3);
+	}
+
 	for (pp in 1:n_pop) {
 	 bd_pop_eps[pp]  ~ normal(0, 3);
 	 phi_pop_eps[pp] ~ normal(0, 3);
-	}
-
-	for (i in 1:n_ind) {
-	  bd_ind_eps[i]   ~ normal(0, 3);
 	}
          
         gamma       ~ uniform(0, 1);

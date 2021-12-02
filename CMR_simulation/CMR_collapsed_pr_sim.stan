@@ -32,9 +32,8 @@ data {
 
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
-	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
-	int<lower=1> ind_per_period;			    // n_ind * n_periods, summed over the sampling of all populations
-	int<lower=0> ind_time;				    // n_ind * n_times, summed over the sampling of all populations
+	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)	
+	int<lower=1> ind_per_period_p;			   
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
 	int<lower=0> ind_occ_min1;		 	    // n_ind * n_occ_min1, summed over the sampling of all populations
 	
@@ -43,10 +42,10 @@ data {
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
+	int<lower=1> ind_in_pop[n_ind];
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
-	int<lower=0> sampling_events_p[ind_occ];  	    // The date on which each sampling event occurred for each individual
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
@@ -55,23 +54,17 @@ data {
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
-	int<lower=0> sampling_events_phi[ind_occ_min1];     // The date on which each sampling event occurred (minus the last one) for each individual
 	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
+	int<lower=0> phi_ones[ind_occ_min1];
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
-
-  // long vector indices for bd model (bd)
-	int<lower=0> ind_bd_rep[ind_time];		    // Index vector of all individuals (each individual repeated the number of times in that population)
-	int<lower=0> sampling_events_bd[ind_time];	    // All of the weeks on which latent bd is modeled in each population 
-	int<lower=1> ind_in_pop[ind_time];		    // population associated with each estimated bd level
-	real	     temp[ind_time];			    // temperature associated with each estimated bd level
+	int<lower=0> X_stat_index[ind_occ_min1];	    // which entries of the summarized stat correspond to each period
 	  
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
-	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
-	int<lower=0> time_gaps[ind_occ_min1];  	 	    // Elapsed time between each sampling event 
+	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -92,17 +85,15 @@ parameters {
 // bd submodel
 // -----
 
-	real beta_bd_int_pop;				 // population-specific intercepts in bd load
-	vector[3] beta_bd;				 // two slope coefficients for grand mean change in bd over time + slope for temp
+	real beta_bd;					 // population average bd and bd as a function of cumulative temperature up to the time point
+	
+	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_ind_eps[n_ind];                          // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_pop_sigma;			 // change in Bd by pop (normal random effect variance)
 	real bd_pop_eps[n_pop];				 // the conditions modes of the random effect (each populations intercept (for now))
 
-	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_ind_eps[n_ind];               	         // the conditions modes of the random effect (each individual's intercept (for now))
-
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
-
 
 // -----
 // survival
@@ -114,23 +105,20 @@ parameters {
 
 	real<lower=0> phi_pop_sigma;			 // change in Bd by individual (normal random effect variance)
 	real phi_pop_eps[n_pop];
-        
-	real<upper=0> beta_timegaps;			 // coefficient to control for the variable time between sampling events
-	vector[2] beta_offseason;			 // season survival probability, maybe maybe not as a function of bd
 
+	vector[2] beta_offseason;  			 // survival as a function of bd stress
 
 // -----
 // detection
 // -----
 
 	vector[2] beta_p;				 // intercept and slope coefficient for detection
-	
 
 // -----
 // other
 // -----	
 
-	vector<lower=0,upper=1>[ind_per_period] gamma;
+	vector<lower=0,upper=1>[ind_per_period_p] gamma;
 
 }
 
@@ -140,10 +128,10 @@ transformed parameters {
 	real<lower=0,upper=1> p[ind_occ];          // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
 
-	real X[ind_time];			   // latent bd
+	real X[n_ind];			  	   // individuals unique average bd
  		
-	// Individual random effect deviates
-	real bd_ind[n_ind];      
+	// individual random effect deviates
+	real bd_ind[n_ind];
 
 	// population random effect deviates                  
 	real bd_pop[n_pop];
@@ -162,20 +150,10 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i] = bd_ind_sigma * bd_ind_eps[i];  
+  	  bd_ind[i]  = bd_ind_sigma * bd_ind_eps[i];  
+	  X[i]       = beta_bd + bd_ind[i] + bd_pop[ind_in_pop[i]];
 
 	}
-
-	for (t in 1:ind_time) {
-
-		// latent bd model before obs error
-
-	  X[t] = (bd_pop[ind_in_pop[t]] + bd_ind[ind_bd_rep[t]]) +
-		      beta_bd[1] * sampling_events_bd[t]         +
-		      beta_bd[2] * square(sampling_events_bd[t]) + 
-		      beta_bd[3] * temp[t];      
-
-        }
 
 // -----
 // Survival probability over the whole period
@@ -187,26 +165,25 @@ transformed parameters {
            phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
 	 } else {
 
-	 if (offseason[t] == 0)	{			// Two fundamentally different survival processes, one for within season and one for between season survival
+	  if (phi_ones[t] == 1) {
+           phi[t] = 1;
+	  } else {
 
-           phi[t] = inv_logit(
-                      beta_phi[1]                      + 
-                      (beta_phi[2] + phi_pop[pop_phi[t]]) * X[phi_bd_index[t]] +
-                      beta_timegaps  * time_gaps[t]  
-                    );
+	   if (offseason[t] == 0) {
 
-	 } else {
+            phi[t] = inv_logit(beta_phi[1] + (beta_phi[2] + phi_pop[pop_phi[t]]) * X[ind_occ_min1_rep[t]]);
 
-           phi[t] = inv_logit(
-		      beta_offseason[1] +
-                      beta_offseason[2] * X_stat[X_stat_index[t]] * offseason[t]
-                    );
+	   } else {
+
+            phi[t] = inv_logit(beta_offseason[1] + beta_offseason[2] * X[ind_occ_min1_rep[t]]);
+	
+	   }
+
+	   }
+
+	  }  
 
 	 }
-
-	 }  
-
-	}
 
 // -----
 // Detection probability over the whole period
@@ -218,9 +195,9 @@ transformed parameters {
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]);
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]]);
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]]) * gamma[gamma_index[t]];
+          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[ind_occ_rep[t]]) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -244,36 +221,25 @@ model {
 // Priors
 // -----
 
-	beta_bd[1] ~ normal(0, 5);
-	beta_bd[2] ~ normal(0, 5);
-	beta_bd[3] ~ normal(0, 5);
-	beta_phi   ~ normal(0, 1.5);
-	beta_p[1]  ~ normal(0, 1.5);
-	beta_p[2]  ~ normal(0, 1.5);
+	beta_bd     ~ normal(0, 5);
 
-	beta_timegaps  ~ normal(0, 1.5);
+	beta_p[1]   ~ normal(0, 1.5);
+	beta_p[2]   ~ normal(0, 1.5);
+
+	beta_phi[1] ~ normal(0, 1.5);
+	beta_phi[2] ~ normal(0, 1.5);
+
 	beta_offseason[1] ~ normal(0, 1.5);
 	beta_offseason[2] ~ normal(0, 1.5);
 
-	beta_bd_int_pop    ~ normal(0, 1.5);
-	beta_phi_slope_pop ~ normal(0, 1.5);
-
-	bd_ind_sigma  ~ inv_gamma(10, 4);
-	bd_pop_sigma  ~ inv_gamma(10, 4);
-	phi_pop_sigma ~ inv_gamma(10, 4);
-	
-	bd_obs        ~ inv_gamma(10, 4);
-
-	for (pp in 1:n_pop) {
-	 bd_pop_eps[pp]  ~ normal(0, 3);
-	 phi_pop_eps[pp] ~ normal(0, 3);
-	}
+	bd_ind_sigma ~ inv_gamma(8, 15);
+	bd_obs       ~ inv_gamma(10, 4);
 
 	for (i in 1:n_ind) {
-	  bd_ind_eps[i]   ~ normal(0, 3);
+	  bd_ind_eps[i] ~ normal(0, 3);
 	}
          
-        gamma       ~ uniform(0, 1);
+        gamma ~ uniform(0, 1);
 
 
 // -----
@@ -283,7 +249,7 @@ model {
 		// observed bd is the linear predictor + some observation noise
 
 	for (t in 1:N_bd) {
-          X_bd[t] ~ normal(X[x_bd_index[t]], bd_obs); 
+          X_bd[t] ~ normal(X[X_ind[t]], bd_obs); 
 	} 
     
 // -----
@@ -300,7 +266,7 @@ model {
 
 	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
 
-	  }
+	 }
 
 }
 

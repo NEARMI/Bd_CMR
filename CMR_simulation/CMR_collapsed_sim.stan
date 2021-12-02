@@ -46,7 +46,6 @@ data {
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> periods_occ[ind_occ];		    // Vector designating periods for observational model (all occasions)
-	int<lower=0> p_month[ind_occ];	
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
@@ -65,7 +64,6 @@ data {
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
-	real	     temp[ind_time];			    // temperature associated with each estimated bd level
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -88,8 +86,8 @@ parameters {
 
 	real beta_bd;					 // population average bd and bd as a function of cumulative temperature up to the time point
 	
-	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_ind_eps[n_ind];                          // the conditions modes of the random effect (each individual's intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
@@ -133,7 +131,7 @@ transformed parameters {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 
-  	  bd_ind[i]  = bd_delta_sigma * bd_delta_eps[i];  
+  	  bd_ind[i]  = bd_ind_sigma * bd_ind_eps[i];  
 	  X[i]       = beta_bd + bd_ind[i];
 
 	}
@@ -204,8 +202,7 @@ model {
 // Priors
 // -----
 
-	beta_bd[1]  ~ normal(0, 5);
-	beta_bd[2]  ~ normal(0, 5);
+	beta_bd     ~ normal(0, 5);
 
 	beta_p[1]   ~ normal(0, 1.5);
 	beta_p[2]   ~ normal(0, 1.5);
@@ -216,11 +213,11 @@ model {
 	beta_offseason[1] ~ normal(0, 1.5);
 	beta_offseason[2] ~ normal(0, 1.5);
 
-	bd_delta_sigma ~ inv_gamma(8, 15);
-	bd_obs         ~ inv_gamma(10, 4);
+	bd_ind_sigma ~ inv_gamma(8, 15);
+	bd_obs       ~ inv_gamma(10, 4);
 
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i] ~ normal(0, 3);
+	  bd_ind_eps[i] ~ normal(0, 3);
 	}
          
         gamma ~ uniform(0, 1);
