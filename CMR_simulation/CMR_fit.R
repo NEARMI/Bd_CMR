@@ -85,7 +85,7 @@ stan.fit  <- stan(
   )
 
 # shinystan::launch_shinystan(stan.fit)
+# stan.fit <- readRDS("stan.fit.full.pr_Dec3.Rds")
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
-

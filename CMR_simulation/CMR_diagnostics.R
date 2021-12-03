@@ -10,6 +10,38 @@ pred_coef        <- as.data.frame(stan.fit.summary[grep("beta"
 names(pred_coef) <- c("lwr", "mid", "upr")
 pred_coef        %<>% mutate(param = rownames(.))
 
+if (use_prim_sec) {
+
+pred_coef %>% mutate(param = factor(param, levels = param)) %>% {
+  ggplot(., aes(param, mid)) + 
+    geom_point() +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
+    geom_point(data = data.frame(
+      param = pred_coef$param
+    , mid   = c(
+      NA
+    , rev(colMeans(bd_mort))
+    , c(mean(background_mort), mean(p_mort))
+    , rev(colMeans(bd_detect))
+      )
+    ), colour = "firebrick3") +
+    geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
+    xlab("Parameter") + 
+    ylab("Estimate") +
+    scale_x_discrete(labels = c(
+      "Bd intercept"
+    , "Survival intercept"
+    , "Survival slope"
+    , "Survival offseason background"
+    , "Survival offseason bd"
+    , "Detection intercept"
+    , "Detection slope"
+    )) +
+    theme(axis.text.x = element_text(size = 11, angle = 300, hjust = 0))
+}
+  
+} else {
+
 pred_coef %>% mutate(param = factor(param, levels = param)) %>% {
   ggplot(., aes(param, mid)) + 
     geom_point() +
@@ -41,6 +73,8 @@ pred_coef %>% mutate(param = factor(param, levels = param)) %>% {
     , "Detection slope"
     )) +
     theme(axis.text.x = element_text(size = 11, angle = 300, hjust = 0))
+}
+  
 }
 
 ## -- survival over Bd load within season -- ##
@@ -177,6 +211,8 @@ if (n_pop > 1) {
 
 ## --- Population random effect estimates --- ##
   
+if (!use_prim_sec) {
+  
 stan.pop_pred_eps <- stan.fit.samples$bd_pop_eps %>%
   reshape2::melt(.) %>% rename(pop = Var2, eps = value)
 stan.pop_pred_var <- stan.fit.samples$bd_pop_sigma %>%
@@ -203,7 +239,7 @@ stan.pop_pred_var %>%
     scale_colour_brewer(palette = "Dark2") +
     theme(axis.text.x = element_text(size = 12))
   }  
-  
+
 stan.pop_pred_var %>% 
   arrange(mid) %>% 
   mutate(pred_order = seq(n())) %>%
@@ -217,6 +253,8 @@ stan.pop_pred_var %>%
       xlab("Real Order") + ylab("Predicted Order")
     }  
 
+}
+  
 stan.pop_pred_eps <- stan.fit.samples$phi_pop_eps %>%
   reshape2::melt(.) %>% rename(pop = Var2, eps = value)
 stan.pop_pred_var <- stan.fit.samples$phi_pop_sigma %>%
@@ -311,6 +349,8 @@ ind_occ_p.all %<>%
      mutate(ind_per = factor(ind_per, levels = unique(ind_per))) %>% 
      mutate(ind_per = as.numeric(ind_per))
 
+if (!use_prim_sec) {
+
 ind_occ_phi.all %>% filter(phi_zeros == 0) %>% 
   dplyr::select(offseason, time_gaps, pred_phi) %>%
   mutate(offseason = as.factor(offseason)) %>% {
@@ -326,3 +366,23 @@ ind_occ_phi.all %>% filter(phi_zeros == 0) %>%
       geom_histogram(bins = 100) +
       facet_wrap(~time_gaps, scales = "free")
   }
+
+} else {
+  
+ind_occ_phi.all %>% filter(phi_zeros == 0, offseason == 1) %>% 
+  dplyr::select(offseason, time_gaps, pred_phi) %>%
+  mutate(offseason = as.factor(offseason)) %>% {
+  ggplot(., aes(x = pred_phi)) + 
+      geom_histogram(bins = 50) +
+      facet_wrap(~offseason, scales = "free")
+  }
+
+ind_occ_phi.all %>% filter(phi_zeros == 0, time_gaps == 1) %>% 
+  dplyr::select(offseason, time_gaps, pred_phi) %>%
+  mutate(time_gaps = as.factor(time_gaps)) %>% {
+  ggplot(., aes(x = pred_phi)) + 
+      geom_histogram(bins = 100) +
+      facet_wrap(~time_gaps, scales = "free")
+  }
+  
+}

@@ -20,9 +20,10 @@
   ## BUT does quite a bad job of returning between season survival as a function of bd load, probably because
    ## the effect is kinda small or there aren't many individuals surviving between years to resolve this. This
     ## is something to revisit in the future. 
-   ## RDS saved on thumb drive for future reference as "stan.fit.full_Dec3", no space on computer
+   ## RDS saved on thumb drive for future reference as "stan.fit.full.pr_Dec3", no space on computer
 
- ## 3) Multi-pop in progress for collapsed model
+ ## 3) Multi-pop with collapsed model questionable at best. Not yet sure if the problems originate from
+  ## data organization problems or fitting problems
 
 ## -- Next to do -- ##
 
@@ -63,8 +64,13 @@
   ## This model requires relatively extensive sampling in order to fit
  ## 2) A "collapsed" model that does not estimate the time dependence of bd, but instead just estimates the max
   ## that each individual reaches (i.e., as if bd is an individual-specific trait). 
-  ## In this model secondary periods are defined with a user-defined space between sampling events that are
-  ## considered to be close enough to assume a closed population (potentially something interesting to explore)
+   ## Notes about the simulation and this collapsed model:
+  ## i) In this model secondary periods are defined with a user-defined space between sampling events that are
+  ## considered to be close enough to assume a closed population (though survival isn't simulated to be zero--something
+  ## to possibly think about/simulate)
+  ## ii) Between season survival as a function of bd won't be estimated well as it currently stands because max bd is
+  ## used to simulate between season survival but all that can be fit with the collapsed model is mean bd. Thus the intercept
+  ## will be biased down (negative) and bd effect will be biased up (positive)
 
 ####
 ## Packages and misc

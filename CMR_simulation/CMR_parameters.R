@@ -6,7 +6,7 @@
 
 ## Written in a way for ease of entry. A bit lengthy looking but should be easier for many pops
 
-n_pop      <- 1
+n_pop      <- 10
 
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 

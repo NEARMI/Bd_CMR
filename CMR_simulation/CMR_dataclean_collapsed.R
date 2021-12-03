@@ -1,17 +1,21 @@
 ####
+## Last data cleaning steps for the collapsed model
+####
+
+## First fix up expdat ind
+expdat.all %<>%
+  ungroup() %>%
+  mutate(ind_pop = interaction(ind, pop)) %>% 
+  mutate(ind = as.factor(as.character(ind_pop))) %>%
+  mutate(ind = factor(ind, levels = unique(ind))) %>% 
+  mutate(ind = as.numeric(ind))
+
+####
 ## Data for detection (.p for detection)
 ####
 
 ## convert ind_pop interaction column to individuals
 ind_occ_p.all %<>% mutate(ind = as.numeric(ind))
-
-## fix up expdat ind
-expdat.all %<>%
-  ungroup() %>%
-  mutate(ind = interaction(pop, ind)) %>% 
-  mutate(ind = as.factor(as.character(ind))) %>%
-  mutate(ind = factor(ind, levels = unique(ind))) %>% 
-  mutate(ind = as.numeric(ind))
 
 ind_occ_p.all %<>% left_join(.
   , expdat.all %>% dplyr::select(ind, all_times, periods, sec_per) %>% 
@@ -65,7 +69,6 @@ ind_occ_phi.all %<>% mutate(time_gaps = ifelse(time_gaps > 1, 1, 0)) %>%
   mutate(time_gaps = ifelse(offseason == 1, 0, time_gaps)) %>% 
   mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
 
-
 ####
 ## Data for latent bd 
 ####
@@ -73,6 +76,11 @@ ind_occ_phi.all %<>% mutate(time_gaps = ifelse(time_gaps > 1, 1, 0)) %>%
 ## Latent bd is estimated over the whole time period and not just for the capture occasions,
  ## though bd on the capture occasions are used to determine detection and survival. Need to
   ## determine what entries of phi, and p correspond to the full time period bd. This is done here
+
+## Fix the individual numbers in X_bd.m.all
+X_bd.m.all %<>% mutate(ind_pop = interaction(ind, pop)) %>% 
+  dplyr::select(-ind) %>% 
+  left_join(. , expdat.all %>% dplyr::select(ind, ind_pop) %>% distinct())
 
 temp_dat <- expdat.all %>% 
   rename(sampling_events_phi = all_times) %>%
@@ -82,7 +90,7 @@ temp_dat <- expdat.all %>%
 
 phi.bd.index <- (left_join(
   ind_occ_phi.all %>% dplyr::select(ind, sampling_events_phi)
-, temp_dat     %>% dplyr::select(ind, sampling_events_phi, index)
+, temp_dat        %>% dplyr::select(ind, sampling_events_phi, index)
   ))$index
 
 ind_occ_phi.all %<>% mutate(phi_bd_index = phi.bd.index)
