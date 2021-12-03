@@ -181,9 +181,9 @@ transformed parameters {
 	 if (offseason[t] == 0)	{			// Two fundamentally different survival processes, one for within season and one for between season survival
 
            phi[t] = inv_logit(
-                      beta_phi[1]                      + 
-                      beta_phi[2] * X[phi_bd_index[t]] +
-                      beta_timegaps  * time_gaps[t]
+                      beta_phi[1]                        + 
+                      beta_phi[2]   * X[phi_bd_index[t]] +
+                      beta_timegaps * time_gaps[t]
                     );
 
 	 } else {

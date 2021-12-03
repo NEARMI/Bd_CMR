@@ -144,6 +144,7 @@ transformed parameters {
 	// individual random effect deviates
 	real bd_ind[n_ind];   
 
+	// population random effect deviates     
 	real bd_pop[n_pop];
 	real inseason_pop[n_pop];
 	real offseason_pop[n_pop];
@@ -205,6 +206,10 @@ transformed parameters {
 // -----
 // Detection probability over the whole period
 // -----
+
+	for (pp in 1:n_pop) {
+	  p_pop[pp]   = p_pop_sigma * p_pop_eps[pp];
+	}
 	
 	for (t in 1:ind_occ) {
 
