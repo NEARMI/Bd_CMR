@@ -62,7 +62,7 @@ stan.fit  <- stan(
     if (n_pop == 1) {
      "CMR_collapsed_sim.stan"
     } else {
-     "../CMR_collapsed_pr.stan"
+     "CMR_collapsed_pr_sim.stan"
     }
     }
 , data    = stan_data

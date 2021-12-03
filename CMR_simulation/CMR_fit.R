@@ -72,7 +72,7 @@ stan.fit  <- stan(
     if (n_pop == 1) {
      "CMR_full_sim.stan"
     } else {
-     "../CMR_full_pr.stan"
+     "CMR_full_pr_sim.stan"
     }
     }
 , data    = stan_data
@@ -81,7 +81,7 @@ stan.fit  <- stan(
 , warmup  = stan.burn
 , thin    = stan.thin
 , refresh = 10
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
+, control = list(adapt_delta = 0.98, max_treedepth = 14)
   )
 
 # shinystan::launch_shinystan(stan.fit)

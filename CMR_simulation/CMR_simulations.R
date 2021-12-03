@@ -6,7 +6,7 @@
  ## populations for the more complicated CMR model
 
 ####
-## Notes as of Dec 2:
+## Notes as of Dec 3:
 ####
 
 ## -- General progress update -- ##
@@ -14,12 +14,15 @@
  ## 1) Single population simulation working reasonably well for both full and collapsed simulation.
   ## A) As expected collapsed model doesn't capture within season process well at all given that the whole
    ## temporal dynamics of bd are ignored
-  ## B) Streamlined quite a bit of code so do need to check a few population sizes etc. to make sure expected
-   ## patterns are returned (i.e., better estimates with large populations and more sampling)
 
- ## 2) Full list of next steps below, but the first important thing to do is to get the multi-pop model working
-  ## which has two steps really: 1) checking to make sure the code as is runs and gives sensible results; 2) adjusting
-   ## the random effects to the between season process to make the collapsed model more useful
+ ## 2) Multi-pop model slow for full model but does a pretty decent job of returning most parameters. 
+  ## Specifically ranks of populations for bd load, detection, between season survival are almost perfect...
+  ## BUT does quite a bad job of returning between season survival as a function of bd load, probably because
+   ## the effect is kinda small or there aren't many individuals surviving between years to resolve this. This
+    ## is something to revisit in the future. 
+   ## RDS saved on thumb drive for future reference as "stan.fit.full_Dec3", no space on computer
+
+ ## 3) Multi-pop in progress for collapsed model
 
 ## -- Next to do -- ##
 
@@ -27,12 +30,7 @@
   ## (specifically CMR_full_pr.stan and CMR_full_sim_pr.stan). The idea is that these will begin to diverge
    ## once more empirical data becomes available (like the non pr models has started to do)
 
- ## 2) The current formulation of random effects is rather non-sensible for capturing the between population
-  ## processes that we really care about for the empirical data. Thus, need to adjust the random effects and 
-   ## simulation so that between season survival (and more of a minor point--detection) are the processes
-    ## that vary among populations (and not within season survival as it is now)
-
- ## 3) There is still a minor issue with survival from the last time time point through the
+ ## 2) There is still a minor issue with survival from the last time time point through the
   ## offseason because survival from the last point to the end of the season is ignored
    ## (that is, for offseason == 1 timegaps isn't factored in to also scale survival -- which coould
     ## lead to a minorly biased estimate of between season survival (higher mortality than reality))
@@ -74,7 +72,7 @@
 needed_packages <- c("magrittr", "dplyr", "tidyr", "lme4", "ggplot2", "rstan")
 lapply(needed_packages, require, character.only = TRUE)
 source("../../ggplot_theme.R")
-set.seed(10002)
+set.seed(10006)
 
 ####
 ## Parameters 
@@ -147,8 +145,9 @@ if (use_prim_sec) {
 ####
 ## Model diagnostics (best to open the script and run line by line because of all of the plots)
 ####
-## NOTE: Diagnostics are not yet set up to debug the multi-population simulation well
- ## (or the collapsed model as well either, but that can be the next step as there is less to change)
-source("CMR_diagnostics.R")
-
+if (use_prim_sec) {
+  source("CMR_diagnostics_collapsed.R")
+} else {
+  source("CMR_diagnostics.R")
+}
 

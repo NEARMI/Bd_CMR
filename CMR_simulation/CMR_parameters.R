@@ -11,16 +11,16 @@ n_pop      <- 1
 ## Note: all in matrix form based on n_pop for easy population of parameter lists
 
 ## number of individuals in the population being modeled
-ind       <- matrix(data = rpois(n_pop, 50) # rep(50, n_pop)
+ind       <- matrix(data = rpois(n_pop, 70) # rep(50, n_pop)
   , ncol = 1, nrow = n_pop)        
 
 ## number of primary periods (years in most cases).
 periods   <- matrix(data = rep(3, n_pop)
   , ncol = 1, nrow = n_pop)
 ## Play with different periods by year
-if (n_pop > 1) {
-  periods[n_pop] <- 2
-}
+#if (n_pop > 1) {
+#  periods[n_pop] <- 2
+#}
 
 ## individuals added in each new period. A little weird to set it up this way, can
  ## maybe try a different method later
@@ -36,19 +36,22 @@ all_ind   <- matrix(data = ind + lapply(new_ind, sum) %>% unlist()
   , ncol = 1, nrow = n_pop)
 
 ## number of time periods (in the real data probably will use weeks; e.g., May-Sep or so)
-times     <- matrix(data = rpois(n_pop, 15) #rep(20, n_pop)
+times     <- matrix(data = rpois(n_pop, 10) #rep(20, n_pop)
   , ncol = 1, nrow = n_pop)
 ## Play with different times per period
-if (n_pop > 1) {
-  times[n_pop] <- 15
-}
+#if (n_pop > 1) {
+#  times[n_pop] <- 15
+#}
 
 ## number of sampling events occurring over 'times'
 samp         <- vector("list", n_pop)
-samp_prop    <- 0.5 ## on average, what proportion of times are sampling events
+samp_prop    <- 0.4 ## on average, what proportion of times are sampling events
 
 for (i in 1:n_pop) {
  samp[[i]] <- rbinom(periods[i, 1], times[i, 1], samp_prop)
+ if(any(samp[[i]] <= 1)) {
+   samp[[i]][which(samp[[i]] == 1)] <- samp[[i]][which(samp[[i]] == 1)] + 1
+ }
 }
 
 ## number of time periods that elapse between the on-season
@@ -97,7 +100,7 @@ bd_theta  <- matrix(
 ## logistic response coefficients for mortality across log(bd_load)
 bd_mort <- matrix(
   data = c(
-    sample(seq(-0.05, -0.15, length = n_pop), n_pop)      ## logistic slope
+    rep(-0.1, n_pop)     ## logistic slope
   , rep(4, n_pop)        ## intercept
 ), nrow = n_pop, ncol = 2, byrow = F)
 
@@ -109,7 +112,7 @@ if (n_pop == 1) {
 ## logistic response coefficients for detection across log(bd_load)
 bd_detect <- matrix(
   data = c(
-    rep(0.2, n_pop)   ## logistic slope
+    rep(0.2, n_pop)                           ## logistic slope
   , sample(seq(0, -1, length = n_pop), n_pop) ## intercept 
 ), nrow = n_pop, ncol = 2, byrow = F)
 

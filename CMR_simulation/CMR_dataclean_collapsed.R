@@ -5,6 +5,14 @@
 ## convert ind_pop interaction column to individuals
 ind_occ_p.all %<>% mutate(ind = as.numeric(ind))
 
+## fix up expdat ind
+expdat.all %<>%
+  ungroup() %>%
+  mutate(ind = interaction(pop, ind)) %>% 
+  mutate(ind = as.factor(as.character(ind))) %>%
+  mutate(ind = factor(ind, levels = unique(ind))) %>% 
+  mutate(ind = as.numeric(ind))
+
 ind_occ_p.all %<>% left_join(.
   , expdat.all %>% dplyr::select(ind, all_times, periods, sec_per) %>% 
     rename(sampling_events_p = all_times))

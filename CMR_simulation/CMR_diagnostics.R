@@ -18,10 +18,10 @@ pred_coef %>% mutate(param = factor(param, levels = param)) %>% {
       param = pred_coef$param
     , mid   = c(
       rep(NA, 4)
-    , rev(bd_mort[1, ])
+    , rev(colMeans(bd_mort))
     , NA
-    , c(background_mort, p_mort[1])
-    , rev(bd_detect[1, ])
+    , c(mean(background_mort), mean(p_mort))
+    , rev(colMeans(bd_detect))
       )
     ), colour = "firebrick3") +
     geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
@@ -176,41 +176,133 @@ ggplot(ind_order, aes(order_real, order_pred)) +
 if (n_pop > 1) {
 
 ## --- Population random effect estimates --- ##
-
-stan.ind_pred_eps <- stan.fit.samples$phi_delta_pop_eps %>%
-  reshape2::melt(.) %>% rename(ind = Var2, eps = value)
-stan.ind_pred_var <- stan.fit.samples$phi_delta_pop_sigma %>%
+  
+stan.pop_pred_eps <- stan.fit.samples$bd_pop_eps %>%
+  reshape2::melt(.) %>% rename(pop = Var2, eps = value)
+stan.pop_pred_var <- stan.fit.samples$bd_pop_sigma %>%
   reshape2::melt(.) %>% rename(sd = value) %>%
-  left_join(., stan.ind_pred_eps) %>%
+  left_join(., stan.pop_pred_eps) %>%
   mutate(eps = eps * sd) %>% 
-  group_by(ind) %>%
+  group_by(pop) %>%
   summarize(
     mid = quantile(eps, 0.50)
   , lwr = quantile(eps, 0.025)
   , upr = quantile(eps, 0.975)
   ) %>% ungroup()
 
-### Need to make this functioning given the new multi-population structure
-
-stan.ind_pred_var %>% 
+stan.pop_pred_var %>% 
   arrange(mid) %>% 
-  mutate(ind = factor(ind, levels = ind)) %>% {
-  ggplot(., aes(ind, mid)) +
-    geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+  mutate(pop = factor(pop, levels = pop)) %>% {
+  ggplot(., aes(pop, mid)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+    geom_point() +
     xlab("Population") + 
-    ylab("Random Effect Deviate") +
+    ylab("Random Effect Deviate--Bd load") +
     geom_hline(yintercept = 0
       , linetype = "dashed", lwd = 1, colour = "firebrick3") +
     scale_colour_brewer(palette = "Dark2") +
-    theme(axis.text.x = element_text(size = 8))
+    theme(axis.text.x = element_text(size = 12))
+  }  
+  
+stan.pop_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(pred_order = seq(n())) %>%
+  left_join(.
+    , data.frame(
+      pop  = seq(n_pop)
+    , pred = bd_beta[, 1]
+    ) %>% arrange(pred) %>% mutate(real_order = seq(n()))
+  ) %>% {
+      ggplot(., aes(real_order, pred_order)) + geom_point(size = 3) +
+      xlab("Real Order") + ylab("Predicted Order")
+    }  
+
+stan.pop_pred_eps <- stan.fit.samples$phi_pop_eps %>%
+  reshape2::melt(.) %>% rename(pop = Var2, eps = value)
+stan.pop_pred_var <- stan.fit.samples$phi_pop_sigma %>%
+  reshape2::melt(.) %>% rename(sd = value) %>%
+  left_join(., stan.pop_pred_eps) %>%
+  mutate(eps = eps * sd) %>% 
+  group_by(pop) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% ungroup()
+
+stan.pop_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(pop = factor(pop, levels = pop)) %>% {
+  ggplot(., aes(pop, mid)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+    geom_point() +
+    xlab("Population") + 
+    ylab("Random Effect Deviate--Within Season Survival") +
+    geom_hline(yintercept = 0
+      , linetype = "dashed", lwd = 1, colour = "firebrick3") +
+    scale_colour_brewer(palette = "Dark2") +
+    theme(axis.text.x = element_text(size = 12))
   }
 
+stan.pop_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(pred_order = seq(n())) %>%
+  left_join(.
+    , data.frame(
+      pop  = seq(n_pop)
+    , pred = p_mort
+    ) %>% arrange(pred) %>% mutate(real_order = seq(n()))
+  ) %>% {
+      ggplot(., aes(real_order, pred_order)) + geom_point(size = 3) +
+      xlab("Real Order") + ylab("Predicted Order")
+    }
+
+stan.pop_pred_eps <- stan.fit.samples$p_pop_eps %>%
+  reshape2::melt(.) %>% rename(pop = Var2, eps = value)
+stan.pop_pred_var <- stan.fit.samples$p_pop_sigma %>%
+  reshape2::melt(.) %>% rename(sd = value) %>%
+  left_join(., stan.pop_pred_eps) %>%
+  mutate(eps = eps * sd) %>% 
+  group_by(pop) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% ungroup()
+
+stan.pop_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(pop = factor(pop, levels = pop)) %>% {
+  ggplot(., aes(pop, mid)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+    geom_point() +
+    xlab("Population") + 
+    ylab("Random Effect Deviate--Detection") +
+    geom_hline(yintercept = 0, linetype = "dashed", lwd = 1, colour = "firebrick3") +
+    scale_colour_brewer(palette = "Dark2") +
+    theme(axis.text.x = element_text(size = 12))
+  }
+
+stan.pop_pred_var %>% 
+  arrange(mid) %>% 
+  mutate(pred_order = seq(n())) %>%
+  left_join(.
+    , data.frame(
+      pop  = seq(n_pop)
+    , pred = bd_detect[, 2]
+    ) %>% arrange(pred) %>% mutate(real_order = seq(n()))
+  ) %>% {
+      ggplot(., aes(real_order, pred_order)) + geom_point(size = 3) +
+      xlab("Real Order") + ylab("Predicted Order")
+    }
+  
 }
 
 ## mean survival per period
 ind_occ_phi.all %<>% mutate(pred_phi = colMeans(stan.fit.samples$phi))
 ind_occ_phi.all %<>% left_join(.
-  , expdat.all %>% filter(sampling_days == 1) %>% rename(sampling_events_phi = all_times) %>%
+  , expdat.all %>% filter(sampling_days == 1) %>% 
+    rename(sampling_events_phi = all_times) %>%
     dplyr::select(ind, sampling_events_phi, cum_surv)
   )
 
