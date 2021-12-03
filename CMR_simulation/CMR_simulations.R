@@ -22,8 +22,8 @@
     ## is something to revisit in the future. 
    ## RDS saved on thumb drive for future reference as "stan.fit.full.pr_Dec3", no space on computer
 
- ## 3) Multi-pop with collapsed model questionable at best. Not yet sure if the problems originate from
-  ## data organization problems or fitting problems
+ ## 3) Multi-pop with collapsed model also reasonably functioning. Same bias in survival estimates as with
+  ## non population random as is to be expected expected
 
 ## -- Next to do -- ##
 
