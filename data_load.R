@@ -2,13 +2,13 @@
 ## Load each of the data files in the directory ##
 ##################################################
 
-data.all <- list.files("data")
-data.all <- data.all[-which(data.all == "xlsx")]
-data.all <- paste("data/", data.all, sep = "")
+data.files <- list.files("data")
+data.files <- data.files[-which(data.files == "xlsx")]
+data.files <- paste("data/", data.files, sep = "")
 
-for (i in seq_along(data.all)) {
+for (i in seq_along(data.files)) {
 
-  data.temp <- read.csv(data.all[i])
+  data.temp <- read.csv(data.files[i])
   
 ####
 ## Deal with annoying date formats
@@ -39,8 +39,14 @@ data.temp      %<>% mutate(CaptureDate = as.Date(CaptureDate))
 ####
 
 ## name changes for convenience
-data.temp %<>% rename(bd_load = TargetCopies.swab) %>%
-  mutate(bd_load = as.numeric(bd_load)) %>%
+if ("TrgetCopies.swb" %in% names(data.temp)) {
+  data.temp %<>% rename(bd_load = TrgetCopies.swb) 
+} else if ("TargetCopies.swab" %in% names(data.temp)) {
+  data.temp %<>% rename(bd_load = TargetCopies.swab) 
+} else {
+  
+}
+data.temp %<>% mutate(bd_load = as.numeric(bd_load)) %>%
   rename(Mark = PitTagCode) %>%
   filter(!is.na(Mark))
 
@@ -49,7 +55,33 @@ no.swabyear <- data.temp %>% group_by(Year) %>%
   summarize(tot_ss = length(which(!is.na(bd_load)))) %>% filter(tot_ss == 0)
 
 data.temp %<>% filter(Year %notin% no.swabyear$Year) %>% droplevels()
-  
+
+data.temp %<>% dplyr::select(
+    Site, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
+  , Mark, BdSample, SVLmm, MassG, bd_load) %>%
+  mutate(dataset = i)
+
+## Different data sets define SecNumConsec in different ways. Homogenize the choice by just making this 
+ ## variable a count from 1 to n()
+
+adj.SecNumConsec <- data.temp %>% group_by(CaptureDate) %>% 
+  summarize(SecNumConsec = unique(SecNumConsec)) %>% 
+  ungroup() %>%
+  mutate(SecNumConsec_corrected = seq(n()))
+
+data.temp %<>% left_join(., adj.SecNumConsec) %>% 
+  dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
+
+## drop all entries with no mark
+data.temp %<>% filter(Mark != "")
+
+## -- this will have to be non-dynamic?? -- ##
+## certain species disappear and capture events become mostly opportunisitc. Need to figure out what to 
+ ## do with these data, but for now just drop them
+if (i == 1) {
+  data.temp %<>% filter(Month < 7)
+}
+
 if (i == 1) {
   data.all <- data.temp
 } else {

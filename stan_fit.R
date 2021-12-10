@@ -48,7 +48,7 @@ stan_data     <- list(
  , X_bd              = capt_history.bd_load$log_bd_load  
  , X_ind             = capt_history.bd_load$Mark
  , ind_size          = ind.size
- , ind_hg            = ind.hg
+# , ind_hg            = ind.hg
   
   ## Capture data
  , N_y             = nrow(capt_history.p)
@@ -58,8 +58,21 @@ stan_data     <- list(
 
   )
 
+if (exists("ind_hg")) {
+  
+ stan_data <- c(stan_data, ind_hg = ind.hg)
+  
+}
+  
 stan.fit  <- stan(
-  file    = "CMR_collapsed.stan"
+  file    = { 
+    if (exists("ind_hg")) {
+      ## DEC 9: for now explore the three populations with the same model
+    "CMR_collapsed_simplified.stan"
+    } else {
+    "CMR_collapsed_simplified.stan"
+    }
+  }
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -74,3 +87,4 @@ stan.fit  <- stan(
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
+

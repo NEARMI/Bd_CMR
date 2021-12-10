@@ -50,9 +50,9 @@ capt_history.t <-
    ## could possibly have been caught)
 expand.grid(
   Month = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
-, Year = unique(data.i$Year)
-, Site = u_sites[i]
-, Mark = unique(data.i$Mark)) %>% 
+, Year  = unique(data.i$Year)
+, Site  = u_sites[i]
+, Mark  = unique(data.i$Mark)) %>% 
   ## Add in which periods were sampled and which individuals were sampled
   left_join(., sampled_periods.i) %>% 
   left_join(., (data.i %>% dplyr::select(Month, Year,  Mark, SecNumConsec, Species, bd_load))) %>% 
@@ -73,13 +73,28 @@ expand.grid(
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)
   )
 
+## There are some duplicate entries? (Individuals caught more than once in a day??)
+# capt_history.t %>% group_by(Mark, SecNumConsec) %>% summarize(n_entry = n()) %>% arrange(desc(n_entry))
+capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
+
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
+if ("MeHgConc" %in% names(data.all)) {
+
 ind_cov <- data.i %>% group_by(Mark, Year, Month) %>% 
   summarize(
     merc = mean(MeHgConc, na.rm = T)
     ## returns the one value or a mean if caught multiple times in one primary period
   , size = mean(as.numeric(MassG), na.rm = T)  
     ) %>% distinct()
+
+} else {
+  
+ind_cov <- data.i %>% group_by(Mark, Year, Month) %>% 
+  summarize(
+   size = mean(as.numeric(MassG), na.rm = T)  
+    ) %>% distinct()
+  
+}
 
 capt_history.t %<>% left_join(., ind_cov)
 
