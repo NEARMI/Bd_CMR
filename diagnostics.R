@@ -33,8 +33,7 @@ for (i in 1:ncol(out.pred)) {
   out.pred[, i] <- plogis(
     stan.fit.samples$beta_phi[, 1] + 
     stan.fit.samples$beta_phi[, 2] * outval[i] +
-    stan.fit.samples$beta_phi[, 3] * 0 +
-    stan.fit.samples$beta_phi[, 4] * 0
+    stan.fit.samples$beta_phi[, 3] * 0 # + stan.fit.samples$beta_phi[, 4] * 0
     )
 }
 
@@ -51,8 +50,7 @@ for (i in 1:ncol(out.pred)) {
   out.pred[, i] <- plogis(
     stan.fit.samples$beta_phi[, 1] + 
     stan.fit.samples$beta_phi[, 2] * 5 +
-    stan.fit.samples$beta_phi[, 3] * outval[i] +
-    stan.fit.samples$beta_phi[, 4] * 0
+    stan.fit.samples$beta_phi[, 3] * outval[i] # + stan.fit.samples$beta_phi[, 4] * 0
     )
 }
 
@@ -88,8 +86,7 @@ for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_offseason[, 1] + 
     stan.fit.samples$beta_offseason[, 2] * outval[i] +
-    stan.fit.samples$beta_offseason[, 3] * 0 +
-    stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason[, 3] * 0 # + stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
 
@@ -106,8 +103,7 @@ for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_offseason[, 1] + 
     stan.fit.samples$beta_offseason[, 2] * 5 +
-    stan.fit.samples$beta_offseason[, 3] * outval[i] +
-    stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason[, 3] * outval[i]#  + stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
 
@@ -162,8 +158,7 @@ for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_p[, 1] + 
     stan.fit.samples$beta_p[, 2] * outval[i] +
-    stan.fit.samples$beta_p[, 3] * 0 +
-    stan.fit.samples$beta_p[, 4] * 0
+    stan.fit.samples$beta_p[, 3] * 0 # + stan.fit.samples$beta_p[, 4] * 0
     )
 }
 
@@ -180,8 +175,7 @@ for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_p[, 1] + 
     stan.fit.samples$beta_p[, 2] * 5 +
-    stan.fit.samples$beta_p[, 3] * outval[i] +
-    stan.fit.samples$beta_p[, 4] * 0
+    stan.fit.samples$beta_p[, 3] * outval[i] # + stan.fit.samples$beta_p[, 4] * 0
     )
 }
 
@@ -269,9 +263,10 @@ ind_order.r <- capt_history %>%
   group_by(Mark) %>% 
   summarize(
    tot_bd = mean(log_bd_load)
-)) %>% arrange(desc(tot_bd)) %>% 
-  mutate(order_real = seq(n()), Mark = as.character(Mark)) %>% 
-  filter(!is.na(tot_bd))
+)) %>% 
+  filter(!is.na(tot_bd)) %>%
+  arrange(desc(tot_bd)) %>% 
+  mutate(order_real = seq(n()), Mark = as.character(Mark))
 
 ind_order.p <- stan.ind_pred_var %>% 
   arrange(desc(mid)) %>% 

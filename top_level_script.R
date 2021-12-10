@@ -3,7 +3,7 @@
 #####################################
 
 ####
-## Notes as of Dec 9:
+## Notes as of Dec 10:
 ####
 
 ## Received some new data Dec 8. Adjusting code a bit and trying fits with each data set to explore the variation
