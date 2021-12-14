@@ -84,6 +84,8 @@ set.seed(10006)
 ## Parameters 
 ####
 source("CMR_parameters.R")
+
+## alternative model parameterization that better matches to classic CMR models
 use_prim_sec    <- TRUE
 
 ####
@@ -99,7 +101,9 @@ source("CMR_datasim.R")
 ####
 ## Clean up simulated data and build structure for stan model
 ####
-collapse.mod <- FALSE
+
+## Simplified model that only fits 
+collapse.mod <- TRUE 
 
 if (use_prim_sec) {
   source("CMR_dataclean_collapsed.R")
@@ -151,9 +155,6 @@ if (use_prim_sec) {
 ####
 ## Model diagnostics (best to open the script and run line by line because of all of the plots)
 ####
-if (use_prim_sec) {
-  source("CMR_diagnostics_collapsed.R")
-} else {
-  source("CMR_diagnostics.R")
-}
+source("CMR_diagnostics.R")
+
 

@@ -191,10 +191,10 @@ ind_order.r <- expdat.all %>%
   filter(bd_swabbed == 1) %>%
   group_by(ind) %>% 
   summarize(
-   max_bd = max(log_bd_load)
-)) %>% arrange(desc(max_bd)) %>% 
+   mean_bd = mean(log_bd_load)
+)) %>% arrange(desc(mean_bd)) %>% 
   mutate(order_real = seq(n()), ind = as.character(ind)) %>% 
-  filter(!is.na(max_bd))
+  filter(!is.na(mean_bd))
 
 ind_order.p <- stan.ind_pred_var %>% 
   arrange(desc(mid)) %>% 
