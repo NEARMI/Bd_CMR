@@ -2,6 +2,8 @@
 ## CMR model Diagnostics
 ####
 
+stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ]
+
 ## First just check that phi is estimated when it should be
 capt_history.phi %<>% mutate(
   pred_phi = colMeans(stan.fit.samples$phi)
@@ -85,8 +87,8 @@ out.pred <- matrix(nrow = stan.length, ncol = length(outval))
 for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_offseason[, 1] + 
-    stan.fit.samples$beta_offseason[, 2] * outval[i] +
-    stan.fit.samples$beta_offseason[, 3] * 0 # + stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason_bd * outval[i] +
+    stan.fit.samples$beta_offseason[, 2] * 0 # + stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
 
@@ -102,8 +104,8 @@ out.pred <- matrix(nrow = stan.length, ncol = length(outval))
 for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
     stan.fit.samples$beta_offseason[, 1] + 
-    stan.fit.samples$beta_offseason[, 2] * 5 +
-    stan.fit.samples$beta_offseason[, 3] * outval[i]#  + stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason_bd * 5 +
+    stan.fit.samples$beta_offseason[, 2] * outval[i]#  + stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
 
