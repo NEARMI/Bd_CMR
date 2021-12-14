@@ -95,7 +95,7 @@ parameters {
 // survival
 // -----
 
-	vector[2] beta_phi;                  		 // survival between seasons as a function of bd
+	vector[2] beta_phi;                  		 // survival between primary periods within a year
 	vector[2] beta_offseason;  			 // survival as a function of bd stress
 
 // -----

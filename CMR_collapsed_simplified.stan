@@ -217,7 +217,7 @@ model {
 	beta_phi[3] ~ normal(0, 1.2);
 
 	beta_offseason[1] ~ normal(0, 1.2);
-	beta_offseason[2] ~ normal(0, 1.2);
+	beta_offseason[2] ~ normal(-3, 1.2);
 	beta_offseason[3] ~ normal(0, 1.2);
 
 	bd_delta_sigma ~ inv_gamma(8, 15);
