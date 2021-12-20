@@ -35,6 +35,13 @@ sampled_periods <- data.all %>%
   mutate(sampled = 1) %>%
   arrange(Year, Site, Month, SecNumConsec) 
 
+## sampled_periods created from the master sampling data frame instead
+sampled_periods <- sampling %>% 
+  group_by(Site, Year, Month) %>%
+  mutate(rep_sec = seq(n())) %>%
+  mutate(sampled = 1) %>%
+  arrange(Year, Site, Month, SecNumConsec) 
+
 ## Create a data frame of the caputre history of each unique individual in each population as
  ## well as extract individual covariates
 all_ind <- 0
@@ -53,15 +60,18 @@ expand.grid(
 , Year  = unique(data.i$Year)
 , Site  = u_sites[i]
 , Mark  = unique(data.i$Mark)) %>% 
+  ## Add species to not screw up multi-species sites
+  left_join(., data.i %>% dplyr::select(Mark, Species) %>% distinct()) %>%
   ## Add in which periods were sampled and which individuals were sampled
-  left_join(., sampled_periods.i) %>% 
-  left_join(., (data.i %>% dplyr::select(Month, Year,  Mark, SecNumConsec, Species, bd_load))) %>% 
+  left_join(., sampled_periods.i %>% dplyr::select(-CaptureDate)) %>% 
+  left_join(., (data.i %>% dplyr::select(Month, Year,  Mark, SecNumConsec, Species, bd_load, BdSample))) %>% 
   ## drop the times that were never sampled
   filter(!is.na(SecNumConsec)) %>% 
   mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
-  rename(
+  ## Retian species
+#  mutate(SP = Species) %>%
   ## just using a random non-na column to find captures (convenient given how left-join works)
-    captured = Species) %>% 
+  rename(captured = BdSample) %>% 
   ## convert other NAs to 0s now that we have only sampled days left
   mutate(
     captured = ifelse(is.na(captured), 0, 1)
@@ -73,8 +83,9 @@ expand.grid(
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)
   )
 
+# capt_history.t %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
+
 ## There are some duplicate entries? (Individuals caught more than once in a day??)
-# capt_history.t %>% group_by(Mark, SecNumConsec) %>% summarize(n_entry = n()) %>% arrange(desc(n_entry))
 capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
 
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
@@ -93,6 +104,13 @@ ind_cov <- data.i %>% group_by(Mark, Year, Month) %>%
   summarize(
    size = mean(as.numeric(MassG), na.rm = T)  
     ) %>% distinct()
+
+## For now (Dec 20. At some point will need to convert this to multiple imputation)
+num_no_size <- length(which(is.na(ind_cov$size)))
+
+if (num_no_size > 0) {
+  ind_cov[which(is.na(ind_cov$size)), ]$size <- mean(ind_cov[which(!is.na(ind_cov$size)), ]$size)
+}
   
 }
 
@@ -100,7 +118,7 @@ capt_history.t %<>% left_join(., ind_cov)
 
 ## Jump through a few hoops to name unique individuals
  ## NOTE: this is an issue if individuals move populations (as that individual in each population will be
-  ## labeled as a differnet individual). Not sure what to do about it though
+  ## labeled as a different individual). Not sure what to do about it though
 capt_history.t %<>% mutate(Mark = as.factor(Mark)) %>%
   mutate(Mark = as.numeric(Mark))
 n_inds <- max(capt_history.t$Mark)
@@ -123,9 +141,11 @@ capt_history <- capt_history.t
 capt_history <- rbind(capt_history, capt_history.t)
 }
 
-print("")
-print("")
+# capt_history.t %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
+
+print("--------------")
 print(paste("Through", i, "of", n_sites, "sites", sep = " "))
+print("--------------")
 
 }
 
@@ -137,6 +157,8 @@ capt_history.bd_load <- capt_history %>%
   ungroup() %>%
   arrange(Mark, month_year) %>%
   filter(swabbed == 1)
+
+# capt_history %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
 
 ## first and last _OF THE CAPTURE EVENTS_ in which each individual was captured
  ## (possible min and max will vary by which population individuals are in)

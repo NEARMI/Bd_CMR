@@ -6,9 +6,50 @@ data.files <- list.files("data")
 data.files <- data.files[-which(data.files == "xlsx")]
 data.files <- paste("data/", data.files, sep = "")
 
+sampling   <- read.csv("data/xlsx/PP_SP.csv")
+
+date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
+  a <- strsplit(x, split = "/")[[1]]
+  b <- a[3]
+  b <- strsplit(b, "")[[1]]
+  if (length(b) > 2) {
+  b <- b[c(3, 4)] %>% paste(collapse = "")
+  } else {
+  b <- paste(b, collapse = "")
+  }
+  paste(c(a[c(1, 2)], b), collapse = "/")
+})
+
+sampling$Year  <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3]) %>% 
+  paste("20", ., sep = "") %>% as.numeric()
+
+sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% 
+  as.numeric()
+
+sampling %<>% mutate(CaptureDate = as.Date(date_convert, "%m/%d/%y"))
+
+## can collapse all SubSites and rewrite SecNumConsec
+sampling %<>% 
+  group_by(Site) %>% 
+  arrange(Site, CaptureDate) %>% 
+  dplyr::select(-SubSite, -SecNumConsec) %>%
+  distinct() %>%
+  arrange(Site, CaptureDate, desc(Captures)) %>%
+  group_by(Site, Species, CaptureDate) %>%
+  slice(1) %>% 
+  ungroup(CaptureDate) %>%
+  mutate(
+    SecNumConsec = seq(n())
+  , SubSite      = 1)
+
 for (i in seq_along(data.files)) {
 
   data.temp <- read.csv(data.files[i])
+  
+if (strsplit(data.temp$CaptureDate[1], split = " ")[[1]] %>% length() > 1) {
+  ddate <- apply(matrix(data.temp$CaptureDate), 1, FUN = function(x) strsplit(x, split = " ")[[1]][1])
+  data.temp$CaptureDate <- ddate
+}
   
 ####
 ## Deal with annoying date formats
@@ -27,11 +68,29 @@ date_convert <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) {
   paste(c(a[c(1, 2)], b), collapse = "/")
 })
 
+Year <- apply(matrix(date_convert), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
+Year <- paste("20", Year, sep = "") %>% as.numeric()
+
+Month <- apply(matrix(date_convert), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
+
 data.temp$CaptureDate <- date_convert
-data.temp      %<>% mutate(CaptureDate = as.Date(CaptureDate, "%m/%d/%y"))
+data.temp      %<>% mutate(
+  CaptureDate = as.Date(CaptureDate, "%m/%d/%y")
+, Year        = Year
+, Month       = Month)
 
 } else {
-data.temp      %<>% mutate(CaptureDate = as.Date(CaptureDate))
+  
+Year <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
+Year <- paste("20", Year, sep = "") %>% as.numeric()
+
+Month <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
+  
+data.temp      %<>% mutate(
+  CaptureDate = as.Date(CaptureDate)
+, Year        = Year
+, Month       = Month)
+  
 }
   
 ####
@@ -46,40 +105,62 @@ if ("TrgetCopies.swb" %in% names(data.temp)) {
 } else {
   
 }
+  
 data.temp %<>% mutate(bd_load = as.numeric(bd_load)) %>%
   rename(Mark = PitTagCode) %>%
   filter(!is.na(Mark))
 
 ## check which years have no swabbing and remove them
 no.swabyear <- data.temp %>% group_by(Year) %>% 
-  summarize(tot_ss = length(which(!is.na(bd_load)))) %>% filter(tot_ss == 0)
+  summarize(tot_ss = length(which(!is.na(bd_load)))) %>% 
+  filter(tot_ss == 0)
 
 data.temp %<>% filter(Year %notin% no.swabyear$Year) %>% droplevels()
 
 data.temp %<>% dplyr::select(
-    Site, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, SVLmm, MassG, bd_load) %>%
+    Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
+  , Mark, BdSample, BdResult, SVLmm, MassG, bd_load) %>%
   mutate(dataset = i)
 
-## Different data sets define SecNumConsec in different ways. Homogenize the choice by just making this 
- ## variable a count from 1 to n()
+## Different data sets define SecNumConsec in different ways. Homogenize the choice by making this 
+ ## variable a count from 1 to n() and make sure that dates with no captures are still part of the data
+sampling.temp <- sampling %>% filter(Site %in% data.temp$Site) %>% 
+  dplyr::select(-Notes) %>%
+  rename(SecNumConsec_corrected = SecNumConsec)
 
-adj.SecNumConsec <- data.temp %>% group_by(CaptureDate) %>% 
-  summarize(SecNumConsec = unique(SecNumConsec)) %>% 
-  ungroup() %>%
-  mutate(SecNumConsec_corrected = seq(n()))
+if ((class(data.temp$SubSite) == "integer" | class(data.temp$SubSite) == "numeric") & 
+    class(sampling.temp$SubSite) == "character") {
+  sampling.temp %<>% mutate(SubSite = as.numeric(SubSite))
+}
 
-data.temp %<>% left_join(., adj.SecNumConsec) %>% 
-  dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
+if (class(data.temp$SubSite) == "character" & 
+    (class(sampling.temp$SubSite) == "integer" | class(sampling.temp$SubSite) == "numeric")) {
+  sampling.temp %<>% mutate(SubSite = as.character(SubSite))
+}
+
+sampling.temp %<>% dplyr::select(-SubSite)
+
+data.temp %<>% left_join(., sampling.temp)
+
+data.temp %<>% dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
+
+#adj.SecNumConsec <- data.temp %>% group_by(CaptureDate) %>% 
+#  summarize(SecNumConsec = unique(SecNumConsec)) %>% 
+#  ungroup() %>%
+#  mutate(SecNumConsec_corrected = seq(n()))
+
+#data.temp %<>% left_join(., adj.SecNumConsec) %>% 
+#  dplyr::select(-SecNumConsec) %>% 
+#  rename(SecNumConsec = SecNumConsec_corrected)
 
 ## drop all entries with no mark
 data.temp %<>% filter(Mark != "")
 
 ## -- this will have to be non-dynamic?? -- ##
-## certain species disappear and capture events become mostly opportunisitc. Need to figure out what to 
+## certain species disappear and capture events become mostly opportunistic. Need to figure out what to 
  ## do with these data, but for now just drop them
-if (i == 1) {
-  data.temp %<>% filter(Month < 7)
+if (data.temp$Site[1] == "JonesPond" & data.temp$Species[1] == "ANBO") {
+  data.temp %<>% filter(Month < 6)
 }
 
 if (i == 1) {
@@ -89,4 +170,24 @@ if (i == 1) {
 }
   
 }
+
+## If a swab was taken and the result was negative, convert the copies/swab to
+ ## zero and not na
+data.all %<>% mutate(
+  BdResult = ifelse(
+    is.na(BdResult) | BdResult == ""
+    , "no_samp"
+    , BdResult))
+
+data.all[
+  data.all$BdSample == "Y"   & 
+  data.all$BdResult == "neg" 
+    , ]$bd_load <- 0
+
+sampling %<>% dplyr::select(-SubSite, -Notes)
+
+## drop the opportunistic sampling of ANBO from JonesPond
+sampling %<>% filter(!(Site == "JonesPond" & Species == "ANBO" & SecNumConsec > 13))
+
+
 

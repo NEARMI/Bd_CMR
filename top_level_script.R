@@ -32,8 +32,8 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-which.dataset <- 1
-data.all %<>% filter(dataset == which.dataset)
+#which.dataset <- 1
+#data.all %<>% filter(dataset == which.dataset)
 source("data_manip.R")
 
 ## Create the indexing vectors and capture history structure needed for the stan model
