@@ -189,5 +189,8 @@ sampling %<>% dplyr::select(-SubSite, -Notes)
 ## drop the opportunistic sampling of ANBO from JonesPond
 sampling %<>% filter(!(Site == "JonesPond" & Species == "ANBO" & SecNumConsec > 13))
 
-
-
+## population defined as a species in a site
+data.all %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
+  mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
+sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
+  mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))

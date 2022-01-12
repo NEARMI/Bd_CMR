@@ -3,12 +3,12 @@
 ##########################################################
 
 ## number of unique sites (populations) in the combined dataset
-n_sites <- unique(data.all$Site) %>% length()
-u_sites <- unique(data.all$Site)
+n_sites <- unique(data.all$pop_spec) %>% length()
+u_sites <- unique(data.all$pop_spec)
 
 ## Find the first and last time period ever sampled in each population
 period_range <- data.all %>% 
-  group_by(Site) %>% 
+  group_by(pop_spec) %>% 
   summarize(
     min_period = min(Month)
   , max_period = max(Month)
@@ -16,31 +16,31 @@ period_range <- data.all %>%
 
 ## Also, each year each population was sampled
 year_range <- data.all %>% 
-  group_by(Site) %>% 
+  group_by(pop_spec) %>% 
   summarize(
     n_years = length(unique(Year))
   )
 
 ## Find the number of secondary periods in each of the primary periods
 sampled_periods <- data.all %>% 
-  group_by(Site, Year) %>%
+  group_by(pop_spec, Year) %>%
   summarize(Month = unique(Month)) %>%
   left_join(.
     , data.all %>% 
-  group_by(Site, Year, Month) %>%
+  group_by(pop_spec, Year, Month) %>%
   summarize(SecNumConsec = unique(SecNumConsec))
     ) %>% 
-  group_by(Site, Year, Month) %>%
+  group_by(pop_spec, Year, Month) %>%
   mutate(rep_sec = seq(n())) %>%
   mutate(sampled = 1) %>%
-  arrange(Year, Site, Month, SecNumConsec) 
+  arrange(Year, pop_spec, Month, SecNumConsec) 
 
 ## sampled_periods created from the master sampling data frame instead
 sampled_periods <- sampling %>% 
   group_by(Site, Year, Month) %>%
   mutate(rep_sec = seq(n())) %>%
   mutate(sampled = 1) %>%
-  arrange(Year, Site, Month, SecNumConsec) 
+  arrange(Year, pop_spec, Month, SecNumConsec) 
 
 ## Create a data frame of the caputre history of each unique individual in each population as
  ## well as extract individual covariates
@@ -48,18 +48,18 @@ all_ind <- 0
 for (i in 1:n_sites) {
   
 ## Extract a given site and sampling characteristics of that site
-period_range.i    <- period_range %>% filter(Site == u_sites[i])
-data.i            <- data.all %>% filter(Site == u_sites[i])
-sampled_periods.i <- sampled_periods %>% filter(Site == u_sites[i])
+period_range.i    <- period_range %>% filter(pop_spec == u_sites[i])
+data.i            <- data.all %>% filter(pop_spec == u_sites[i])
+sampled_periods.i <- sampled_periods %>% filter(pop_spec == u_sites[i])
   
 capt_history.t <- 
   ## First create that "all possible combinations" data frame (all secondary periods in which each animal
    ## could possibly have been caught)
 expand.grid(
-  Month = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
-, Year  = unique(data.i$Year)
-, Site  = u_sites[i]
-, Mark  = unique(data.i$Mark)) %>% 
+  Month    = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
+, Year     = unique(data.i$Year)
+, pop_spec = u_sites[i]
+, Mark     = unique(data.i$Mark)) %>% 
   ## Add species to not screw up multi-species sites
   left_join(., data.i %>% dplyr::select(Mark, Species) %>% distinct()) %>%
   ## Add in which periods were sampled and which individuals were sampled
@@ -87,6 +87,11 @@ expand.grid(
 
 ## There are some duplicate entries? (Individuals caught more than once in a day??)
 capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
+
+if (red_ind) {
+  which_ind      <- sample(unique(capt_history.t$Mark), min(length(unique(capt_history.t$Mark)), num_ind))
+  capt_history.t %<>% filter(Mark %in% which_ind) %>% droplevels()
+}
 
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
 if ("MeHgConc" %in% names(data.all)) {

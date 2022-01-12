@@ -7,17 +7,17 @@
 n_ind     <- length(unique(capt_history$Mark))
 
 ## individuals per population
-n_ind.per <- capt_history %>% group_by(Site) %>%
+n_ind.per <- capt_history %>% group_by(pop_spec) %>%
   summarize(n_ind = length(unique(Mark))) %>% 
-  dplyr::select(-Site) %>% as.matrix()
+  dplyr::select(-pop_spec) %>% as.matrix()
 
 ## total number of sampling occasions (primary and secondary) per population per year
 n_occ     <- sampled_periods %>% 
-  group_by(Year, Site) %>%
+  group_by(Year, pop_spec) %>%
   summarize(n_occ = length(unique(SecNumConsec))) %>% 
-  mutate(Site = factor(Site, levels = u_sites)) %>%
-  arrange(Site) %>%
-  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = u_sites)) %>%
+  arrange(pop_spec) %>%
+  pivot_wider(values_from = n_occ, names_from = pop_spec) %>% 
   arrange(Year) %>%
   ungroup() %>%
   dplyr::select(-Year) %>% as.matrix()
@@ -25,11 +25,11 @@ n_occ[is.na(n_occ)] <- 0
 
 ## number of secondary periods in each of the primary periods in each site
 n_occ.m <- sampled_periods %>% 
-  group_by(Year, Month, Site) %>%
+  group_by(Year, Month, pop_spec) %>%
   summarize(n_occ = length(unique(SecNumConsec))) %>% 
-  mutate(Site = factor(Site, levels = u_sites)) %>%
-  arrange(Site) %>%
-  pivot_wider(values_from = n_occ, names_from = Site) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = u_sites)) %>%
+  arrange(pop_spec) %>%
+  pivot_wider(values_from = n_occ, names_from = pop_spec) %>% 
   arrange(Year) %>%
   ungroup() %>%
   dplyr::select(-Year, -Month) %>% 
@@ -60,7 +60,7 @@ p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>%
 
 ## determine the first primary in which each individual was captured, and thus _known_ to be present
 first_capt <- capt_history.p %>% 
-  group_by(Mark, Year, Month, Site) %>% 
+  group_by(Mark, Year, Month, pop_spec) %>% 
   summarize(capt = sum(captured)) %>% 
   ungroup(Year, Month) %>%
 ## And then in all future times from the current time these individuals _could_ be here but not captured
@@ -91,7 +91,7 @@ capt_history.p %<>%
 
 ## phi not calculable on the last time step so drop it
 last_period <- capt_history %>% 
-  group_by(Site) %>% 
+  group_by(pop_spec) %>% 
   filter(sampled == 1) %>% 
   summarize(last_period = max(SecNumConsec))
 
@@ -105,19 +105,20 @@ capt_history.phi <- capt_history %>%
   ## be longer than in other populations. Want to control for this
 time_gaps <- (capt_history %>% 
   filter(sampled == 1) %>%
-  group_by(Site, Mark, Year) %>% 
+  group_by(pop_spec, Mark, Year) %>% 
   mutate(time_gaps =  Month - lag(Month, 1)) %>% 
   mutate(time_gaps = ifelse(is.na(time_gaps), 0, time_gaps)) %>%
   ungroup(Year) %>%
   mutate(time_gaps = c(time_gaps[-1], NA)) %>% 
-    filter(!is.na(time_gaps)))$time_gaps
+    filter(!is.na(time_gaps)) %>%
+  mutate(time_gaps = ifelse(time_gaps > 1, 1, time_gaps)))$time_gaps
  
 capt_history.phi %<>% mutate(time_gaps = time_gaps)
 
 ## The second of the survival processes concerns survival between years
  ## Designated with "offseason"
 capt_history.phi %<>% 
-  group_by(Site, Mark) %>%
+  group_by(pop_spec, Mark) %>%
   mutate(offseason = Year - lag(Year, 1)) %>% 
   mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
   mutate(offseason = c(offseason[-1], 0)) %>% 
@@ -156,10 +157,10 @@ capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 
 
 ## Index for summaries of latent bd for between season survival
 bd_first_index <- (capt_history %>% mutate(index = seq(n())) %>% 
-  group_by(Mark, Year, Site) %>% 
+  group_by(Mark, Year, pop_spec) %>% 
   summarize(first_index = min(index)))$first_index
 bd_last_index  <- (capt_history %>% mutate(index = seq(n())) %>% 
-  group_by(Mark, Year, Site) %>% 
+  group_by(Mark, Year, pop_spec) %>% 
   summarize(last_index = max(index)))$last_index
 
 ## Index for every entry of bd (all time points)
@@ -168,24 +169,28 @@ capt_history %<>% mutate(index = seq(n()))
 ## Determine which of the latent bd entries matches each of the phi and p estimates.
  ## To put it another way, the phi_bd_index of the latent bd vector is the bd associated with the nth row of capt_history.phi
 phi_bd_index <- (left_join(
-  capt_history.phi %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
-, capt_history     %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  capt_history.phi %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
+, capt_history     %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
   ))$index
 
 capt_history.phi %<>% ungroup() %>% mutate(phi_bd_index = phi_bd_index)
 
 ## same thing for p
 p_bd_index <- (left_join(
-  capt_history.p %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
-, capt_history   %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  capt_history.p %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
+, capt_history   %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
   ))$index
 
 capt_history.p %<>% ungroup() %>% mutate(p_bd_index = p_bd_index)
 
 ## And finally, what actual measured bd values inform the latent bd process?
 x_bd_index <- (left_join(
-  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
-, capt_history         %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
+  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
+, capt_history         %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
   ))$index
 
 capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
+
+## Determine which population each individual is associated with
+
+ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()

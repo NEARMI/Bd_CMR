@@ -3,11 +3,17 @@
 #####################################
 
 ####
-## Notes as of Dec 10:
+## Notes as of Jan 12:
 ####
 
-## Received some new data Dec 8. Adjusting code a bit and trying fits with each data set to explore the variation
- ## in parameter values across the data sets
+## Model with random effects in the survival response to bd between seasons quite slow, around 24h per 1500 samples
+
+## Weirdly, when fitting individual populations one at a time the same species in different places sometimes
+ ## produces pretty different responses (e.g., ANBO sometimes is estimated to have increasing "survival" with higher bd
+  ## load and sometimes decreasing "survival")
+ ## -- The solution to this is likely to be to play around with either a random effect or fixed effect for species and
+  ## a random effect for location (though it may be hard to pull these effects apart)
+
 
 ### --- Some holdover notes from before --- ###
 
@@ -32,8 +38,20 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-#which.dataset <- 1
-#data.all %<>% filter(dataset == which.dataset)
+single_pop <- TRUE
+
+if (single_pop) {
+which.dataset <- c("Blackrock.ANBO")
+#which.dataset <- unique(data.all$pop_spec)[7:12]
+data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+}
+
+red_ind    <- FALSE
+if (red_ind) {
+num_ind    <- 150
+}
+
 source("data_manip.R")
 
 ## Create the indexing vectors and capture history structure needed for the stan model
@@ -44,9 +62,10 @@ source("data_covariates.R")
 
 ## Quick look at a given population
 source("capt_plot.R")
+#source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 2000
+stan.iter     <- 1500
 stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
@@ -54,7 +73,4 @@ source("stan_fit.R")
 
 ## And some diagnostics and such
 source("diagnostics.R")
-
-
-
 

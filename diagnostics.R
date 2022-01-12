@@ -2,7 +2,20 @@
 ## CMR model Diagnostics
 ####
 
-stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ]
+stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Parameter") +
+      ylab("Estimate") +
+      theme(axis.text.x = element_text(angle = 300, hjust = 0))
+      
+  }
 
 ## First just check that phi is estimated when it should be
 capt_history.phi %<>% mutate(
@@ -86,9 +99,10 @@ out.pred <- matrix(nrow = stan.length, ncol = length(outval))
 
 for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] + 
-    stan.fit.samples$beta_offseason_bd * outval[i] +
-    stan.fit.samples$beta_offseason[, 2] * 0 # + stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason_year[, 2] + 
+    stan.fit.samples$beta_offseason[, 1] * outval[i] +
+    stan.fit.samples$beta_offseason[, 2] * 0 + # + stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$offseason_pop[, 3]
     )
 }
 
@@ -103,8 +117,8 @@ out.pred <- matrix(nrow = stan.length, ncol = length(outval))
 
 for (i in 1:ncol(out.pred)) {
    out.pred[, i] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] + 
-    stan.fit.samples$beta_offseason_bd * 5 +
+    stan.fit.samples$beta_offseason_year[, 2] + 
+    stan.fit.samples$beta_offseason[, 1] * 5 +
     stan.fit.samples$beta_offseason[, 2] * outval[i]#  + stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
@@ -225,7 +239,7 @@ out.pred %>%
 
 stan.fit.samples$beta_p_y %>% reshape2::melt() %>% 
   mutate(Year = as.factor(Var2)) %>% 
-  mutate(Year = plyr::mapvalues(Year, from = unique(Year), to = c(2018, 2019, 2020))) %>% {
+  mutate(Year = plyr::mapvalues(Year, from = unique(Year), to = c(2018, 2019, 2020, 2021))) %>% {
   ggplot(., aes(x = value, y = (..count..)/sum(..count..))) + 
     geom_histogram(aes(colour = Year, fill = Year), bins = 75, alpha = 0.3) +
     scale_colour_brewer(palette = "Dark2") +
@@ -254,6 +268,34 @@ stan.ind_pred_var <- stan.fit.samples$X %>%
   , upr = quantile(eps, 0.975)
   ) %>% arrange(mid) %>%
   mutate(ind = factor(ind, levels = ind))
+
+stan.ind_pred_var <- cbind(
+  Year = capt_history$Year
+, ind  = capt_history$Mark
+, Rep  = capt_history$SecNumConsec
+, t(stan.fit.samples$X)
+) %>% as.data.frame() %>% 
+  reshape2::melt(c("Year", "ind", "Rep")) %>% 
+  dplyr::select(-Rep) %>%
+  rename(iter = variable, eps = value) %>% 
+  distinct() %>%
+  group_by(ind) %>%
+  summarize(
+    mid = quantile(eps, 0.50)
+  , lwr = quantile(eps, 0.025)
+  , upr = quantile(eps, 0.975)
+  ) %>% 
+  arrange(mid) %>%
+  mutate(ind = factor(ind, levels = ind))
+
+stan.ind_pred_var %>% 
+  filter(ind == 45) %>% {
+  ggplot(., aes(x = eps)) +
+    geom_histogram(bins = 50) +
+    facet_wrap(~Year)
+  }
+
+capt_history %>% filter(Mark == 87) %>% as.data.frame()
 
 ind_order.r <- capt_history %>% 
   group_by(Mark) %>% 
@@ -301,3 +343,67 @@ ggplot(ind_order, aes(order_real, order_pred)) +
   scale_color_brewer(palette = "Dark2", name = "Individual type", labels = c("Middle", "Lowest Bd", "Highest Bd")) +
   xlab("Individual Ordered by Average of Measured Bd") +
   ylab("Predicted Order")
+
+capt_history %<>% left_join(., )
+
+## -- estimated population variation in all parameters -- ##
+
+stan.fit.summary[grep("offseason_pop", dimnames(stan.fit.summary)[[1]]), ][15:27, ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% 
+  mutate(Var1 = plyr::mapvalues(Var1, from = Var1, to = as.character(u_sites))) %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Population") +
+      ylab("Estimate") + 
+      theme(axis.text.x = element_text(angle = 300, hjust = 0))
+  }
+
+stan.fit.summary[grep("bd_ind_sigma", dimnames(stan.fit.summary)[[1]]), ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% 
+  mutate(Var1 = plyr::mapvalues(Var1, from = Var1, to = as.character(u_sites))) %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Population") +
+      ylab("Estimate") + 
+      theme(axis.text.x = element_text(angle = 300, hjust = 0))
+  }
+
+stan.fit.summary[grep("inseason_pop", dimnames(stan.fit.summary)[[1]]), ][15:27, ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% 
+  mutate(Var1 = plyr::mapvalues(Var1, from = Var1, to = as.character(u_sites))) %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Population") +
+      ylab("Estimate") + 
+      theme(axis.text.x = element_text(angle = 300, hjust = 0))
+  }
+
+stan.fit.summary[grep("bd_pop_year", dimnames(stan.fit.summary)[[1]]), ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% 
+  mutate(Var1 = plyr::mapvalues(Var1, from = Var1, to = seq(n()))) %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Population") +
+      ylab("Estimate") + 
+      theme(axis.text.x = element_text(angle = 300, hjust = 0))
+  }

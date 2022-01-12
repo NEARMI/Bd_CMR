@@ -68,6 +68,7 @@ data {
   // long vector indices for bd (bd)
 	int<lower=0> ind_bd_rep[ind_time];
 	int<lower=0> bd_time[ind_time];
+	int<lower=0> ind_in_pop[ind_time];
 	  
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
@@ -101,8 +102,11 @@ parameters {
 
 	vector[4] beta_bd_year;
 	
-	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
+	real<lower=0> bd_ind_sigma;			 // change in Bd by individual (normal random effect variance)		 
+	real bd_ind_eps[n_ind];                          // the conditions modes of the random effect (each individual's intercept (for now))
+
+	real<lower=0> bd_pop_sigma;			 // change in Bd by pop (normal random effect variance)
+	real bd_pop_eps[n_pop];				 // the conditions modes of the random effect (each populations intercept (for now))
 
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
 
@@ -114,11 +118,20 @@ parameters {
 	vector[2] beta_offseason;  			 // survival as a function of bd stress
 	vector[3] beta_offseason_year;			 // each year has its own survival prob
 
+	real<lower=0> inseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
+	real inseason_pop_eps[n_pop];
+
+	real<lower=0> offseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
+	real offseason_pop_eps[n_pop];
+
 // -----
 // detection
 // -----
 
 	vector[3] beta_p;				 // intercept and slope coefficient for detection
+
+	real<lower=0> p_pop_sigma;			 // change in Bd by individual (normal random effect variance)
+	real p_pop_eps[n_pop];
 	
 // -----
 // other
@@ -132,32 +145,40 @@ transformed parameters {
 
 	real<lower=0,upper=1> phi[ind_occ_min1];   // survival from t to t+1, each individual repeated the number of times its population was measured
 	real<lower=0,upper=1> p[ind_occ];          // detection at time t
-	real<lower=0,upper=1> chi[ind_occ];        // probability an individual will never be seen again
+	real<lower=0,upper=1> chi[ind_time];       // probability an individual will never be seen again
 
 	real X[ind_time];			   // each individual's bd
 	real X_stat[ind_per_period_bd];		   // yearly summaries of bd
  		
 	// individual random effect deviates
 	real bd_ind[n_ind];
+
+	// population random effect deviates     
+	real bd_pop[n_pop];
+	real inseason_pop[n_pop];
+	real offseason_pop[n_pop];
+	real p_pop[n_pop];          
 	
 
 // -----
 // bd submodel, contained to estimating within-season bd
 // -----
 
+	for (pp in 1:n_pop) {
+	  bd_pop[pp]  = bd_pop_sigma * bd_pop_eps[pp];
+	} 
+
 	for (i in 1:n_ind) {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
-
-  	  bd_ind[i]  = bd_delta_sigma * bd_delta_eps[i];  
+  	  bd_ind[i]  = bd_ind_sigma * bd_ind_eps[i];  
 
 	}
 
 	for (t in 1:ind_time) {
 
 		// latent bd model before obs error
-
-	  X[t] = (beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]]);      
+	  X[t] = (beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + bd_pop[ind_in_pop[t]]);      
 
         }
 
@@ -172,6 +193,11 @@ transformed parameters {
 // Survival probability over the whole period
 // -----
 
+	for (pp in 1:n_pop) {
+	 inseason_pop[pp]  = inseason_pop_sigma  * inseason_pop_eps[pp];
+	 offseason_pop[pp] = offseason_pop_sigma * offseason_pop_eps[pp];
+	} 
+
 	for (t in 1:ind_occ_min1) {
 
 	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
@@ -184,13 +210,15 @@ transformed parameters {
 
 	   if (offseason[t] == 0) {
 
-        //   phi[t] = inv_logit(beta_phi[1] + beta_phi[2] * bd_ind[ind_occ_min1_rep[t]] + beta_phi[3] * ind_size[ind_occ_min1_rep[t]]);
-             phi[t] = inv_logit(beta_phi[1] + beta_phi[2] * X_stat[X_stat_index[t]] + beta_phi[3] * ind_size[ind_occ_min1_rep[t]]);
+             phi[t] = inv_logit(beta_phi[1] + inseason_pop[pop_phi[t]] +
+beta_phi[2] * X_stat[X_stat_index[t]] + 
+beta_phi[3] * ind_size[ind_occ_min1_rep[t]]);
 
 	   } else {
 
-        //   phi[t] = inv_logit(beta_offseason_year[phi_year[t]] + beta_offseason[1] * bd_ind[ind_occ_min1_rep[t]] + beta_offseason[2] * ind_size[ind_occ_min1_rep[t]]);
-	     phi[t] = inv_logit(beta_offseason_year[phi_year[t]] + beta_offseason[1] * X_stat[X_stat_index[t]] + beta_offseason[2] * ind_size[ind_occ_min1_rep[t]]);
+	     phi[t] = inv_logit(beta_offseason_year[phi_year[t]] + offseason_pop[pop_phi[t]] + 
+beta_offseason[1] * X_stat[X_stat_index[t]] + 
+beta_offseason[2] * ind_size[ind_occ_min1_rep[t]]);
 	
 	   }
 
@@ -204,15 +232,23 @@ transformed parameters {
 // Detection probability over the whole period
 // -----
 	
+	for (pp in 1:n_pop) {
+	  p_pop[pp]   = p_pop_sigma * p_pop_eps[pp];
+	}
+
 	for (t in 1:ind_occ) {
 
 		// p_zeros is = 1 in each season prior to an individual being caught for the first time
 		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
 
 	 if (p_zeros[t] == 1) {				
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]] + beta_p[3] * ind_size[ind_occ_rep[t]]);
+          p[t] = inv_logit(beta_p[1] + p_pop[pop_p[t]] +
+beta_p[2] * X[p_bd_index[t]] + 
+beta_p[3] * ind_size[ind_occ_rep[t]]);
 	 } else {
-          p[t] = inv_logit(beta_p[1] + beta_p[2] * X[p_bd_index[t]] + beta_p[3] * ind_size[ind_occ_rep[t]]) * gamma[gamma_index[t]];
+          p[t] = inv_logit(beta_p[1] + p_pop[pop_p[t]] +
+beta_p[2] * X[p_bd_index[t]] + 
+beta_p[3] * ind_size[ind_occ_rep[t]]) * gamma[gamma_index[t]];
 	 }
 
 	}
@@ -251,11 +287,23 @@ model {
 
 	beta_offseason_year ~ normal(0, 1.0);
 
-	bd_delta_sigma ~ inv_gamma(8, 15);
+	bd_ind_sigma   ~ inv_gamma(8, 15);
 	bd_obs         ~ inv_gamma(10, 4);
 
+	bd_pop_sigma        ~ inv_gamma(8, 15);
+	inseason_pop_sigma  ~ inv_gamma(8, 15);
+	offseason_pop_sigma ~ inv_gamma(8, 15);
+	p_pop_sigma         ~ inv_gamma(8, 15);
+
 	for (i in 1:n_ind) {
-	  bd_delta_eps[i] ~ normal(0, 3);
+	  bd_ind_eps[i] ~ normal(0, 3);
+	}
+
+	for (i in 1:n_pop) {
+	  bd_pop_eps[i]        ~ normal(0, 3);
+	  inseason_pop_eps[i]  ~ normal(0, 3);
+	  offseason_pop_eps[i] ~ normal(0, 3);
+	  p_pop_eps[i]         ~ normal(0, 3);
 	}
          
         gamma ~ uniform(0, 1);
