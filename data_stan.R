@@ -85,6 +85,11 @@ capt_history.p %<>%
   mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
   mutate(gamma_index = as.numeric(gamma_index))
 
+capt_history.p %<>% 
+  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
+  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
+  mutate(X_stat_index = as.numeric(X_stat_index))
+
 ####
 ## Data for survival (.phi for survival)
 ####
@@ -146,6 +151,14 @@ capt_history.phi %<>%
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
 capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
 
+####
+## One final adjustment to capt.history
+####
+
+capt_history %<>% 
+  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
+  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
+  mutate(X_stat_index = as.numeric(X_stat_index))
 
 ####
 ## Data for latent bd 
@@ -190,6 +203,11 @@ x_bd_index <- (left_join(
   ))$index
 
 capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
+
+capt_history.bd_load %<>% left_join(
+  .
+, capt_history %>% dplyr::select(Month, Year, pop_spec, Mark, X_stat_index, swabbed) %>% filter(swabbed == 1) %>% distinct()
+)
 
 ## Determine which population each individual is associated with
 

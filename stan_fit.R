@@ -8,6 +8,7 @@ stan_data     <- list(
    n_pop             = n_sites
  , n_pop_year        = sum(year_range$n_years)
  , n_ind             = n_ind
+ , n_spec            = length(unique(capt_history$Species))
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_per_period_p  = max(capt_history.p$gamma_index) 
  , ind_time          = nrow(capt_history)
@@ -25,9 +26,11 @@ stan_data     <- list(
  , ind_occ_rep       = capt_history.p$Mark
  , periods_occ       = as.numeric(as.factor(capt_history.p$Year))
  , p_month           = as.numeric(as.factor(capt_history.p$Month))
- , pop_p             = as.numeric(capt_history.p$pop_spec)
+# , pop_p            = as.numeric(capt_history.p$pop_spec)
+ , pop_p             = as.numeric(as.factor(capt_history.p$Site))
+ , spec_p            = as.numeric(as.factor(capt_history.p$Species))
  , p_zeros           = capt_history.p$p_zeros
- , p_bd_index        = capt_history.p$p_bd_index
+ , p_bd_index        = capt_history.p$X_stat_index
  , gamma_index       = capt_history.p$gamma_index
   
   ## long vector indexes: survival stuff (phi)
@@ -35,19 +38,20 @@ stan_data     <- list(
  , offseason         = capt_history.phi$offseason
  , phi_month         = as.numeric(as.factor(capt_history.phi$Month))
  , phi_year          = as.numeric(as.factor(capt_history.phi$Year))
- , pop_phi           = as.numeric(capt_history.phi$pop_spec)
+# , pop_phi          = as.numeric(capt_history.phi$pop_spec)
+ , pop_phi           = as.numeric(as.factor(capt_history.phi$Site))
+ , spec_phi          = as.numeric(as.factor(capt_history.phi$Species))
  , phi_zeros         = capt_history.phi$phi_zeros
  , phi_ones          = capt_history.phi$phi_ones
- , phi_bd_index      = capt_history.phi$phi_bd_index
- , X_stat_index      = capt_history.phi$X_stat_index
+ , phi_bd_index      = capt_history.phi$X_stat_index
  , time_gaps         = capt_history.phi$time_gaps  
 
   ## long vector indexes: bd stuff (bd)
- , ind_bd_rep        = capt_history$Mark
+ , ind_bd_rep        = (capt_history.phi %>% group_by(X_stat_index) %>%slice(1))$Mark
  , ind_in_pop        = as.numeric(capt_history$pop_spec)
- , ind_in_pop_year   = (capt_history %>% mutate(pop_year = interaction(pop_spec, Year)) %>% 
-    dplyr::select(pop_year) %>% mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>% 
-    mutate(pop_year = as.numeric(pop_year)))$pop_year
+ , ind_in_pop_year   = (capt_history.phi %>% mutate(pop_year = interaction(pop_spec, Year)) %>%
+        group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% dplyr::select(pop_year) %>% 
+        mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>% mutate(pop_year = as.numeric(pop_year)))$pop_year
  , bd_time           = as.numeric(as.factor(capt_history$Year))
 
   ## covariates, bd and others
@@ -57,7 +61,7 @@ stan_data     <- list(
  , ind_size          = ind.size
  , bd_first_index    = bd_first_index
  , bd_last_index     = bd_last_index
- , x_bd_index        = capt_history.bd_load$x_bd_index
+ , x_bd_index        = capt_history.bd_load$X_stat_index
   
   ## Capture data
  , N_y             = nrow(capt_history)
@@ -86,7 +90,7 @@ stan.fit  <- stan(
     }
     } else {
      # "CMR_collapsed_pr2.stan"
-       "CMR_collapsed_pr2c.stan"
+       "CMR_collapsed_pr2d.stan"
     }
   }
 , data    = stan_data
@@ -97,9 +101,11 @@ stan.fit  <- stan(
 , warmup  = stan.burn
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
+, include = FALSE
+, pars    = c("phi", "p", "chi")
   )
 
-## stan.fit <- readRDS("all_pop_fit2.Rds")
+## stan.fit <- readRDS("stan.fit_allpop.Rds")
 
 ## shinystan::launch_shinystan(stan.fit)
 

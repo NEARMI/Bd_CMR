@@ -34,7 +34,8 @@ data {
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_pop_year;
-	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)	
+	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years)
+	int<lower=1> n_spec;	
 	int<lower=1> ind_per_period_p;			   
 	int<lower=1> ind_per_period_bd;
 	int<lower=0> ind_occ;			   	    // n_ind * n_occasions, summed over the sampling of all populations
@@ -54,6 +55,7 @@ data {
 	int<lower=0> p_month[ind_occ];	
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> pop_p[ind_occ];			    // population index for detection predictors
+	int<lower=0> spec_p[ind_occ];
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
 	int<lower=1> gamma_index[ind_occ];		    // gamma value associated with each entry of p
   
@@ -63,13 +65,14 @@ data {
 	int<lower=0> phi_year[ind_occ_min1];			
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> phi_ones[ind_occ_min1];
+	int<lower=0> spec_phi[ind_occ_min1];
 	int<lower=0> pop_phi[ind_occ_min1];		    // population index for mortality predictors
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of the summarized stat correspond to each period
 
   // long vector indices for bd (bd)
-	int<lower=0> ind_bd_rep[ind_time];
+	int<lower=0> ind_bd_rep[ind_per_period_bd];
 	int<lower=0> bd_time[ind_time];
-	int<lower=0> ind_in_pop_year[ind_time];
+	int<lower=0> ind_in_pop_year[ind_per_period_bd];
 	  
   // covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
@@ -120,6 +123,7 @@ parameters {
 	vector[3] beta_phi;                  		 // survival between seasons as a function of bd
 	vector[2] beta_offseason;  			 // survival as a function of bd stress
 	vector[3] beta_offseason_year;			 // each year has its own survival prob
+	vector[6] beta_spec;
 
 	real<lower=0> inseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
 	real inseason_pop_eps[n_pop];
@@ -214,8 +218,8 @@ beta_phi[3] * ind_size[ind_occ_min1_rep[t]]);
 	   } else {
 
 	     phi[t] = inv_logit(beta_offseason_year[phi_year[t]] + 
-(beta_offseason[1] + offseason_pop[pop_phi[t]]) * X[phi_bd_index[t]] + 
-beta_offseason[2] * ind_size[ind_occ_min1_rep[t]]);
+(beta_offseason[1] + offseason_pop[pop_phi[t]] + beta_spec[spec_phi[t]]) * X[phi_bd_index[t]] + 
+beta_offseason[2]  * ind_size[ind_occ_min1_rep[t]]);
 	
 	   }
 

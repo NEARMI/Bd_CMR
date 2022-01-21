@@ -3,10 +3,15 @@
 #####################################
 
 ####
-## Notes as of Jan 12:
+## Notes as of Jan 21:
 ####
 
-## Model with random effects in the survival response to bd between seasons quite slow, around 24h per 1500 samples
+## With the current model population variation in between season survival as a function of Bd load is
+ ## not being recovered. It may be sensible to try and fit a fixed effect of species and a random
+  ## effect of location as a joint random effect of species:location isn't cutting it
+
+## 
+
 
 ## Weirdly, when fitting individual populations one at a time the same species in different places sometimes
  ## produces pretty different responses (e.g., ANBO sometimes is estimated to have increasing "survival" with higher bd
@@ -38,7 +43,7 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- TRUE
+single_pop <- FALSE
 
 if (single_pop) {
 which.dataset <- c("Blackrock.ANBO")
