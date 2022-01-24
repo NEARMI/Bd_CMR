@@ -78,7 +78,7 @@ if (exists("ind_hg")) {
 }
   
 stan.fit  <- stan(
-  file    = "CMR_collapsed_pr2d.stan"
+  file    = "CMR_multiple_populations.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

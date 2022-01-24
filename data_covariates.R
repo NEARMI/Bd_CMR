@@ -7,7 +7,12 @@
 ind.size <- (capt_history %>% group_by(Mark) %>%
   summarize(size = mean(size, na.rm = T)))$size
 ind.size[which(is.na(ind.size))] <- mean(ind.size[-which(is.na(ind.size))])
-ind.size <- scale(ind.size)[, 1]
+
+if (all(is.nan(ind.size))) {
+ind.size[ ] <- 0
+} else {
+ind.size <- scale(ind.size)[, 1] 
+}
 
 if ("merc" %in% names(capt_history)) {
 
