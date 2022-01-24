@@ -58,7 +58,8 @@ p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>%
   group_by(Mark) %>% 
   summarize(first_index = min(index)))$first_index
 
-## determine the first primary in which each individual was captured, and thus _known_ to be present
+## determine the _first primary period_ in which each individual was captured, and thus _known_ to be present
+ ## (under the assumption of a closed population in the secondary periods within primary period)
 first_capt <- capt_history.p %>% 
   group_by(Mark, Year, Month, pop_spec) %>% 
   summarize(capt = sum(captured)) %>% 
@@ -212,3 +213,4 @@ capt_history.bd_load %<>% left_join(
 ## Determine which population each individual is associated with
 
 ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
+

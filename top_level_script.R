@@ -43,11 +43,10 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- FALSE
+single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- c("Blackrock.ANBO")
-#which.dataset <- unique(data.all$pop_spec)[7:12]
+which.dataset <- unique(data.all$pop_spec)[4]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -74,7 +73,11 @@ stan.iter     <- 1500
 stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
-source("stan_fit.R")
+if (single_pop) {
+source("stan_fit_single.R")
+} else {
+source("stan_fit.R") 
+}
 
 ## And some diagnostics and such
 source("diagnostics.R")

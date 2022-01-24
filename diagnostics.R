@@ -17,10 +17,16 @@ stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>%
       
   }
 
-## First just check that phi is estimated when it should be
+## Check that phi is estimated when it should be
 capt_history.phi %<>% mutate(
   pred_phi = colMeans(stan.fit.samples$phi)
 )
+
+capt_history.phi %>%
+  group_by(offseason, time_gaps, phi_ones) %>% 
+  summarize(
+    mean_surv = mean(pred_phi)
+  )
 
 capt_history.phi %>% filter(pred_phi != 0) %>% {
   ggplot(., aes(phi_ones, pred_phi)) + 
@@ -28,6 +34,8 @@ capt_history.phi %>% filter(pred_phi != 0) %>% {
     ggtitle("Should see a mix of values at phi_ones = 0 and only 1s at phi_ones = 1")
 }
 
+## Also check that detection is predicted when it should be, that the gamma index causes p to be low prior to the individual
+ ## being detected for the first time, and that chi is predicted when it should be
 capt_history.p %<>% mutate(
   pred_p   = colMeans(stan.fit.samples$p)
 , pred_chi = colMeans(stan.fit.samples$chi)
@@ -37,6 +45,16 @@ capt_history.p %>% {
   ggplot(., aes(p_zeros, pred_p)) + 
     geom_jitter(width = 0.1) +
     ggtitle("Should see pretty low values at p_zeros = 0 and overall higher values at p_zeros = 1")
+}
+
+## Also check that estimated bd reasonably corresponds to raw values (as a loose check of correct bd indexing)
+capt_history.bd_load %<>% mutate(bd_pred = colMeans(stan.fit.samples$X)[capt_history.bd_load$X_stat_index])
+
+capt_history.bd_load %>% {
+  ggplot(., aes(log_bd_load, bd_pred)) + geom_point(size = 2) + 
+    xlab("Measured bd") + 
+    ylab("Predicted bd") +
+    geom_abline(slope = 1, intercept = 0)
 }
 
 ## -- Apparent survival between primary periods within a year as a function of bd and size -- ##

@@ -3,11 +3,11 @@
 ##########################################################
 
 ## number of unique sites (populations) in the combined dataset
-n_sites <- unique(data.all$pop_spec) %>% length()
-u_sites <- unique(data.all$pop_spec)
+n_sites <- unique(sampling$pop_spec) %>% length()
+u_sites <- unique(sampling$pop_spec)
 
 ## Find the first and last time period ever sampled in each population
-period_range <- data.all %>% 
+period_range <- sampling %>% 
   group_by(pop_spec) %>% 
   summarize(
     min_period = min(Month)
@@ -15,25 +15,11 @@ period_range <- data.all %>%
   )
 
 ## Also, each year each population was sampled
-year_range <- data.all %>% 
+year_range <- sampling %>% 
   group_by(pop_spec) %>% 
   summarize(
     n_years = length(unique(Year))
   )
-
-## Find the number of secondary periods in each of the primary periods
-sampled_periods <- data.all %>% 
-  group_by(pop_spec, Year) %>%
-  summarize(Month = unique(Month)) %>%
-  left_join(.
-    , data.all %>% 
-  group_by(pop_spec, Year, Month) %>%
-  summarize(SecNumConsec = unique(SecNumConsec))
-    ) %>% 
-  group_by(pop_spec, Year, Month) %>%
-  mutate(rep_sec = seq(n())) %>%
-  mutate(sampled = 1) %>%
-  arrange(Year, pop_spec, Month, SecNumConsec) 
 
 ## sampled_periods created from the master sampling data frame instead
 sampled_periods <- sampling %>% 
@@ -57,7 +43,7 @@ capt_history.t <-
    ## could possibly have been caught)
 expand.grid(
   Month    = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
-, Year     = unique(data.i$Year)
+, Year     = unique(sampled_periods.i$Year)
 , pop_spec = u_sites[i]
 , Mark     = unique(data.i$Mark)) %>% 
   ## Add species to not screw up multi-species sites
@@ -68,7 +54,7 @@ expand.grid(
   ## drop the times that were never sampled
   filter(!is.na(SecNumConsec)) %>% 
   mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
-  ## Retian species
+  ## Retain species
 #  mutate(SP = Species) %>%
   ## just using a random non-na column to find captures (convenient given how left-join works)
   rename(captured = BdSample) %>% 
