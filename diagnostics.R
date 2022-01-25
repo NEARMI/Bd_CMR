@@ -14,7 +14,6 @@ stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>%
       xlab("Parameter") +
       ylab("Estimate") +
       theme(axis.text.x = element_text(angle = 300, hjust = 0))
-      
   }
 
 ## Check that phi is estimated when it should be

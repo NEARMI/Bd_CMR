@@ -6,6 +6,7 @@
 
 ind.size <- (capt_history %>% group_by(Mark) %>%
   summarize(size = mean(size, na.rm = T)))$size
+
 ind.size[which(is.na(ind.size))] <- mean(ind.size[-which(is.na(ind.size))])
 
 if (all(is.nan(ind.size))) {

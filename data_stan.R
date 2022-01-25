@@ -30,7 +30,7 @@ n_occ.m <- sampled_periods %>%
   mutate(pop_spec = factor(pop_spec, levels = u_sites)) %>%
   arrange(pop_spec) %>%
   pivot_wider(values_from = n_occ, names_from = pop_spec) %>% 
-  arrange(Year) %>%
+  arrange(Year, Month) %>%
   ungroup() %>%
   dplyr::select(-Year, -Month) %>% 
   as.matrix()
