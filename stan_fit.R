@@ -40,7 +40,7 @@ stan_data     <- list(
  , phi_year          = as.numeric(as.factor(capt_history.phi$Year))
 # , pop_phi          = as.numeric(capt_history.phi$pop_spec)
  , pop_phi           = as.numeric(as.factor(capt_history.phi$Site))
- , spec_phi          = as.numeric(as.factor(capt_history.phi$Species))
+ , spec_phi          = as.numeric(factor(capt_history.phi$Species, levels = unique(capt_history.phi$Species)))
  , phi_zeros         = capt_history.phi$phi_zeros
  , phi_ones          = capt_history.phi$phi_ones
  , phi_bd_index      = capt_history.phi$X_stat_index
@@ -51,7 +51,7 @@ stan_data     <- list(
  , ind_in_pop        = as.numeric(capt_history$pop_spec)
  , ind_in_pop_year   = (capt_history.phi %>% mutate(pop_year = interaction(pop_spec, Year)) %>%
         group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% dplyr::select(pop_year) %>% 
-        mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>% mutate(pop_year = as.numeric(pop_year)))$pop_year
+        mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>% mutate(pop_year = as.numeric(pop_year)))$pop_year    
  , bd_time           = as.numeric(as.factor(capt_history$Year))
 
   ## covariates, bd and others

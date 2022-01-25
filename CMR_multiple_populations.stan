@@ -121,14 +121,13 @@ parameters {
 // -----
 
 	vector[3] beta_phi;                  		 // survival between seasons as a function of bd
-	vector[2] beta_offseason;  			 // survival as a function of bd stress
-	vector[3] beta_offseason_year;			 // each year has its own survival prob
+	vector[3] beta_offseason;  			 // survival as a function of bd stress
 	vector[6] beta_spec;
 
-	real<lower=0> inseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
+	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
 	real inseason_pop_eps[n_pop];
 
-	real<lower=0> offseason_pop_sigma;		 // change in Bd by individual (normal random effect variance)
+	real<lower=0> offseason_pop_sigma;		 // variation in offseason survival by population (intercept)
 	real offseason_pop_eps[n_pop];
 
 // -----
@@ -137,8 +136,11 @@ parameters {
 
 	vector[3] beta_p;				 // intercept and slope coefficient for detection
 
-	real<lower=0> p_pop_sigma;			 // change in Bd by individual (normal random effect variance)
+	real<lower=0> p_pop_sigma;			 // variation in detection by population (slope over bd)
 	real p_pop_eps[n_pop];
+
+	real<lower=0> p_pop_sigma_bd;			 // variation in detection by population (slope over bd)
+	real p_pop_eps_bd[n_pop];
 	
 // -----
 // other
@@ -161,24 +163,27 @@ transformed parameters {
 	real bd_ind[n_ind];
 
 	// population random effect deviates     
-	real bd_pop_year[n_pop_year];
 	real inseason_pop[n_pop];
 	real offseason_pop[n_pop];
-	real p_pop[n_pop];          
+	real p_pop[n_pop];     
+	real p_pop_bd[n_pop];     
 	
+	// population:year random effect deviates
+	real bd_pop_year[n_pop_year];
+
 
 // -----
 // bd submodel, contained to estimating within-season bd
 // -----
 
 	for (pp in 1:n_pop_year) {
-	  bd_pop_year[pp]  = bd_pop_sigma * bd_pop_eps[pp];
+	  bd_pop_year[pp] = bd_pop_sigma * bd_pop_eps[pp];
 	} 
 
 	for (i in 1:n_ind) {
 	    
 		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
-  	  bd_ind[i]  = bd_ind_sigma[ind_in_pop[i]] * bd_ind_eps[i];  
+  	  bd_ind[i] = bd_ind_sigma[ind_in_pop[i]] * bd_ind_eps[i];  
 
 	}
 
@@ -195,8 +200,8 @@ transformed parameters {
 // -----
 
 	for (pp in 1:n_pop) {
-	 inseason_pop[pp]  = inseason_pop_sigma  * inseason_pop_eps[pp];
-	 offseason_pop[pp] = offseason_pop_sigma * offseason_pop_eps[pp];
+	 inseason_pop[pp]     = inseason_pop_sigma     * inseason_pop_eps[pp];
+	 offseason_pop[pp]    = offseason_pop_sigma    * offseason_pop_eps[pp];
 	} 
 
 	for (t in 1:ind_occ_min1) {
@@ -217,9 +222,9 @@ beta_phi[3] * ind_size[ind_occ_min1_rep[t]]);
 
 	   } else {
 
-	     phi[t] = inv_logit(beta_offseason_year[phi_year[t]] + 
-(beta_offseason[1] + offseason_pop[pop_phi[t]] + beta_spec[spec_phi[t]]) * X[phi_bd_index[t]] + 
-beta_offseason[2]  * ind_size[ind_occ_min1_rep[t]]);
+	     phi[t] = inv_logit(beta_offseason[1] + offseason_pop[pop_phi[t]] + 
+(beta_offseason[2] + beta_spec[spec_phi[t]]) * X[phi_bd_index[t]] + 
+beta_offseason[3]  * ind_size[ind_occ_min1_rep[t]]);
 	
 	   }
 
@@ -234,7 +239,8 @@ beta_offseason[2]  * ind_size[ind_occ_min1_rep[t]]);
 // -----
 	
 	for (pp in 1:n_pop) {
-	  p_pop[pp]   = p_pop_sigma * p_pop_eps[pp];
+	  p_pop[pp]    = p_pop_sigma    * p_pop_eps[pp];
+	  p_pop_bd[pp] = p_pop_sigma_bd * p_pop_eps_bd[pp];
 	}
 
 	for (t in 1:ind_occ) {
@@ -244,11 +250,11 @@ beta_offseason[2]  * ind_size[ind_occ_min1_rep[t]]);
 
 	 if (p_zeros[t] == 1) {				
           p[t] = inv_logit(beta_p[1] + p_pop[pop_p[t]] +
-beta_p[2] * X[p_bd_index[t]] + 
+(beta_p[2] + p_pop_bd[pop_p[t]]) * X[p_bd_index[t]] + 
 beta_p[3] * ind_size[ind_occ_rep[t]]);
 	 } else {
           p[t] = inv_logit(beta_p[1] + p_pop[pop_p[t]] +
-beta_p[2] * X[p_bd_index[t]] + 
+(beta_p[2] + p_pop_bd[pop_p[t]]) * X[p_bd_index[t]] + 
 beta_p[3] * ind_size[ind_occ_rep[t]]) * gamma[gamma_index[t]];
 	 }
 
@@ -279,14 +285,13 @@ model {
 	beta_p[2]   ~ normal(0, 1.2);
 	beta_p[3]   ~ normal(0, 1.2);
 
-	beta_phi[1] ~ normal(0, 1.0);
-	beta_phi[2] ~ normal(0, 1.0);
-	beta_phi[3] ~ normal(0, 1.0);
+	beta_phi[1] ~ normal(0, 1.2);
+	beta_phi[2] ~ normal(0, 1.2);
+	beta_phi[3] ~ normal(0, 1.2);
 
-	beta_offseason[1] ~ normal(0, 1.0);
-	beta_offseason[2] ~ normal(0, 1.0);
-
-	beta_offseason_year ~ normal(0, 1.0);
+	beta_offseason[1] ~ normal(0, 1.2);
+	beta_offseason[2] ~ normal(0, 1.2);
+	beta_offseason[3] ~ normal(0, 1.2);
 
 	bd_obs         ~ inv_gamma(10, 4);
 
@@ -294,6 +299,7 @@ model {
 	offseason_pop_sigma ~ inv_gamma(8, 15);
 	inseason_pop_sigma  ~ inv_gamma(8, 15);
 	p_pop_sigma         ~ inv_gamma(8, 15);
+	p_pop_sigma_bd      ~ inv_gamma(8, 15);
 
 	for (i in 1:n_ind) {
 	  bd_ind_eps[i] ~ normal(0, 3);
@@ -304,6 +310,7 @@ model {
 	  inseason_pop_eps[i]  ~ normal(0, 3);
 	  offseason_pop_eps[i] ~ normal(0, 3);
 	  p_pop_eps[i]         ~ normal(0, 3);
+	  p_pop_eps_bd[i]      ~ normal(0, 3);
 	}
 
 	for (i in 1:n_pop_year) {
