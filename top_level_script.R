@@ -3,16 +3,25 @@
 #####################################
 
 ####
-## Notes as of Jan 24:
+## Notes as of Jan 31:
 ####
 
-## Carefully went back through the code for fitting individual populations and figured out that the few populations with
- ## whole years with no captures was screwing up the indexing
-## Also found a small indexing error with detection in the code
+## Some definite craziness in the multi-species model:
+ ## 1) Am not going to be able to have a species fixed effect and a location random effect -- too correlated given that most species
+  ## only are measured in one or two locations. --- At least the first attempt gave really wide CI for each species and population CI
+   ## were more variable -- thus it seems that so far (without more location specific covariates) the population and not the species
+    ## soaks up a lot of the variation. 
+     ## --- Possibly with more location-specific covaraites this will turn out better, but will have to check back in later
 
-## Now need to rerun all populations individually and then the whole model together to compare predictions
+## HOWEVER: looking at the fits of the populations individually, there is definitely some weird stuff happening with detection
+ ## 1) Possibly putting too much emphasis on bd and detection, maybe need some other covaraites
 
-## For the holdover notes see previous commits on GitHub
+## ------ There are definitely plenty of open questions about model complexity ------
+ ## 1) In theory a fixed effect could be fit for each species for each coefficient (forms of detection, forms of survival), but
+   ## its unclear if the model will actually fit
+ ## 2) Also pretty uncertain about when to use species vs pop_spec vs location...
+
+## Probably just need to set this down until I get the rest of the covariate data
 
 
 
@@ -62,4 +71,3 @@ source("stan_fit.R")
 
 ## And some diagnostics and such
 source("diagnostics.R")
-

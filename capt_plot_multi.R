@@ -1,3 +1,5 @@
+which.dataset <- "MatthewsPond.BCF"
+
 print(capt_history %>%
     filter(pop_spec == which.dataset) %>% {
   ggplot(., aes(SecNumConsec, Mark, fill = as.factor(captured))) + 

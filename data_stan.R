@@ -214,3 +214,21 @@ capt_history.bd_load %<>% left_join(
 
 ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
 
+## Get the species and sites to be factors in the order that they appear in the data frames
+capt_history.phi     %<>% mutate(
+  Species = factor(Species, levels = unique(Species))
+, Site    = factor(Site, levels    = unique(Site))
+)
+capt_history.p       %<>% mutate(
+  Species = factor(Species, levels = unique(Species))
+, Site    = factor(Site, levels    = unique(Site))
+)
+capt_history         %<>% mutate(
+  Species = factor(Species, levels = unique(Species))
+, Site    = factor(Site, levels    = unique(Site))
+)
+capt_history.bd_load %<>% mutate(
+  Species = factor(Species, levels = unique(Species))
+, Site    = factor(Site, levels    = unique(Site))
+)
+

@@ -26,9 +26,9 @@ stan_data     <- list(
  , ind_occ_rep       = capt_history.p$Mark
  , periods_occ       = as.numeric(as.factor(capt_history.p$Year))
  , p_month           = as.numeric(as.factor(capt_history.p$Month))
-# , pop_p            = as.numeric(capt_history.p$pop_spec)
- , pop_p             = as.numeric(as.factor(capt_history.p$Site))
- , spec_p            = as.numeric(as.factor(capt_history.p$Species))
+ , pop_p             = as.numeric(capt_history.p$pop_spec)
+# , pop_p            = as.numeric(capt_history.p$Site)
+ , spec_p            = as.numeric(capt_history.p$Species)
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , gamma_index       = capt_history.p$gamma_index
@@ -38,13 +38,16 @@ stan_data     <- list(
  , offseason         = capt_history.phi$offseason
  , phi_month         = as.numeric(as.factor(capt_history.phi$Month))
  , phi_year          = as.numeric(as.factor(capt_history.phi$Year))
-# , pop_phi          = as.numeric(capt_history.phi$pop_spec)
- , pop_phi           = as.numeric(as.factor(capt_history.phi$Site))
- , spec_phi          = as.numeric(factor(capt_history.phi$Species, levels = unique(capt_history.phi$Species)))
+ , pop_phi           = as.numeric(capt_history.phi$pop_spec)
+# , pop_phi          = as.numeric(capt_history.phi$Site)
+ , spec_phi          = as.numeric(capt_history.phi$Species)
  , phi_zeros         = capt_history.phi$phi_zeros
  , phi_ones          = capt_history.phi$phi_ones
  , phi_bd_index      = capt_history.phi$X_stat_index
  , time_gaps         = capt_history.phi$time_gaps  
+ , phi_pop_year      = (capt_history.phi %>% mutate(pop_year = interaction(pop_spec, Year)) %>%
+        group_by(X_stat_index) %>% ungroup() %>% dplyr::select(pop_year) %>% 
+        mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>% mutate(pop_year = as.numeric(pop_year)))$pop_year
 
   ## long vector indexes: bd stuff (bd)
  , ind_bd_rep        = (capt_history.phi %>% group_by(X_stat_index) %>%slice(1))$Mark
@@ -91,8 +94,7 @@ stan.fit  <- stan(
 , pars    = c("phi", "p", "chi")
   )
 
-## stan.fit <- readRDS("stan.fit_allpop.Rds")
-
+## stan.fit <- readRDS("newest_fit.Rds")
 ## shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]

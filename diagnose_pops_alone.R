@@ -103,10 +103,39 @@ out.pred.off <- out.pred %>%
   , species    = this_spec  
   )
 
-out.pred <- rbind(
+out.pred.bd <- rbind(
   out.pred.in
 , out.pred.off
 )
+
+outval   <- matrix(seq(1, 10, by = 1))
+out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
+
+for (j in 1:ncol(out.pred)) {
+   out.pred[, j] <- plogis(
+    stan.fit.samples$beta_p[, 1] + 
+    stan.fit.samples$beta_p[, 2] * outval[j] +
+    stan.fit.samples$beta_p[, 3] * 0
+    )
+}
+
+out.pred <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "detection")
+
+out.pred.p <- out.pred %>%
+  group_by(gap, variable) %>%
+  summarize(
+    lwr = quantile(value, 0.1)
+  , mid = quantile(value, 0.5)
+  , upr = quantile(value, 0.9)
+  ) %>% mutate(
+    population = this_pop
+  , location   = this_loc
+  , species    = this_spec  
+  )
 
 stan.ind_pred_var <- stan.fit.samples$X %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
@@ -166,10 +195,6 @@ ind_order.r <- capt_history.temp %>%
 
 no_swabs <- (ind_order.r %>% filter(given_mean == 0))$Mark
 
-#ind_order.r[ind_order.r$given_mean == 1, ]$tot_bd <- mean(
-#  ind_order.r[ind_order.r$given_mean == 0, ]$tot_bd
-#)
-
 ind_order.r %<>% 
   filter(given_mean == 0) %>%
   arrange(desc(tot_bd)) %>% 
@@ -191,14 +216,16 @@ ind_order %<>% mutate(
 
 if (i == 1) {
   beta_est.all          <- beta_est
-  out.pred.all          <- out.pred
+  out.pred.all          <- out.pred.bd
   stan.ind_pred_var.all <- stan.ind_pred_var
   ind_order.all         <- ind_order
+  out.pred.p.all        <- out.pred.p
 } else {
   beta_est.all          <- rbind(beta_est.all, beta_est)
-  out.pred.all          <- rbind(out.pred.all, out.pred)
+  out.pred.all          <- rbind(out.pred.all, out.pred.bd)
   stan.ind_pred_var.all <- rbind(stan.ind_pred_var.all, stan.ind_pred_var)
   ind_order.all         <- rbind(ind_order.all, ind_order)
+  out.pred.p.all        <- rbind(out.pred.p.all, out.pred.p)
 }
 
 print("--------------")
@@ -220,7 +247,6 @@ beta_est.all %<>%
   mutate(param_names = param_names) %>%
   group_by(param_names, population) %>%
   mutate(param_lev = seq(n()))
-
 
 ####
 ## And plotting
@@ -247,6 +273,15 @@ out.pred.all %>% filter(when == "offseason") %>% {
     geom_line(aes(colour = location), size = 1) +
     xlab("Bd Copies (log)") +
     ylab("Apparent Survival Between Seasons") +
+    facet_wrap(~species)
+}
+
+out.pred.p.all %>% {
+  ggplot(., aes(gap, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
+    geom_line(aes(colour = location), size = 1) +
+    xlab("Bd Copies (log)") +
+    ylab("Detection Probability") +
     facet_wrap(~species)
 }
 
