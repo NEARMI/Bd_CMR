@@ -3,17 +3,17 @@
 ## joint model that fit all populations at once            ##
 #############################################################
 
-the_specs <- unique(capt_history.phi$Species)
-the_sites <- unique(capt_history.phi$Site)
-the_pops  <- unique(capt_history.phi$pop_spec)
+the_specs    <- unique(capt_history.phi$Species)
+the_sites    <- unique(capt_history.phi$Site)
+the_pops     <- unique(capt_history.phi$pop_spec)
 
 for (i in seq_along(the_pops)) {
 
-this_pop   <- capt_history %>% filter(pop_spec == the_pops[i])
-which_spec <- which(the_specs == this_pop$Species[1])
-which_site <- which(the_sites == this_pop$Site[1])
-which_pop  <- i  
-which_X    <- unique(this_pop$X_stat_index)
+this_pop       <- capt_history.phi %>% filter(pop_spec == the_pops[i])
+which_spec     <- which(the_specs == this_pop$Species[1])
+which_site     <- which(the_sites == this_pop$Site[1])
+which_pop      <- which(the_pops == this_pop$pop_spec[1])
+which_X        <- unique(this_pop$X_stat_index)
 
 
 outval   <- matrix(seq(1, 10, by = 1))
@@ -21,10 +21,9 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] +
     stan.fit.samples$offseason_pop[, which_pop] +
-    (stan.fit.samples$beta_offseason[, 2] + stan.fit.samples$beta_spec[, which_spec]) * outval[j] +
-    stan.fit.samples$beta_offseason[, 3] * 0
+    stan.fit.samples$offseason_pop_bd[, which_pop] * outval[j] +
+    stan.fit.samples$beta_offseason * 0
     )
 }
 
@@ -52,9 +51,8 @@ out.pred <- matrix(nrow = stan.length, ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
-    stan.fit.samples$beta_p[, 1]  + stan.fit.samples$p_pop[, which_pop] +
-    (stan.fit.samples$beta_p[, 2] + stan.fit.samples$p_pop_bd[, which_pop]) * outval[j] +
-    stan.fit.samples$beta_p[, 3] * 0 # + stan.fit.samples$beta_p[, 4] * 0
+    stan.fit.samples$p_pop[, which_pop] +
+    stan.fit.samples$beta_p * 0 
     )
 }
 
@@ -189,7 +187,7 @@ stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>%
       theme(axis.text.x = element_text(angle = 300, hjust = 0))
   }
 
-stan.fit.summary[grep("offseason_pop", dimnames(stan.fit.summary)[[1]]), ][15:27, ] %>% 
+stan.fit.summary[grep("offseason_pop", dimnames(stan.fit.summary)[[1]]), ][29:41, ] %>% 
   reshape2::melt() %>%
   filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
@@ -203,10 +201,27 @@ stan.fit.summary[grep("offseason_pop", dimnames(stan.fit.summary)[[1]]), ][15:27
       theme(axis.text.x = element_text(angle = 300, hjust = 0)) +
       scale_x_discrete(
         labels = the_pops
-      )
+      ) 
   }
 
-stan.fit.summary[grep("p_pop", dimnames(stan.fit.summary)[[1]]), ][29:41, ] %>% 
+stan.fit.summary[grep("offseason_pop", dimnames(stan.fit.summary)[[1]]), ][42:54, ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% {
+    ggplot(., aes(Var1, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
+      geom_point() +
+      geom_hline(yintercept = 0) +
+      xlab("Parameter") +
+      ylab("Estimate") +
+      theme(axis.text.x = element_text(angle = 300, hjust = 0)) +
+      scale_x_discrete(
+        labels = the_pops
+      ) 
+  }
+
+stan.fit.summary[grep("p_pop", dimnames(stan.fit.summary)[[1]]), ][15:27, ] %>% 
   reshape2::melt() %>%
   filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
@@ -314,8 +329,6 @@ capt_history %>%
   summarize(total_caps = sum(captured)) %>%
   left_join(., capt_history) %>% 
   
-
-
 capt_history %>% 
   group_by(Mark, pop_spec) %>% 
   summarize(total_caps = sum(captured)) %>%
@@ -326,3 +339,8 @@ capt_history %>%
       xlab("Bd Load (log10)") +
       facet_wrap(~pop_spec, scales = "free")
   }
+
+names(stan.fit.samples)
+
+plot(stan.fit.samples$offseason_pop_bd[, 2], stan.fit.samples$p_pop[, 2])
+

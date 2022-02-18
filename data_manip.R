@@ -28,7 +28,14 @@ sampled_periods <- sampling %>%
   mutate(sampled = 1) %>%
   arrange(Year, pop_spec, Month, SecNumConsec) 
 
-## Create a data frame of the caputre history of each unique individual in each population as
+## Just the sampled years in each population as well to be able to grab the correct
+ ## continuous covariate values
+sampled_years <- sampling %>% 
+  group_by(Site, pop_spec, Year) %>%
+  slice(1) %>%
+  dplyr::select(Site, Species, pop_spec, Year)
+
+## Create a data frame of the capture history of each unique individual in each population as
  ## well as extract individual covariates
 all_ind <- 0
 for (i in 1:n_sites) {
@@ -80,14 +87,24 @@ if (red_ind) {
 }
 
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
-if ("MeHgConc" %in% names(data.all)) {
+if ("MeHg_conc_ppb" %in% names(data.all)) {
 
 ind_cov <- data.i %>% group_by(Mark, Year, Month) %>% 
   summarize(
-    merc = mean(MeHgConc, na.rm = T)
+    merc = mean(MeHg_conc_ppb, na.rm = T)
     ## returns the one value or a mean if caught multiple times in one primary period
   , size = mean(as.numeric(MassG), na.rm = T)  
     ) %>% distinct()
+
+## For now (Dec 20. At some point will need to convert this to multiple imputation)
+num_no_size <- length(which(is.na(ind_cov$size)))
+
+if (num_no_size > 0) {
+  ind_cov[which(is.na(ind_cov$size)), ]$size <- mean(ind_cov[which(!is.na(ind_cov$size)), ]$size)
+}
+
+## Really not sure what to do with so much missing mercury data. If feasible could try and fit 
+ ## a second latent process to predict individual's unobserved mercury state...
 
 } else {
   

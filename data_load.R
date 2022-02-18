@@ -119,7 +119,7 @@ data.temp %<>% filter(Year %notin% no.swabyear$Year) %>% droplevels()
 
 data.temp %<>% dplyr::select(
     Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, BdResult, SVLmm, MassG, bd_load) %>%
+  , Mark, BdSample, BdResult, SVLmm, MassG, bd_load, HgSampleID) %>%
   mutate(dataset = i)
 
 ## Different data sets define SecNumConsec in different ways. Homogenize the choice by making this 
@@ -194,3 +194,47 @@ data.all %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
+
+
+####
+## Mercury and Habitat characteristics
+####
+
+## Load and subset to the sites that I have data for so far
+Oth_hab_cov     <- read.csv("data/xlsx/ARMI_CMR_OtherHabitatCovariates.csv") %>% filter(Site %in% unique(data.all$Site))
+temp_precip_hab <- read.csv("data/xlsx/ARMI_CMR_TempPrecip.csv") %>% filter(Site %in% unique(data.all$Site))
+
+## Habitat covaraite details:
+# HYDRO	     -- Hydroperiod: Temporary (T) or Permanent (P)
+# DRAWDOWN	 -- Drawdown % disappeared, 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
+# CANOPY	   -- % Woody canopy cover over wetland 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
+# VEG	       -- % sub and emergent vegetation in wetland 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
+# SUB	       -- substrate, organic (O) or inorganic (I)
+# WCOL	     -- water color: clear (C), brown (B), clear but tannin browned (TB)
+# SULF	     -- smell of sulfur: Yes (Y), Sometimes (S), No (N)
+# PRODUC	   -- Productivity: Oligo (O), Meso (M), Eutrophic (E)
+# Temp and Precip available 2017-2020, named sensibly
+
+## Mercury load 
+MeHG            <- read.csv("data/xlsx/CMR_MeHg.csv")
+
+## Checking for errors
+Me_Hg_error_check <- data.all %>% 
+  ungroup() %>% 
+  group_by(Site) %>% 
+  summarize(num_with_MeHgID = length(which(HgSampleID != ""))) %>%
+  left_join(.
+  , data.all %>% dplyr::select(Site, Mark, HgSampleID) %>%
+  left_join(
+    .
+  , (MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb))
+  ) %>% filter(!is.na(MeHg_conc_ppb)) %>% group_by(Site) %>% 
+  droplevels() %>%
+  summarize(num_with_measured_MeHg = n()))
+
+## Add the Mercury data to the main data frame
+ ## For mercury will simply rely on the barcode and not site -- which can take on different names :(
+data.all %<>% left_join(.
+  , MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb)
+  ) %>% dplyr::select(-HgSampleID)
+

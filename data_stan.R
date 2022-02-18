@@ -212,7 +212,7 @@ capt_history.bd_load %<>% left_join(
 
 ## Determine which population each individual is associated with
 
-ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
+ind_which_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
 
 ## Get the species and sites to be factors in the order that they appear in the data frames
 capt_history.phi     %<>% mutate(
@@ -231,4 +231,33 @@ capt_history.bd_load %<>% mutate(
   Species = factor(Species, levels = unique(Species))
 , Site    = factor(Site, levels    = unique(Site))
 )
+
+
+####
+## Some final manipulations for some more indexes
+####
+
+phi_pop_year <- (capt_history.phi %>% 
+    mutate(pop_year = interaction(pop_spec, Year)) %>%
+    dplyr::select(pop_year) %>%
+    mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>%
+    mutate(pop_year = as.numeric(pop_year)))$pop_year
+
+capt_history.phi %<>% 
+    mutate(pop_year = interaction(pop_spec, Year)) %>%
+    mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>%
+    mutate(pop_year = as.numeric(pop_year))
+
+X_stat_index_covs <- capt_history.phi %>% 
+  group_by(X_stat_index) %>% 
+  slice(1) %>% 
+  ungroup() %>%
+  mutate(
+    ind_in_pop_year = factor(pop_year, levels = unique(pop_year))
+  , pop_for_bd      = as.numeric(pop_spec)
+    ) %>%
+  mutate(ind_in_pop_year = as.numeric(ind_in_pop_year)) %>%
+  dplyr::select(
+    ind_in_pop_year, pop_for_bd, Mark
+  )
 
