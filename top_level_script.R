@@ -3,14 +3,39 @@
 #####################################
 
 ####
-## Notes as of Feb 17:
+## Notes as of March 4:
+####
+
+## 1) Now have all of the data. Still have a number of questions about it, but it seems close to clean
+ ## A) Update and strip the site level data 
+ ## B) Need to send to Brian T for feedback and QA/QC on the whole dataset
+
+## 2) The very first step with the new data is to update the code for the new [final?] structure to load
+ ## and join all of the data files (AS WELL AS the site covaraite data).
+  ## A) In short, make sure I can make it all the way to running a model (for now not worrying to much about
+   ## how specifically sensible that model is)
+
+## A few new things:
+ ## -- dead
+ ## -- injured
+
+  ## B)
+   ## -- After this need to extract the flagged rows and send those to Brian T
+   ## -- Note: there is a list of questions for Brian T and Evan/Dave in Mac Notes
+
+## 3) For trying the new data, the first step is to try and fit a few individual population models: 
+ ## -- Best to use RALU which is well behaved and then go from there. A sensible population to start with will be
+  ## LostHorse (LH_RALU)
+ ## For a mid-sized population try the three strategies of fitting within vs between season survival
+  ## 1. Continuous time survival
+  ## 2. Many Primary Periods in a year
+  ## 3. Primary Period just means year
+
+####
+## Comments from the previous few commits:
 ####
 
 ## Received data from Brian on site-level covariates and MeHg. Need to link these and bring them into the model
-
-####
-## Comments from the previous commit:
-####
 
 ## 1) Absolutely no chance of fitting a pop * year random effect for survival _apart_
  ## from the effect of bd. Going to need to simplify the model quite a bit
