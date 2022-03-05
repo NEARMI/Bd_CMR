@@ -1,4 +1,4 @@
-Site,SubSite,CaptureDate,Species,IndividualID,SVLmm,Sex,Age,MassG,BdSample,SwabLost,SwabID,BdResult,TargetCopies/sawb,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
+Site,SubSite,CaptureDate,Species,IndividualID,SVLmm,Sex,Age,MassG,BdSample,SwabLost,SwabID,BdResult,TargetCopies/swab,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
 SanFrancisquito,1,11/4/20,RADR,836380350,91.0,F,A,98.5,Y,0,1903200094,neg,0,,"CJH20-046 -S2, Abrasion on snout",1,,,
 SanFrancisquito,1,8/4/21,RADR,842789539,101.0,F,A,102.0,Y,0,2101900053,pos,853.938153718166,,Deformity on left front foot,1,,,
 SanFrancisquito,1,9/4/18,RADR,836524257,80.0,F,A,47.0,Y,0,1701600154,neg,0,,Missing 4 toe (right pinkie). changed lat from 34.545 to put in creek KLB 15Apr2019,0,,,

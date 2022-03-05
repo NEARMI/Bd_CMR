@@ -2,11 +2,10 @@
 ## Load each of the data files in the directory ##
 ##################################################
 
-data.files <- list.files("data")
-data.files <- data.files[-which(data.files == "xlsx")]
-data.files <- paste("data/", data.files, sep = "")
+data.files <- list.files("data/cleaned_cmr_csv")
+data.files <- paste("data/cleaned_cmr_csv/", data.files, sep = "")
 
-sampling   <- read.csv("data/xlsx/PP_SP.csv")
+sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv")
 
 date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
   a <- strsplit(x, split = "/")[[1]]
@@ -20,27 +19,10 @@ date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
   paste(c(a[c(1, 2)], b), collapse = "/")
 })
 
-sampling$Year  <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3]) %>% 
-  paste("20", ., sep = "") %>% as.numeric()
-
-sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% 
-  as.numeric()
+sampling$Year  <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3]) %>% as.numeric()
+sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
 
 sampling %<>% mutate(CaptureDate = as.Date(date_convert, "%m/%d/%y"))
-
-## can collapse all SubSites and rewrite SecNumConsec
-sampling %<>% 
-  group_by(Site) %>% 
-  arrange(Site, CaptureDate) %>% 
-  dplyr::select(-SubSite, -SecNumConsec) %>%
-  distinct() %>%
-  arrange(Site, CaptureDate, desc(Captures)) %>%
-  group_by(Site, Species, CaptureDate) %>%
-  slice(1) %>% 
-  ungroup(CaptureDate) %>%
-  mutate(
-    SecNumConsec = seq(n())
-  , SubSite      = 1)
 
 for (i in seq_along(data.files)) {
 
@@ -68,9 +50,8 @@ date_convert <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) {
   paste(c(a[c(1, 2)], b), collapse = "/")
 })
 
-Year <- apply(matrix(date_convert), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
-Year <- paste("20", Year, sep = "") %>% as.numeric()
-
+Year  <- apply(matrix(date_convert), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
+Year  <- paste("20", Year, sep = "") %>% as.numeric()
 Month <- apply(matrix(date_convert), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
 
 data.temp$CaptureDate <- date_convert
@@ -81,9 +62,8 @@ data.temp      %<>% mutate(
 
 } else {
   
-Year <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
-Year <- paste("20", Year, sep = "") %>% as.numeric()
-
+Year  <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][3])
+Year  <- paste("20", Year, sep = "") %>% as.numeric()
 Month <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
   
 data.temp      %<>% mutate(
@@ -106,9 +86,11 @@ if ("TrgetCopies.swb" %in% names(data.temp)) {
   
 }
   
+## Convert bd load to a numeric and drop all individuals that were never marked as they should
+ ## not be used to inform the model
 data.temp %<>% mutate(bd_load = as.numeric(bd_load)) %>%
-  rename(Mark = PitTagCode) %>%
-  filter(!is.na(Mark))
+  rename(Mark = IndividualID) %>%
+  filter(!is.na(Mark), Mark != "")
 
 ## check which years have no swabbing and remove them
 no.swabyear <- data.temp %>% group_by(Year) %>% 
@@ -117,17 +99,11 @@ no.swabyear <- data.temp %>% group_by(Year) %>%
 
 data.temp %<>% filter(Year %notin% no.swabyear$Year) %>% droplevels()
 
-data.temp %<>% dplyr::select(
-    Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, BdResult, SVLmm, MassG, bd_load, HgSampleID) %>%
-  mutate(dataset = i)
+## Create a subset of sampling to link up with the data to get the correct prim num and sec num
+sampling.temp <- sampling %>% filter(Site %in% data.temp$Site)
 
-## Different data sets define SecNumConsec in different ways. Homogenize the choice by making this 
- ## variable a count from 1 to n() and make sure that dates with no captures are still part of the data
-sampling.temp <- sampling %>% filter(Site %in% data.temp$Site) %>% 
-  dplyr::select(-Notes) %>%
-  rename(SecNumConsec_corrected = SecNumConsec)
-
+## Stupid numeric and non-numeric subsites, probably better to just convert all subsites to numeric
+ ## to avoid this sort of issue
 if ((class(data.temp$SubSite) == "integer" | class(data.temp$SubSite) == "numeric") & 
     class(sampling.temp$SubSite) == "character") {
   sampling.temp %<>% mutate(SubSite = as.numeric(SubSite))
@@ -138,23 +114,36 @@ if (class(data.temp$SubSite) == "character" &
   sampling.temp %<>% mutate(SubSite = as.character(SubSite))
 }
 
-sampling.temp %<>% dplyr::select(-SubSite)
+## Link up the PrimNum and SecNumConsec from "sampling" with data.temp
+data.temp %<>% left_join(.
+  , sampling.temp %>% dplyr::select(Site, SubSite, Species, CaptureDate, PrimNum, SecNumConsec)
+)
+
+## Some datasets have extra (and different) data columns than other datasets. Extract the necessary 
+ ## columns from each (already processed so that all files contain at least these)
+data.temp %<>% dplyr::select(
+    Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
+  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, bd_load, HgSampleID) %>%
+  mutate(dataset = i)
+
+## One strategy (probably the simplest one but could run into issues with detection if 
+ ## animals don't really move among sub-populations) is to collapse all SubSites and just use
+  ## the main site. Taking this strategy means SecNumConsec needs to be rewritten as well.
+   ## Do this here 
+sampling.temp %<>% 
+  rename(SecNumConsec_corrected = SecNumConsec) %>%
+  arrange(Site, CaptureDate) %>% 
+  dplyr::select(-SubSite, -SecNumConsec_corrected, -Notes, -Region, -State) %>%
+  distinct() %>%
+  arrange(Site, CaptureDate, desc(Captures)) %>%
+  group_by(Site, Species, CaptureDate) %>%
+  slice(1) %>% 
+  ungroup(CaptureDate) %>%
+  mutate(SecNumConsec_corrected = seq(n())) 
 
 data.temp %<>% left_join(., sampling.temp)
 
 data.temp %<>% dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
-
-#adj.SecNumConsec <- data.temp %>% group_by(CaptureDate) %>% 
-#  summarize(SecNumConsec = unique(SecNumConsec)) %>% 
-#  ungroup() %>%
-#  mutate(SecNumConsec_corrected = seq(n()))
-
-#data.temp %<>% left_join(., adj.SecNumConsec) %>% 
-#  dplyr::select(-SecNumConsec) %>% 
-#  rename(SecNumConsec = SecNumConsec_corrected)
-
-## drop all entries with no mark
-data.temp %<>% filter(Mark != "")
 
 ## -- this will have to be non-dynamic?? -- ##
 ## certain species disappear and capture events become mostly opportunistic. Need to figure out what to 
@@ -171,20 +160,18 @@ if (i == 1) {
   
 }
 
-## If a swab was taken and the result was negative, convert the copies/swab to
- ## zero and not na
-data.all %<>% mutate(
-  BdResult = ifelse(
-    is.na(BdResult) | BdResult == ""
-    , "no_samp"
-    , BdResult))
-
-data.all[
-  data.all$BdSample == "Y"   & 
-  data.all$BdResult == "neg" 
-    , ]$bd_load <- 0
-
-sampling %<>% dplyr::select(-SubSite, -Notes)
+## Adjust the master "sampling" file to match the choices for the data 
+ ## (i.e., dropping subsites as I am doing for now)
+sampling %<>% 
+  group_by(Site) %>% 
+  arrange(Site, CaptureDate) %>% 
+  dplyr::select(-SubSite, -SecNumConsec) %>%
+  distinct() %>%
+  arrange(Site, CaptureDate, desc(Captures)) %>%
+  group_by(Site, Species, CaptureDate) %>%
+  slice(1) %>% 
+  ungroup(CaptureDate) %>%
+  mutate(SecNumConsec = seq(n()))
 
 ## drop the opportunistic sampling of ANBO from JonesPond
 sampling %<>% filter(!(Site == "JonesPond" & Species == "ANBO" & SecNumConsec > 13))
@@ -194,7 +181,6 @@ data.all %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
-
 
 ####
 ## Mercury and Habitat characteristics

@@ -3,6 +3,27 @@
 #####################################
 
 ####
+## Notes as of March 5:
+####
+
+## -- Note to self for work on Monday. I am at [Mercury and Habitat characteristics] in "data_load.R"
+ ## Pick up from there.
+ ## It seems that all the data is loaded and joined correctly. and that __if__ the strategy is to collapse all subsites that is also working,
+ ## though __definitely__ need to double check in data_manip.R that the data frame of all sampling is constructed sensibly 
+
+## 1) While writing the code to bring in the new data, the following issues were unearthed:
+ ## A) Currently subsites are just removed and dates put together in a string so that the sampling is treated as if
+  ## a single subsite being visited equated to the population (really a broader metapopulation) being sampled
+ ## -- This strategy is a bit crazy anyway, because we only really expect a small portion of the population to be 
+  ##   able to be sampled if only a subset of the total sites are sampled. This becomes less of an issue the more subsites
+  ##   that are sampled on each unique date. Still need to figure out what to do about this aspect
+ ## -- need to examine all subsites of all sites to determine how much animals move and how much we need to deal with this
+
+ 
+## 2) Other problems to resolve are listed in the notes below or in mac Notes
+ ## A) One notable issue is the substantial amount of confusion in the newt marking system
+
+####
 ## Notes as of March 4:
 ####
 
