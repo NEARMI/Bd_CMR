@@ -123,7 +123,9 @@ data.temp %<>% left_join(.
  ## columns from each (already processed so that all files contain at least these)
 data.temp %<>% dplyr::select(
     Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, potential_injury_effect, bd_load, HgSampleID) %>%
+  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, potential_injury_effect, bd_load, HgSampleID
+  , flagged, reason, Notes 
+  ) %>%
   mutate(dataset = i)
 
 ## One strategy (probably the simplest one but could run into issues with detection if 
@@ -225,3 +227,7 @@ Me_Hg_error_check <- data.all %>%
 data.all %<>% left_join(.
   , MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb)
   ) %>% dplyr::select(-HgSampleID)
+
+data.all %<>% relocate(c(flagged, reason, Notes), .after = MeHg_conc_ppb)
+data.all %<>% relocate(pop_spec, .after = Species)
+

@@ -3,6 +3,15 @@
 #####################################
 
 ####
+## Notes as of March 7:
+####
+
+## Writing these notes a bit quickly at EoD. Leaving the rest of the notes below to revisit tomorrow...
+ ## Got all data to join and a model functioning?
+ ## Running a single population model now. Need to work through the modeling steps listed below in March 5 notes
+
+
+####
 ## Notes as of March 5:
 ####
 
