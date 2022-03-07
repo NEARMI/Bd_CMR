@@ -6,9 +6,7 @@
 
 ## Again, really need to move to multiple imputation (treating the NAs as latent variables to be estimated)
  ## for both size and mercury. HOWEVER, want to first get the model running
-
-ind.size <- (capt_history %>% group_by(Mark) %>%
-  summarize(size = mean(size, na.rm = T)))$size
+ind.size <- (capt_history %>% group_by(Mark) %>% summarize(size = mean(size, na.rm = T)))$size
 
 ind.size[which(is.na(ind.size))] <- mean(ind.size[-which(is.na(ind.size))])
 
@@ -16,6 +14,16 @@ if (all(is.nan(ind.size))) {
 ind.size[ ] <- 0
 } else {
 ind.size <- scale(ind.size)[, 1] 
+}
+
+ind.len <- (capt_history %>% group_by(Mark) %>% summarize(len = mean(len, na.rm = T)))$len
+
+ind.len[which(is.na(ind.len))] <- mean(ind.len[-which(is.na(ind.len))])
+
+if (all(is.nan(ind.len))) {
+ind.len[ ] <- 0
+} else {
+ind.len <- scale(ind.len)[, 1] 
 }
 
 if ("merc" %in% names(capt_history)) {
@@ -92,3 +100,4 @@ site_covar.con %<>%
   , Temp_Mean   = ifelse(is.na(Temp_Mean), mean(Temp_Mean, na.rm = T), Temp_Mean)
   , Temp_SD     = ifelse(is.na(Temp_SD), mean(Temp_SD, na.rm = T), Temp_SD)
     )
+

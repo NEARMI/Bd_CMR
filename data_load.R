@@ -123,7 +123,7 @@ data.temp %<>% left_join(.
  ## columns from each (already processed so that all files contain at least these)
 data.temp %<>% dplyr::select(
     Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, bd_load, HgSampleID) %>%
+  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, potential_injury_effect, bd_load, HgSampleID) %>%
   mutate(dataset = i)
 
 ## One strategy (probably the simplest one but could run into issues with detection if 
@@ -187,8 +187,10 @@ sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
 ####
 
 ## Load and subset to the sites that I have data for so far
-Oth_hab_cov     <- read.csv("data/xlsx/ARMI_CMR_OtherHabitatCovariates.csv") %>% filter(Site %in% unique(data.all$Site))
-temp_precip_hab <- read.csv("data/xlsx/ARMI_CMR_TempPrecip.csv") %>% filter(Site %in% unique(data.all$Site))
+Oth_hab_cov     <- read.csv("data/cleaned_cov_csv/ARMI_CMR_OtherHabitatCovariates.csv") %>% 
+  filter(Site %in% unique(data.all$Site))
+temp_precip_hab <- read.csv("data/cleaned_cov_csv/ARMI_CMR_TempPrecip.csv") %>% 
+  filter(Site %in% unique(data.all$Site))
 
 ## Habitat covaraite details:
 # HYDRO	     -- Hydroperiod: Temporary (T) or Permanent (P)
@@ -202,7 +204,7 @@ temp_precip_hab <- read.csv("data/xlsx/ARMI_CMR_TempPrecip.csv") %>% filter(Site
 # Temp and Precip available 2017-2020, named sensibly
 
 ## Mercury load 
-MeHG            <- read.csv("data/xlsx/CMR_MeHg.csv")
+MeHG            <- read.csv("data/cleaned_cov_csv/CMR_MeHg.csv")
 
 ## Checking for errors
 Me_Hg_error_check <- data.all %>% 
@@ -223,4 +225,3 @@ Me_Hg_error_check <- data.all %>%
 data.all %<>% left_join(.
   , MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb)
   ) %>% dplyr::select(-HgSampleID)
-

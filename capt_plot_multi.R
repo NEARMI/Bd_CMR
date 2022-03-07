@@ -47,5 +47,3 @@ capt_history %>%
       facet_wrap(~variable) +
       xlab("Number of Captures")
       }
-
-

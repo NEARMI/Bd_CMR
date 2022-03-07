@@ -6,6 +6,7 @@ stan_data     <- list(
   
   ## dimensional indexes 
    n_pop             = n_sites
+ , n_pop_year        = nrow(sampled_years)
  , n_ind             = n_ind
  , ind_per_period_p  = max(capt_history.p$gamma_index) 
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
@@ -34,12 +35,13 @@ stan_data     <- list(
  , phi_zeros         = capt_history.phi$phi_zeros
  , phi_ones          = capt_history.phi$phi_ones
  , phi_bd_index      = capt_history.phi$X_stat_index
+ , capt_gaps         = capt_history.phi$capture_gap
 
   ## long vector indexes: bd stuff (bd)
  , ind_bd_rep        = (capt_history.phi %>% group_by(X_stat_index) %>%slice(1))$Mark
  , bd_time           = (capt_history.phi %>% group_by(X_stat_index) %>%slice(1))$Year %>% as.factor() %>% as.numeric()
 
-  ## covariates, bd and others
+  ## individual-level covariates, bd and others
  , N_bd              = nrow(capt_history.bd_load)
  , X_bd              = capt_history.bd_load$log_bd_load
  , X_ind             = capt_history.bd_load$Mark
@@ -49,6 +51,18 @@ stan_data     <- list(
  , x_bd_index        = capt_history.bd_load$X_stat_index
   
  , ind_size          = ind.size
+ , ind_len           = ind.len
+ , ind_hg            = ind.hg
+  
+  ## site-level covariates, categorical 
+   ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
+   ## from the correct pop:spec
+ , pop_drawdown     = site_covar.cat$DRAWDOWN
+  
+  ## site-level covariates, continuous
+   ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
+   ## from the correct pop:spec
+ , pop_temp         = site_covar.con$Temp_Mean
   
   ## Capture data
  , N_y             = nrow(capt_history)
@@ -57,15 +71,10 @@ stan_data     <- list(
  , last            = capture_range$final
 
   )
-
-if (exists("ind_hg")) {
-  
- stan_data <- c(stan_data, ind_hg = ind.hg)
-  
-}
   
 stan.fit  <- stan(
-  file    = "CMR_single_population.stan"
+# file    = "CMR_single_population.stan"
+  file    = "CMR_single_population_con.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

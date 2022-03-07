@@ -79,17 +79,21 @@ capt_history.p %<>%
   mutate(p_zeros = cumsum(p_zeros)) %>% 
   mutate(p_zeros = ifelse(p_zeros > 0, 1, 0))
 
+## Mutate gets __really__ slow with very large data frames, so instead pull out the column, adjust it along, and stick it back into the data frame
+ ## There may be a better way to do this, but for speed considerations I am not aware of any
+
 ## These p_zeros are used to inform a scaling factor on detection probability (one scaling factor for each
  ## individual in each primary period). Need an index for these scaling factors
-capt_history.p %<>% 
-  mutate(gamma_index = paste(interaction(Mark, Year, Month),"a",sep="_")) %>% 
-  mutate(gamma_index = factor(gamma_index, levels = unique(gamma_index))) %>%
-  mutate(gamma_index = as.numeric(gamma_index))
+capt_history.p %<>% mutate(gamma_index = paste(interaction(Mark, Year, Month), "a", sep = "_"))
+uni_gamma_index <- unique(capt_history.p$gamma_index)
+gamma_index     <- factor(capt_history.p$gamma_index, levels = uni_gamma_index) %>% as.numeric()
 
-capt_history.p %<>% 
-  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
-  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
-  mutate(X_stat_index = as.numeric(X_stat_index))
+capt_history.p   %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_"))
+uni_X_stat_index <- unique(capt_history.p$X_stat_index)
+X_stat_index     <- factor(capt_history.p$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
+
+capt_history.p$gamma_index  <- gamma_index
+capt_history.p$X_stat_index <- X_stat_index
 
 ####
 ## Data for survival (.phi for survival)
@@ -106,17 +110,17 @@ capt_history.phi <- capt_history %>%
   filter(SecNumConsec != last_period, sampled == 1) %>% 
   ungroup()
 
-## Find the transitions between primary periods within the same year. This is the first of the survival processes.
- ## Designated with "time_gaps" because in some populations the time period between primary periods may
-  ## be longer than in other populations. Want to control for this
+## Find the transitions between primary periods within the same year. 
+ ## This is the first of the survival processes.
+  ## Designated with "time_gaps" because in some populations the time period between primary periods may
+   ## be longer than in other populations. Want to control for this
 time_gaps <- (capt_history %>% 
   filter(sampled == 1) %>%
   group_by(pop_spec, Mark, Year) %>% 
   mutate(time_gaps =  Month - lag(Month, 1)) %>% 
   mutate(time_gaps = ifelse(is.na(time_gaps), 0, time_gaps)) %>%
   ungroup(Year) %>%
-  mutate(time_gaps = c(time_gaps[-1], NA)) %>% 
-    filter(!is.na(time_gaps)) %>%
+  mutate(time_gaps = c(time_gaps[-1], NA)) %>% filter(!is.na(time_gaps)) %>%
   mutate(time_gaps = ifelse(time_gaps > 1, 1, time_gaps)))$time_gaps
  
 capt_history.phi %<>% mutate(time_gaps = time_gaps)
@@ -143,11 +147,14 @@ capt_history.phi %<>%
   mutate(phi_zeros = cumsum(captured)) %>% 
   mutate(phi_zeros = 1 - ifelse(phi_zeros > 0, 1, 0))
 
-## Index for periods over which to take summary values of bd to inform between season survival
-capt_history.phi %<>% 
-  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
-  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
-  mutate(X_stat_index = as.numeric(X_stat_index))
+## Index for periods over which to take summary values of bd to inform between season survival.
+ ## Another spot where it is faster to not use factor() inside of mutate()
+
+capt_history.phi %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_"))
+uni_X_stat_index <- unique(capt_history.phi$X_stat_index)
+X_stat_index     <- factor(capt_history.phi$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
+
+capt_history.phi$X_stat_index <- X_stat_index
 
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
 capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
@@ -156,10 +163,11 @@ capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 
 ## One final adjustment to capt.history
 ####
 
-capt_history %<>% 
-  mutate(X_stat_index = paste(interaction(Mark, Year),"a",sep="_")) %>% 
-  mutate(X_stat_index = factor(X_stat_index, levels = unique(X_stat_index))) %>%
-  mutate(X_stat_index = as.numeric(X_stat_index))
+capt_history %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_")) 
+uni_X_stat_index <- unique(capt_history$X_stat_index)
+X_stat_index     <- factor(capt_history$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
+
+capt_history$X_stat_index <- X_stat_index
 
 ####
 ## Data for latent bd 
@@ -214,7 +222,7 @@ capt_history.bd_load %<>% left_join(
 
 ind_which_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
 
-## Get the species and sites to be factors in the order that they appear in the data frames
+## Get the species and sites to be factors in the order that they appear in the data frames. 
 capt_history.phi     %<>% mutate(
   Species = factor(Species, levels = unique(Species))
 , Site    = factor(Site, levels    = unique(Site))
@@ -231,7 +239,6 @@ capt_history.bd_load %<>% mutate(
   Species = factor(Species, levels = unique(Species))
 , Site    = factor(Site, levels    = unique(Site))
 )
-
 
 ####
 ## Some final manipulations for some more indexes
@@ -260,4 +267,3 @@ X_stat_index_covs <- capt_history.phi %>%
   dplyr::select(
     ind_in_pop_year, pop_for_bd, Mark
   )
-

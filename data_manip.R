@@ -3,10 +3,11 @@
 ##########################################################
 
 ## number of unique sites (populations) in the combined dataset
-n_sites <- unique(sampling$pop_spec) %>% length()
 u_sites <- unique(sampling$pop_spec)
+n_sites <- u_sites %>% length()
+n_spec  <- unique(sampling$Species) %>% length()
 
-## Find the first and last time period ever sampled in each population
+## Find the first and last time period (here months) ever sampled in each population
 period_range <- sampling %>% 
   group_by(pop_spec) %>% 
   summarize(
@@ -42,7 +43,7 @@ for (i in 1:n_sites) {
   
 ## Extract a given site and sampling characteristics of that site
 period_range.i    <- period_range %>% filter(pop_spec == u_sites[i])
-data.i            <- data.all %>% filter(pop_spec == u_sites[i])
+data.i            <- data.all %>% filter(pop_spec == u_sites[i]) %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
 sampled_periods.i <- sampled_periods %>% filter(pop_spec == u_sites[i])
   
 capt_history.t <- 
@@ -56,7 +57,7 @@ expand.grid(
   ## Add species to not screw up multi-species sites
   left_join(., data.i %>% dplyr::select(Mark, Species) %>% distinct()) %>%
   ## Add in which periods were sampled and which individuals were sampled
-  left_join(., sampled_periods.i %>% dplyr::select(-CaptureDate)) %>% 
+  left_join(., sampled_periods.i) %>% 
   left_join(., (data.i %>% dplyr::select(Month, Year,  Mark, SecNumConsec, Species, bd_load, BdSample))) %>% 
   ## drop the times that were never sampled
   filter(!is.na(SecNumConsec)) %>% 
@@ -76,9 +77,15 @@ expand.grid(
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)
   )
 
+## And calculate the duration between each sampling day for each individual
+capt_history.t %<>% group_by(Mark, Year) %>% 
+  rename(capture_date = CaptureDate) %>%
+    ## In reality the 0 should be an NA, but with the way the model is set up the 0 isn't used (and stan cant have NA)
+  mutate(capture_gap = c(as.numeric((capture_date - lag(capture_date, 1))[-1]), 0)) 
+
 # capt_history.t %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
 
-## There are some duplicate entries? (Individuals caught more than once in a day??)
+## There are some duplicate entries. Rare but does happen. Probably either poor QA/QC or possibly individuals caught more than once in a day
 capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
 
 if (red_ind) {
@@ -94,13 +101,21 @@ ind_cov <- data.i %>% group_by(Mark, Year, Month) %>%
     merc = mean(MeHg_conc_ppb, na.rm = T)
     ## returns the one value or a mean if caught multiple times in one primary period
   , size = mean(as.numeric(MassG), na.rm = T)  
+  , len  = mean(as.numeric(SVLmm), na.rm = T)
+  , inj  = ifelse(any(potential_injury_effect == 1), 1, 0)
     ) %>% distinct()
 
-## For now (Dec 20. At some point will need to convert this to multiple imputation)
-num_no_size <- length(which(is.na(ind_cov$size)))
+num_no_data <- c(
+  num_no_size = length(which(is.na(ind_cov$size)))
+, num_no_len  = length(which(is.na(ind_cov$len)))
+  )
 
-if (num_no_size > 0) {
+## For now (At some point will need to convert this to multiple imputation)
+if (num_no_data["num_no_size"] > 0) {
   ind_cov[which(is.na(ind_cov$size)), ]$size <- mean(ind_cov[which(!is.na(ind_cov$size)), ]$size)
+}
+if (num_no_data["num_no_len"] > 0) {
+  ind_cov[which(is.na(ind_cov$len)), ]$len   <- mean(ind_cov[which(!is.na(ind_cov$len)), ]$len)
 }
 
 ## Really not sure what to do with so much missing mercury data. If feasible could try and fit 
@@ -127,11 +142,9 @@ capt_history.t %<>% left_join(., ind_cov)
 ## Jump through a few hoops to name unique individuals
  ## NOTE: this is an issue if individuals move populations (as that individual in each population will be
   ## labeled as a different individual). Not sure what to do about it though
-capt_history.t %<>% mutate(Mark = as.factor(Mark)) %>%
-  mutate(Mark = as.numeric(Mark))
-n_inds <- max(capt_history.t$Mark)
+n_inds         <- max(capt_history.t$Mark)
 capt_history.t %<>% mutate(Mark = Mark + all_ind)
-all_ind <- all_ind + n_inds
+all_ind        <- all_ind + n_inds
 
 ## Add in other needed indexing columns
 capt_history.t %<>% ungroup() %>% 
@@ -141,7 +154,8 @@ capt_history.t %<>% ungroup() %>%
    month_year  = interaction(Month, Year)
  , month_year  = as.factor(month_year)
  , month_year  = as.numeric(month_year)
-)
+) %>% relocate(month_year, .after = Year) %>% 
+  dplyr::select(-Notes)
 
 if (i == 1) {
 capt_history <- capt_history.t
@@ -153,6 +167,8 @@ capt_history <- rbind(capt_history, capt_history.t)
 
 print("--------------")
 print(paste("Through", i, "of", n_sites, "sites", sep = " "))
+print(paste(all_ind, "Total Individuals Organized", sep = " "))
+print(paste("Uses", object.size(capt_history)/1E9, "Gb", sep = " "))
 print("--------------")
 
 }

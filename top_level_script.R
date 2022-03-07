@@ -69,7 +69,7 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- FALSE
+single_pop <- TRUE
 
 if (single_pop) {
 which.dataset <- unique(data.all$pop_spec)[12]

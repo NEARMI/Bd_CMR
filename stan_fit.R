@@ -16,9 +16,9 @@ stan_data     <- list(
  , ind_occ_min1      = nrow(capt_history.phi)
   
   ## short vector indexes (length of n_ind)
- , ind_occ_size      = rep(colSums(n_occ), n_ind.per)
- , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)
- , p_first_index     = p_first_index
+ , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           ## number of sampling events that each individual could possibly have been observed
+ , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)      
+ , p_first_index     = p_first_index                            ## with the long database form this is the first entry associated with a given individual
  , phi_first_index   = phi_first_index
  , ind_which_pop     = ind_which_pop
  
@@ -47,8 +47,8 @@ stan_data     <- list(
  , phi_zeros         = capt_history.phi$phi_zeros
  , phi_ones          = capt_history.phi$phi_ones
  , phi_bd_index      = capt_history.phi$X_stat_index
- , time_gaps         = capt_history.phi$time_gaps  
  , phi_pop_year      = capt_history.phi$pop_year
+ , capt_gaps         = capt_history.phi$capture_gap
 
   ## individual-level covariates, bd and others
  , N_bd              = nrow(capt_history.bd_load)
@@ -77,7 +77,7 @@ stan_data     <- list(
 
   )
 
-if (exists("ind_hg")) {
+if (exists("ind.hg")) {
   
  stan_data <- c(stan_data, ind_hg = ind.hg)
   
