@@ -1,4 +1,4 @@
-Site,SubSite,CaptureDate,Species	,IndividualID,MassG,Sex,Age,SVLmm,BdSample,SwabLost,SwabID,BdResult,TrgetCopies/swb,HgSampleID,Comments,potential_injury_effect,flagged,reason,dead
+Site,SubSite,CaptureDate,Species	,IndividualID,MassG,Sex,Age,SVLmm,BdSample,SwabLost,SwabID,BdResult,TrgetCopies/swb,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
 FoxCreek,P-850A,6/28/2021,RABO,,5,U,J,36,Y,0,2100600058,pos,755.3638904,,"Not tagged, too small, but we swabbed before realizing how small it was.",0,1,not tagged,
 SummitMeadow,Y-1526A,9/4/2019,RASI,985153000043060,64,F,A,80,Y,0,1902600376,pos,2971.712338,,,0,0,,
 SummitMeadow,Y-1526A,7/27/2019,RASI,985153000043060,55,F,A,77,Y,0,1902600268,pos,16115.64407,,,0,0,,
