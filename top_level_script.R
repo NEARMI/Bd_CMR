@@ -3,6 +3,14 @@
 #####################################
 
 ####
+## Notes as of March 8:
+####
+
+## Some model considerations:
+ ## -- To have coefficients comparable could use the individual random effect estimate which is centered on zero instead of raw estimated bd
+
+
+####
 ## Notes as of March 7:
 ####
 

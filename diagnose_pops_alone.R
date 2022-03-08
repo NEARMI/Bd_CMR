@@ -10,6 +10,7 @@ single_pop <- FALSE
 source("data_load.R")
 source("data_manip.R")
 source("data_stan.R")
+source("data_covariates.R")
 
 for (i in seq_along(fits.files)) {
   
@@ -49,8 +50,8 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 for (j in 1:ncol(out.pred)) {
   out.pred[, j] <- plogis(
     stan.fit.samples$beta_phi[, 1] + 
-    stan.fit.samples$beta_phi[, 2] * outval[j] +
-    stan.fit.samples$beta_phi[, 3] * 0 
+    stan.fit.samples$beta_phi[, 2] * 0 +
+    stan.fit.samples$beta_phi[, 3] * outval[j] 
     )
 }
 
@@ -58,7 +59,7 @@ out.pred <- reshape2::melt(out.pred) %>%
   rename(iter = Var1, gap = Var2) %>% 
   mutate(gap = plyr::mapvalues(gap
     , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "bd")
+  mutate(variable = "day_gap")
 
 out.pred.in <- out.pred %>%
   group_by(gap, variable) %>%
@@ -73,14 +74,15 @@ out.pred.in <- out.pred %>%
   , species    = this_spec  
   )
 
-outval   <- matrix(seq(1, 10, by = 1))
+outval   <- matrix(seq(1, 14, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
     stan.fit.samples$beta_offseason_year[, 2] + 
     stan.fit.samples$beta_offseason[, 1] * outval[j] +
-    stan.fit.samples$beta_offseason[, 2] * 0
+    stan.fit.samples$beta_offseason[, 2] * 0 +
+    stan.fit.samples$beta_offseason[, 3] * 0
     )
 }
 
@@ -88,9 +90,40 @@ out.pred <- reshape2::melt(out.pred) %>%
   rename(iter = Var1, gap = Var2) %>% 
   mutate(gap = plyr::mapvalues(gap
     , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "bd")
+  mutate(variable = "Bd")
 
 out.pred.off <- out.pred %>%
+  group_by(gap, variable) %>%
+  summarize(
+    lwr = quantile(value, 0.1)
+  , mid = quantile(value, 0.5)
+  , upr = quantile(value, 0.9)
+  ) %>% mutate(
+    when       = "offseason"
+  , population = this_pop
+  , location   = this_loc
+  , species    = this_spec  
+  )
+
+outval   <- matrix(seq(-2, 2, by = .1))
+out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
+
+for (j in 1:ncol(out.pred)) {
+   out.pred[, j] <- plogis(
+    stan.fit.samples$beta_offseason_year[, 2] + 
+    stan.fit.samples$beta_offseason[, 1] * 5 +
+    stan.fit.samples$beta_offseason[, 2] * 0 +
+    stan.fit.samples$beta_offseason[, 3] * outval[j]
+    )
+}
+
+out.pred <- reshape2::melt(out.pred) %>% 
+  rename(iter = Var1, gap = Var2) %>% 
+  mutate(gap = plyr::mapvalues(gap
+    , from = unique(gap), to = unique(outval))) %>%
+  mutate(variable = "MeHg")
+
+out.pred.off.2 <- out.pred %>%
   group_by(gap, variable) %>%
   summarize(
     lwr = quantile(value, 0.1)
@@ -106,16 +139,16 @@ out.pred.off <- out.pred %>%
 out.pred.bd <- rbind(
   out.pred.in
 , out.pred.off
+, out.pred.off.2
 )
 
-outval   <- matrix(seq(1, 10, by = 1))
+outval   <- matrix(seq(-2, 2, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
     stan.fit.samples$beta_p[, 1] + 
-    stan.fit.samples$beta_p[, 2] * outval[j] +
-    stan.fit.samples$beta_p[, 3] * 0
+    stan.fit.samples$beta_p[, 2] * outval[j]
     )
 }
 
@@ -123,7 +156,7 @@ out.pred <- reshape2::melt(out.pred) %>%
   rename(iter = Var1, gap = Var2) %>% 
   mutate(gap = plyr::mapvalues(gap
     , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "detection")
+  mutate(variable = "detection_size")
 
 out.pred.p <- out.pred %>%
   group_by(gap, variable) %>%
@@ -229,7 +262,7 @@ if (i == 1) {
 }
 
 print("--------------")
-print(paste("Through", i, "of", n_sites, "sites", sep = " "))
+print(paste("Through", i, "of", length(seq_along(fits.files)), "sites", sep = " "))
 print("--------------")
 
 }
@@ -267,7 +300,16 @@ beta_est.all %>%
       )
 }
 
-out.pred.all %>% filter(when == "offseason") %>% {
+out.pred.all %>% filter(when == "offseason", variable == "Bd") %>% {
+  ggplot(., aes(gap, mid)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
+    geom_line(aes(colour = location), size = 1) +
+    xlab("Bd Copies (log)") +
+    ylab("Apparent Survival Between Seasons") +
+    facet_wrap(~species)
+}
+
+out.pred.all %>% filter(when == "offseason", variable == "MeHg") %>% {
   ggplot(., aes(gap, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
     geom_line(aes(colour = location), size = 1) +
@@ -280,7 +322,7 @@ out.pred.p.all %>% {
   ggplot(., aes(gap, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
     geom_line(aes(colour = location), size = 1) +
-    xlab("Bd Copies (log)") +
+    xlab("Size") +
     ylab("Detection Probability") +
     facet_wrap(~species)
 }
