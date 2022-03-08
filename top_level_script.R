@@ -6,77 +6,32 @@
 ## Notes as of March 8:
 ####
 
-## Some model considerations:
- ## -- To have coefficients comparable could use the individual random effect estimate which is centered on zero instead of raw estimated bd
+## Step 1 for tomorrow is to double check the few missing swab values in the adams data set
+ ## and to figure out what to do with the dpulicate swabs
 
+## Code seems to be working, simple model seems to be working pretty well for individual populations (at least RALU so far)
+ ## Next critical piece is to update the script the fits each and every population individually and then run it.
+  ## -- The steps to get this running will be: 
+   ## 1) Fill out a lookup table for what covaraties can be fit for different populations
+   ## 2) Dynamically build the stan model for each population based on this lookup table
 
-####
-## Notes as of March 7:
-####
+## Summary of notes from the past few days:
+ ## DATA:
+  ## -- Many unresolved questions still with Brian T
+  ## -- Jill working on Mercury samples for 2019 and 2020
+  ## -- Injury covariate and drop dead individuals
 
-## Writing these notes a bit quickly at EoD. Leaving the rest of the notes below to revisit tomorrow...
- ## Got all data to join and a model functioning?
- ## Running a single population model now. Need to work through the modeling steps listed below in March 5 notes
+ ## MODEL:
+  ## -- Most importantly it is still a pretty big question of what to do with sub-populations
+   ##   (opens a can of worms about meta-population, super-population, movement between subsites etc.)
+   ##   The major problems are about bias in detection because of assuming individuals are potentially found when they really are not
+   ##     (because they are in a different subpopulation)
+   ##   SEE OLDER NOTES FROM A PREVIOUS COMMIT FOR A LONGER DISCUSSION
+  ## -- And a slightly less major question about how to deal with primary periods and secondary periods vs continuous times between captures
+  ## -- Still many open questions about what covariates to use and how to merge discrete covariates
+  ## -- Potential mercury latent model
+  ## -- Multiple imputation for unobserved covariates
 
-
-####
-## Notes as of March 5:
-####
-
-## -- Note to self for work on Monday. I am at [Mercury and Habitat characteristics] in "data_load.R"
- ## Pick up from there.
- ## It seems that all the data is loaded and joined correctly. and that __if__ the strategy is to collapse all subsites that is also working,
- ## though __definitely__ need to double check in data_manip.R that the data frame of all sampling is constructed sensibly 
-
-## 1) While writing the code to bring in the new data, the following issues were unearthed:
- ## A) Currently subsites are just removed and dates put together in a string so that the sampling is treated as if
-  ## a single subsite being visited equated to the population (really a broader metapopulation) being sampled
- ## -- This strategy is a bit crazy anyway, because we only really expect a small portion of the population to be 
-  ##   able to be sampled if only a subset of the total sites are sampled. This becomes less of an issue the more subsites
-  ##   that are sampled on each unique date. Still need to figure out what to do about this aspect
- ## -- need to examine all subsites of all sites to determine how much animals move and how much we need to deal with this
-
- 
-## 2) Other problems to resolve are listed in the notes below or in mac Notes
- ## A) One notable issue is the substantial amount of confusion in the newt marking system
-
-####
-## Notes as of March 4:
-####
-
-## 1) Now have all of the data. Still have a number of questions about it, but it seems close to clean
- ## A) Update and strip the site level data 
- ## B) Need to send to Brian T for feedback and QA/QC on the whole dataset
-
-## 2) The very first step with the new data is to update the code for the new [final?] structure to load
- ## and join all of the data files (AS WELL AS the site covaraite data).
-  ## A) In short, make sure I can make it all the way to running a model (for now not worrying to much about
-   ## how specifically sensible that model is)
-
-## A few new things:
- ## -- dead
- ## -- injured
-
-  ## B)
-   ## -- After this need to extract the flagged rows and send those to Brian T
-   ## -- Note: there is a list of questions for Brian T and Evan/Dave in Mac Notes
-
-## 3) For trying the new data, the first step is to try and fit a few individual population models: 
- ## -- Best to use RALU which is well behaved and then go from there. A sensible population to start with will be
-  ## LostHorse (LH_RALU)
- ## For a mid-sized population try the three strategies of fitting within vs between season survival
-  ## 1. Continuous time survival
-  ## 2. Many Primary Periods in a year
-  ## 3. Primary Period just means year
-
-####
-## Comments from the previous few commits:
-####
-
-## Received data from Brian on site-level covariates and MeHg. Need to link these and bring them into the model
-
-## 1) Absolutely no chance of fitting a pop * year random effect for survival _apart_
- ## from the effect of bd. Going to need to simplify the model quite a bit
 
 ## Packages and Functions
 source("packages_functions.R")
@@ -86,7 +41,7 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- TRUE
+single_pop <- FALSE
 
 if (single_pop) {
 which.dataset <- unique(data.all$pop_spec)[12]

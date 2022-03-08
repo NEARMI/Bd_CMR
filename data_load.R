@@ -123,7 +123,7 @@ data.temp %<>% left_join(.
  ## columns from each (already processed so that all files contain at least these)
 data.temp %<>% dplyr::select(
     Site, SubSite, Species, CaptureDate, Year, Month, PrimNum, SecNumConsec
-  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, potential_injury_effect, bd_load, HgSampleID
+  , Mark, BdSample, BdResult, SwabLost, SVLmm, MassG, Sex, Age, potential_injury_effect, bd_load, HgSampleID
   , flagged, reason, Notes 
   ) %>%
   mutate(dataset = i)
@@ -230,4 +230,16 @@ data.all %<>% left_join(.
 
 data.all %<>% relocate(c(flagged, reason, Notes), .after = MeHg_conc_ppb)
 data.all %<>% relocate(pop_spec, .after = Species)
+
+## Before filling in some unmeasured covariates in later scripts for model development (later will do something
+ ## more sensible), check how often these covariates were measured
+cov_meas <- data.all %>%
+  group_by(Site) %>%
+  summarize(
+    prop_merc   = length(which(!is.na(MeHg_conc_ppb))) / n()
+  , prop_weight = length(which(!is.na(MassG))) / n()
+  , prop_length = length(which(!is.na(SVLmm))) / n()
+  , prop_sex    = length(which(!is.na(Sex))) / n()
+  , prop_age    = length(which(!is.na(Age))) / n()
+  )
 

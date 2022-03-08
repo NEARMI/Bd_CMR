@@ -49,9 +49,8 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
   out.pred[, j] <- plogis(
-    stan.fit.samples$beta_phi[, 1] + 
-    stan.fit.samples$beta_phi[, 2] * 0 +
-    stan.fit.samples$beta_phi[, 3] * outval[j] 
+    stan.fit.samples$beta_inseason_year[, 2] + 
+    stan.fit.samples$beta_phi * outval[j] 
     )
 }
 
@@ -142,21 +141,18 @@ out.pred.bd <- rbind(
 , out.pred.off.2
 )
 
-outval   <- matrix(seq(-2, 2, by = 1))
+outval   <- matrix(seq(1, 4, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
-   out.pred[, j] <- plogis(
-    stan.fit.samples$beta_p[, 1] + 
-    stan.fit.samples$beta_p[, 2] * outval[j]
-    )
+   out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]])
 }
 
 out.pred <- reshape2::melt(out.pred) %>% 
   rename(iter = Var1, gap = Var2) %>% 
   mutate(gap = plyr::mapvalues(gap
     , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "detection_size")
+  mutate(variable = "detection_year")
 
 out.pred.p <- out.pred %>%
   group_by(gap, variable) %>%
@@ -320,8 +316,7 @@ out.pred.all %>% filter(when == "offseason", variable == "MeHg") %>% {
 
 out.pred.p.all %>% {
   ggplot(., aes(gap, mid)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
-    geom_line(aes(colour = location), size = 1) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr, colour = location), width = 0.3, size = 1) +
     xlab("Size") +
     ylab("Detection Probability") +
     facet_wrap(~species)
@@ -340,4 +335,3 @@ capt_history.phi %>%
   group_by(Mark) %>% 
   summarize(nswabs = sum(swabbed)) %>% 
   arrange(nswabs)
-

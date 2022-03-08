@@ -85,7 +85,7 @@ stan.fit  <- stan(
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
 
-stan.fit <- saveRDS(stan.fit, paste(paste("stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
+saveRDS(stan.fit, paste(paste("stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)
