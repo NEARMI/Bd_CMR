@@ -273,23 +273,26 @@ param_names <- apply(
 
 beta_est.all %<>% 
   group_by(population) %>%
-  mutate(param_names = param_names) %>%
-  group_by(param_names, population) %>%
-  mutate(param_lev = seq(n()))
+  mutate(Var1 = as.character(Var1)) %>% 
+  mutate(Var1 = plyr::mapvalues(Var1, from = unique(beta_est.all$Var1), to = param_names)) %>%
+  rename(params = Var1) %>%
+  group_by(params, population) %>%
+  mutate(param_lev = seq(n())) %>% 
+  relocate(param_lev, .after = params)
 
 ####
 ## And plotting
 ####
 
 beta_est.all %>% 
-  filter((param_names == "beta_phi" & param_lev == 2) | (param_names == "beta_offseason" & param_lev == 1)) %>% {
+  filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 1)) %>% {
     ggplot(., aes(population, mid)) +
       geom_errorbar(aes(ymin = lwr, ymax = upr, colour = species), width = 0.3) +
       geom_point(aes(colour = species)) +
       scale_color_brewer(palette = "Dark2", name = "Species") +
       xlab("Population") +
       ylab("Estimate") +
-      facet_wrap(~param_names, scales = "free") +
+      facet_wrap(~params, scales = "free") +
       geom_hline(yintercept = 0, linetype = "dashed") +
       theme(
         axis.text.x = element_text(angle = 300, hjust = 0)

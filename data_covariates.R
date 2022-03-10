@@ -47,11 +47,11 @@ ind.len <- capt_history %>%
   group_by(Mark, pop_spec) %>% 
   summarize(len = mean(len, na.rm = T)) %>%
   ungroup() %>%
-  group_by(pop_spec) %>%
-  mutate(len_mean = mean(len, na.rm = T)) %>%
-  mutate(len = ifelse(!is.na(len), len, len_mean)) %>%
-  dplyr::select(-len_mean) %>%
-  mutate(len = scale(len)[, 1])
+  group_by(pop_spec)# %>%
+#  mutate(len_mean = mean(len, na.rm = T)) %>%
+#  mutate(len = ifelse(!is.na(len), len, len_mean)) %>%
+#  dplyr::select(-len_mean) %>%
+#  mutate(len = scale(len)[, 1])
 
 ## !! Not sure what else to do here for now. These individual-level traits simply were not measured for this
  ## species. Just having 0s will just return the prior, which I guess is fine...
@@ -59,6 +59,10 @@ ind.len[ind.len$pop_spec == "LilyPond.BCF", ]$len     <- 0
 ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
 
 ind.len <- ind.len$len
+
+len.mis  <- which(is.na(ind.len))
+len.have <- which(!is.na(ind.len))
+# ind.len[missing_len] <- 0
 
 ## This is a pretty rough strategy for mercury given how many were not measured. Again,
  ## definitely need some form of latent process or at the very worst simple multiple imputation
@@ -128,7 +132,6 @@ site_covar.con %<>% left_join(sampled_years, .)
 
 ## ANOTHER issue with missing data and potential need for imputation. This could get really out of hand
  ## very soon... For now just assume no trend...
-
 site_covar.con %<>% 
   group_by(pop_spec) %>% 
   mutate(

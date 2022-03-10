@@ -52,8 +52,15 @@ stan_data     <- list(
  , x_bd_index        = capt_history.bd_load$X_stat_index
   
  , ind_size          = ind.size
- , ind_len           = ind.len
  , ind_hg            = ind.hg
+  
+ , ind_len_which_have = len.have
+ , ind_len_which_mis  = len.mis %>% as.array()
+ , n_ind_len_have     = length(len.have)
+ , n_ind_len_mis      = length(len.mis)
+ , ind_len_have       = ind.len[len.have]
+ , ind_len_mean       = 0
+ , ind_len_sd         = 1
   
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
@@ -77,7 +84,9 @@ stan.fit  <- try(
   {
  stan(
 # file    = "CMR_single_population.stan"
-  file    = "CMR_single_population_con.stan"
+# file    = "CMR_single_population_con.stan"
+# file    = "CMR_single_population_con_mi.stan"
+  file    = "CMR_single_population_con_mi2.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

@@ -99,6 +99,11 @@ if (red_ind) {
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
  ## !! For now, because of a number of animals in a number of locations that were not measured if they were recaptures,
   ## to unify across data sets the plan here will be to just take the average for every individual
+#fitdistrplus::fitdist(data.i$MassG[!is.na(data.i$MassG)], "gamma")
+#fitdistrplus::fitdist(data.i$MeHg_conc_ppb[!is.na(data.i$MeHg_conc_ppb)], "gamma")
+missing_len    <- which(is.na(data.i$SVLmm))
+trial_fit_dist <- fitdistrplus::fitdist(data.i$SVLmm[!is.na(data.i$SVLmm)], "gamma")
+
 ind_cov <- data.i %>% group_by(Mark) %>% 
   summarize(
     merc = mean(MeHg_conc_ppb, na.rm = T)
@@ -117,9 +122,9 @@ num_no_data <- c(
 if (num_no_data["num_no_size"] > 0) {
   ind_cov[which(is.na(ind_cov$size)), ]$size <- mean(ind_cov[which(!is.na(ind_cov$size)), ]$size)
 }
-if (num_no_data["num_no_len"] > 0) {
-  ind_cov[which(is.na(ind_cov$len)), ]$len   <- mean(ind_cov[which(!is.na(ind_cov$len)), ]$len)
-}
+#if (num_no_data["num_no_len"] > 0) {
+#  ind_cov[which(is.na(ind_cov$len)), ]$len   <- mean(ind_cov[which(!is.na(ind_cov$len)), ]$len)
+#}
 
 capt_history.t %<>% left_join(., ind_cov)
 
