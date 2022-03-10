@@ -1,4 +1,14 @@
 Site,SubSite,CaptureDate,Species,IndividualID,Sex,SVLmm,Age,MassG,BdSample,SwabLost,SwabID,BdResult,TargetCopies/swab,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
+LilyPond,1,6/1/2018,BCF,xxx4,M,24.3,A,,Y,1,1701400201,,,18ARMI1672,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx3,M,24.7,A,,Y,1,1701400149,,,18ARMI1675,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx7,M,28.5,A,,Y,1,1701400205,,,18ARMI1673,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xx10,M,28.9,A,,N,,,,,18ARMI1669,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx6,M,29,A,,Y,1,1701400204,,,18ARMI1670,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx9,M,29.3,A,,Y,1,1701400198,,,18ARMI1668,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx5,M,29.3,A,,Y,1,1701400202,,,18ARMI1674,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx8,M,31,A,,Y,1,1701400197,,,18ARMI1671,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx2,M,,A,,Y,1,1701400148,,,18ARMI1667,Collected for whole body mercury (euthanized),0,0,,1
+LilyPond,1,6/1/2018,BCF,xxx1,M,,A,,Y,1,1701400171,,,18ARMI1666,Collected for whole body mercury (euthanized),0,0,,1
 LilyPond,1,5/28/2018,BCF,3515,M,22.9,A,0.75,Y,0,1701400014,pos,15406.8999025633,18ARMI0993,,0,0,,
 LilyPond,1,5/28/2018,BCF,3525,M,24.4,A,0.75,Y,0,1701400001,pos,89.8103499317021,18ARMI1337,,0,0,,
 LilyPond,1,5/28/2018,BCF,3521,M,24,A,1,Y,0,1701400005,pos,19.5567282964569,18ARMI1025,,0,0,,
@@ -12,14 +22,6 @@ LilyPond,1,5/28/2018,BCF,3520,M,30.3,A,1.5,Y,0,1701400013,neg,0,18ARMI0995,,0,0,
 LilyPond,1,5/28/2018,BCF,3514,M,30.5,A,1.5,Y,0,1701400017,pos,200.01492566509,18ARMI1014,,0,0,,
 LilyPond,1,5/28/2018,BCF,3504,M,31.8,A,2,Y,0,1701400006,neg,0,18ARMIxxxx,can't read no. on copied datasheet. NWCH has orignals so could probably find,0,0,,
 LilyPond,1,5/28/2018,BCF,3513,M,33.7,A,2.5,Y,0,1701400009,neg,0,18ARMI1133,,0,0,,
-LilyPond,1,6/1/2018,BCF,xxx4,M,24.3,A,,Y,1,1701400201,,,18ARMI1672,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx3,M,24.7,A,,Y,1,1701400149,,,18ARMI1675,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx7,M,28.5,A,,Y,1,1701400205,,,18ARMI1673,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xx10,M,28.9,A,,N,,,,,18ARMI1669,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx6,M,29,A,,Y,1,1701400204,,,18ARMI1670,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx9,M,29.3,A,,Y,1,1701400198,,,18ARMI1668,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx5,M,29.3,A,,Y,1,1701400202,,,18ARMI1674,Collected for whole body mercury (euthanized),0,1,euthanized,
-LilyPond,1,6/1/2018,BCF,xxx8,M,31,A,,Y,1,1701400197,,,18ARMI1671,Collected for whole body mercury (euthanized),0,1,euthanized,
 LilyPond,1,5/28/2018,BCF,3242,M,,A,,Y,0,1701400002,neg,0,,,0,0,,
 LilyPond,1,5/28/2018,BCF,313,M,,A,,Y,0,1701400003,neg,0,,,0,0,,
 LilyPond,1,5/28/2018,BCF,2854,M,,A,,Y,0,1701400007,neg,0,,,0,0,,
@@ -54,9 +56,7 @@ MatthewsPond,1,5/29/2019,BCF,2634f,F,,A,,Y,0,1701400044,neg,0,18ARMI1338,"only n
 MatthewsPond,1,5/29/2019,BCF,2634m,M,,A,,Y,0,1701400045,neg,0,18ARMI1002,"only no. 4 toe, other 3 toes from this animal in 18ARMI1343 vial",0,0,,
 LilyPond,1,6/1/2018,BCF,3543,M,,A,,Y,1,1701400146,,,18ARMI1011,Missing,0,0,,
 LilyPond,1,6/1/2018,BCF,2830,M,,A,,Y,1,1701400147,,,,Missing. All “missing swabs” converted to N and swab ID removed as per other data sets,0,0,,
-LilyPond,1,6/1/2018,BCF,xxx2,M,,A,,Y,1,1701400148,,,18ARMI1667,Collected for whole body mercury (euthanized),0,1,euthanized,
 LilyPond,1,6/1/2018,BCF,3434,M,,A,,Y,1,1701400150,,,18ARMI0982,Missing,0,0,,
-LilyPond,1,6/1/2018,BCF,xxx1,M,,A,,Y,1,1701400171,,,18ARMI1666,Collected for whole body mercury (euthanized),0,1,euthanized,
 LilyPond,1,6/1/2018,BCF,3425,M,,A,,Y,1,1701400196,,,,Missing,0,0,,
 LilyPond,1,6/1/2018,BCF,3501,M,,A,,Y,1,1701400199,,,,Missing,0,0,,
 LilyPond,1,6/1/2018,BCF,3503,M,,A,,Y,1,1701400203,,,,Missing,0,0,,

@@ -1,4 +1,6 @@
 Site,SubSite,CaptureDate,Species,IndividualID,Sex,Age,MassG,SVLmm,BdSample,SwabLost,SwabID,BdResult,TargetCopies/swab,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
+LostHorse,1,4/27/2021,RALU,900111880425575,,,,,N,,,,,,"On top of female in pond, did not capture",0,0,,
+LostHorse,1,4/27/2021,RALU,900111880425172,,,,,N,,,,,,"On top of female in pond, did not capture",0,0,,
 LostHorse,1,4/18/2019,RALU,900111880425163,F,,38.2,83,Y,0,1902400039,pos,17065.0314462134,19ARMI1317,,0,0,,
 LostHorse,1,4/18/2019,RALU,900111880426052,F,,34.2,81,Y,0,1902400024,pos,364.577977343848,19ARMI1405,Super foamy,0,0,,
 LostHorse,1,4/24/2020,RALU,900111880425297,F,,45.5,80,Y,1,2001800168,,,20ARMI0782,LR2 toe clipped today; appear gravid,0,0,,
@@ -1011,5 +1013,3 @@ LostHorse,1,5/4/2020,RALU,900111880425863,,,,,N,,,,,,Captured 04/24/2020,0,0,,
 LostHorse,1,5/4/2020,RALU,900111880425849,,,,,N,,,,,,Captured 04/28/2020,0,0,,
 LostHorse,1,5/4/2020,RALU,900111880425759,,,,,N,,,,,,Captured 04/22/2020,0,0,,
 LostHorse,1,5/4/2020,RALU,900111880426644,,,,,N,,,,,,Captured 04/24/2020,0,0,,
-LostHorse,1,4/27/2021,RALU,900111880425575,,,,,N,,,,,,"On top of female in pond, did not capture",0,1,Didn’t capture individual,
-LostHorse,1,4/27/2021,RALU,900111880425172,,,,,N,,,,,,"On top of female in pond, did not capture",0,1,Didn’t capture individual,

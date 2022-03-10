@@ -1,4 +1,4 @@
-Site,SubSite,CaptureDate,Species,IndividualID,Sex,Age,SVLmm,MassG,BdSample,SwabLost,SwabID,BdResult,TargetCopies/swab,HgSampleID,Notes,potential_injury_effect,flagged,reason,
+Site,SubSite,CaptureDate,Species,IndividualID,Sex,Age,SVLmm,MassG,BdSample,SwabLost,SwabID,BdResult,TargetCopies/swab,HgSampleID,Notes,potential_injury_effect,flagged,reason,dead
 Blackrock-C,MW,5/30/2019,ANBO,3294617,F,,96.1,144.3,Y,0,1902500173,pos,1196518.63,19ARMI2057,,0,0,,
 Blackrock-H,HE,5/28/2019,ANBO,3286010,F,,88.9,120,Y,0,1902500177,pos,335037.32,,,0,0,,
 Blackrock-C,OX,5/17/2021,ANBO,152206384A,F,,92.3,117.8,Y,0,2002200103,pos,12931.75,21ARMI1416,,0,0,,
