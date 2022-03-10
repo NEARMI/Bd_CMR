@@ -6,6 +6,11 @@
 ## Notes as of March 10:
 ####
 
+## 1) Repo is getting kinda ugly -- 
+ ## A) remane and move appropriate stan models to dev 
+ ## B) pick the few that can remain in the main folder for continued single population and multi-population development
+ ## C) Build a readme for these models
+
 ## There are still a few issues with the single population model to be resolved:
  ## 1) phi_ones designating a closed population still in the model with length of time between time gaps -- confounded
  ## 2) gamma still scaling p but in a funny way if we are assuming an open population. Need to do something
