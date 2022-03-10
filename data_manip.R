@@ -2,6 +2,9 @@
 ## Build capture history data frame for all populations ##
 ##########################################################
 
+## ---- Some considerations
+ ## SMNWR_E-NOVI has only two captures ever, probably best to just drop this pop-spec
+
 ## number of unique sites (populations) in the combined dataset
 u_sites <- unique(sampling$pop_spec)
 n_sites <- u_sites %>% length()
@@ -94,9 +97,9 @@ if (red_ind) {
 }
 
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
-if ("MeHg_conc_ppb" %in% names(data.all)) {
-
-ind_cov <- data.i %>% group_by(Mark, Year, Month) %>% 
+ ## !! For now, because of a number of animals in a number of locations that were not measured if they were recaptures,
+  ## to unify across data sets the plan here will be to just take the average for every individual
+ind_cov <- data.i %>% group_by(Mark) %>% 
   summarize(
     merc = mean(MeHg_conc_ppb, na.rm = T)
     ## returns the one value or a mean if caught multiple times in one primary period
@@ -116,25 +119,6 @@ if (num_no_data["num_no_size"] > 0) {
 }
 if (num_no_data["num_no_len"] > 0) {
   ind_cov[which(is.na(ind_cov$len)), ]$len   <- mean(ind_cov[which(!is.na(ind_cov$len)), ]$len)
-}
-
-## Really not sure what to do with so much missing mercury data. If feasible could try and fit 
- ## a second latent process to predict individual's unobserved mercury state...
-
-} else {
-  
-ind_cov <- data.i %>% group_by(Mark, Year, Month) %>% 
-  summarize(
-   size = mean(as.numeric(MassG), na.rm = T)  
-    ) %>% distinct()
-
-## For now (Dec 20. At some point will need to convert this to multiple imputation)
-num_no_size <- length(which(is.na(ind_cov$size)))
-
-if (num_no_size > 0) {
-  ind_cov[which(is.na(ind_cov$size)), ]$size <- mean(ind_cov[which(!is.na(ind_cov$size)), ]$size)
-}
-  
 }
 
 capt_history.t %<>% left_join(., ind_cov)
@@ -175,6 +159,9 @@ print("--------------")
 
 ## Sort data frame in the appropriate order (counting through consecutive weeks one individual at a time)
 capt_history %<>% arrange(Mark, Year, Site, Month, SecNumConsec)
+
+## Add the _current_ measure of sampling effort to the captures data frame
+capt_history %<>% left_join(., sampling.effort) %>% relocate(effort, .after = capture_date)
 
 ## individuals' measured bd 
 capt_history.bd_load <- capt_history %>% 

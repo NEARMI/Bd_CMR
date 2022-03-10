@@ -3,23 +3,33 @@
 #####################################
 
 ####
-## Notes as of March 8:
+## Notes as of March 9:
 ####
 
-## Step 1 for tomorrow is to double check the few missing swab values in the adams data set
- ## and to figure out what to do with the dpulicate swabs
+## Close to getting individual populations working. Still have many unresolved issues of what to do
+ ## with covaraites, but I at least have initial (sub-optimal) choices working to be able to start
+  ## debugging the model
 
-## Code seems to be working, simple model seems to be working pretty well for individual populations (at least RALU so far)
- ## Next critical piece is to update the script the fits each and every population individually and then run it.
-  ## -- The steps to get this running will be: 
-   ## 1) Fill out a lookup table for what covaraties can be fit for different populations
-   ## 2) Dynamically build the stan model for each population based on this lookup table
+## The first aim is to get the dynamic stan model built for each population individually and use that
+ ## to fit all 21 pop -x- species individually 
+  ## ** To add / resolve before fitting all of these **
+   ## 1) [x] Covaraite for effort
+    ## "Effort" -- for now quantified as the number of subsites sampled on each day
+     ## ** (later may want to adjust dates a day forward or backward so each "date" is ONE sampling
+      ## event of each sub-site --> I think this is actually going to be the strategy...) 
+   ## 2) [x] Length as the only size covariate
+   ## 3) [x] Get MeHg in a reasonable enough spot for most populations
 
-## Summary of notes from the past few days:
+ ## ----- Then after confirming this is somewhat sensible ------
+   ## 1) multiple imputation for unmeasured values
+
+## ---- The list of unresolved issues ----
+
  ## DATA:
-  ## -- Many unresolved questions still with Brian T
-  ## -- Jill working on Mercury samples for 2019 and 2020
-  ## -- Injury covariate and drop dead individuals
+  ## -- Some confusing notes in the FL data set remain 
+   ##     [Will email soon]
+  ## -- DAYMET data for 2021 to be available soon
+   ##     [Brian T working on this]
 
  ## MODEL:
   ## -- Most importantly it is still a pretty big question of what to do with sub-populations
@@ -27,11 +37,26 @@
    ##   The major problems are about bias in detection because of assuming individuals are potentially found when they really are not
    ##     (because they are in a different subpopulation)
    ##   SEE OLDER NOTES FROM A PREVIOUS COMMIT FOR A LONGER DISCUSSION
+    ##    [Really not sure what to do about this yet....]
+    ##    [Continue for now with collapsing and having an "effort" covariate of the number of subsites sampled per day]
+     ##    [OR -- may want to collapse consecutive days into the same "period" if different subsites were sampled each day]
+      ##    [This is annoying because it may be site-by-site dependent and hard to do dynamically, but may have to go this route]
+  
   ## -- And a slightly less major question about how to deal with primary periods and secondary periods vs continuous times between captures
+   ##     [Try a covariate for N days between sampling events]
+   ##     [But may want to revert to figuring out how to write out primary and secondary periods for all populations]
   ## -- Still many open questions about what covariates to use and how to merge discrete covariates
+    ##    [ ]
   ## -- Potential mercury latent model
+   ##     [Use distribution of mercury for a site-level covariate]
+    ##    [But first look better at the mercury data to make sure there is a reasonable amount of among-population variation]
   ## -- Multiple imputation for unobserved covariates
-
+   ##     [Do multiple imputation for most species] 
+   ##     [For the really unmeasured species use a strong prior based on that species]
+  ## -- What to do with multiple swabs
+   ##     [Collapse as I already have done]
+  ## -- How to deal with length measured sometimes and size measured sometimes
+   ##     [Just use length]
 
 ## Packages and Functions
 source("packages_functions.R")

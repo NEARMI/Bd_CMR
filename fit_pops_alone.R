@@ -12,7 +12,7 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 red_ind    <- FALSE
 single_pop <- TRUE
 
-for (this_pop_now in 1:22) {
+for (this_pop_now in 1:21) {
 
 source("data_load.R")
   

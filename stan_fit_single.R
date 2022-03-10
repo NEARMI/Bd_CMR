@@ -27,6 +27,7 @@ stan_data     <- list(
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , gamma_index       = capt_history.p$gamma_index
+ , p_effort          = capt_history.p$effort
   
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -72,7 +73,9 @@ stan_data     <- list(
 
   )
   
-stan.fit  <- stan(
+stan.fit  <- try(
+  {
+ stan(
 # file    = "CMR_single_population.stan"
   file    = "CMR_single_population_con.stan"
 , data    = stan_data
@@ -84,8 +87,11 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.92, max_treedepth = 12)
   )
+  }
+, silent = TRUE
+)
 
-saveRDS(stan.fit, paste(paste("stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
+saveRDS(stan.fit, paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)

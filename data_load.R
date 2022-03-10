@@ -2,10 +2,27 @@
 ## Load each of the data files in the directory ##
 ##################################################
 
+## Location specific issues that need to be resolved
+ ## DM_TC_RAPR -- duplicate swabs (have a solution for now implemented near the bottom of this loop)
+ ## EC_ML_NOVI -- duplicate swabs
+ ## SM_NOVI    -- quite a number of weird comments (Will email)
+ ## SB_NEWT    -- quite a number of questionable individual marks (emailed Jill)
+
+## General open data questions
+ ## -- Incorporate known deaths in some way (for now just dropping)
+ ## -- What to do with length, weight, sex, and age if different data sets measured different variables and some
+  ##   did not remeasure individuals that were already captured once
+
 data.files <- list.files("data/cleaned_cmr_csv")
 data.files <- paste("data/cleaned_cmr_csv/", data.files, sep = "")
 
-sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv")
+## Load the PPSP 
+sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv") %>% 
+## remove the 2 individual SMNWR_E-NOVI
+  filter(!(Site == "SMNWR_E" & Species == "NOVI")) %>%
+## remove the minimal sampling of the Blackrock population in the late season
+  filter(Notes != "Opportunistic") %>% 
+  droplevels()
 
 date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
   a <- strsplit(x, split = "/")[[1]]
@@ -23,6 +40,16 @@ sampling$Year  <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strs
 sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strsplit(x, "/")[[1]][1]) %>% as.numeric()
 
 sampling %<>% mutate(CaptureDate = as.Date(date_convert, "%m/%d/%y"))
+
+## "Effort" -- for now quantified as the number of subsites sampled on each day
+ ## ** (later may want to adjust dates a day forward or backward so each "date" is ONE sampling
+  ## event of each sub-site --> I think this is actually going to be the strategy...)
+sampling.effort <- sampling %>% group_by(Site, Species) %>% 
+  mutate(num_subsites = length(unique(SubSite))) %>% 
+  group_by(Site, Species, CaptureDate) %>%
+  summarize(effort = length(unique(SubSite)) / num_subsites) %>% 
+  rename(capture_date = CaptureDate) %>% 
+  distinct()
 
 for (i in seq_along(data.files)) {
 
@@ -87,10 +114,12 @@ if ("TrgetCopies.swb" %in% names(data.temp)) {
 }
   
 ## Convert bd load to a numeric and drop all individuals that were never marked as they should
- ## not be used to inform the model
+ ## not be used to inform the model.
+   ## !! For now also drop individuals found dead
 data.temp %<>% mutate(bd_load = as.numeric(bd_load)) %>%
   rename(Mark = IndividualID) %>%
-  filter(!is.na(Mark), Mark != "")
+  filter(!is.na(Mark), Mark != "") %>%
+  filter(dead != 1 | is.na(dead))
 
 ## check which years have no swabbing and remove them
 no.swabyear <- data.temp %>% group_by(Year) %>% 
@@ -154,6 +183,49 @@ if (data.temp$Site[1] == "JonesPond" & data.temp$Species[1] == "ANBO") {
   data.temp %<>% filter(Month < 6)
 }
 
+## -- same -- ##
+## For those locations with "duplicate" swabs (the same individual swabbed multiple times), something sensible
+ ## will eventually need to be done... but for now need to collapse to one
+if (data.temp %>% filter(reason == "duplicate") %>% nrow() > 0) {
+
+data.temp.d <- data.temp %>% filter(reason == "duplicate")
+data.temp %<>% filter(reason != "duplicate")
+  
+## Probably can do this in a more efficient way, but not clearly aware of one
+data.temp.d.ind <- unique(data.temp.d$Mark)
+
+for (ind_i in seq_along(data.temp.d.ind)) {
+  data.temp.d.t <- data.temp.d %>% filter(Mark == data.temp.d.ind[ind_i])
+  
+  ## Take the positive swab if negative and positive
+  if ("neg" %in% data.temp.d.t$BdResult & "pos" %in% data.temp.d.t$BdResult) {
+    data.temp.d.t %<>% filter(BdResult == "pos")
+  } else if (all(data.temp.d.t$BdResult == "neg")) {
+  ## Take negative if both negative
+    data.temp.d.t <- data.temp.d.t[1, ]
+  } else if (all(data.temp.d.t$BdResult == "pos")) {
+  ## Take the average of the positives if both positive
+    temp_bd_load          <- mean(data.temp.d.t$bd_load)
+    data.temp.d.t         <- data.temp.d.t[1, ]
+    data.temp.d.t$bd_load <- temp_bd_load
+  } else {
+  ## Shouldn't be a 4th option so break
+    print("Check entries for the duplicates, there appears to be a problem")
+    break
+  }
+  
+  if (ind_i == 1) {
+    data.temp.d.a <- data.temp.d.t
+  } else {
+    data.temp.d.a <- rbind(data.temp.d.a, data.temp.d.t)
+  }
+  
+}
+
+data.temp <- rbind(data.temp, data.temp.d.a)
+  
+}
+
 if (i == 1) {
   data.all <- data.temp
 } else {
@@ -184,6 +256,8 @@ data.all %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
 sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 
+
+
 ####
 ## Mercury and Habitat characteristics
 ####
@@ -206,7 +280,7 @@ temp_precip_hab <- read.csv("data/cleaned_cov_csv/ARMI_CMR_TempPrecip.csv") %>%
 # Temp and Precip available 2017-2020, named sensibly
 
 ## Mercury load 
-MeHG            <- read.csv("data/cleaned_cov_csv/CMR_MeHg.csv")
+MeHG            <- read.csv("data/cleaned_cov_csv/CMR_MeHg.csv") 
 
 ## Checking for errors
 Me_Hg_error_check <- data.all %>% 
