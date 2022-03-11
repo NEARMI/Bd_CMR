@@ -8,62 +8,56 @@
 
 ## --- There are still a few issues with the single population model to be resolved ---
 
- ## 1) phi_ones designating a closed population still in the model with length of time between time gaps -- confounded
-        ## ------ [ ]
-        ## There are some populations were the sub-sites are sampled at dates pretty far from one another
-        ## And occasionally one subsite will be sampled multiple times in advance of a different subsite
-        ## This makes it hard to think how to deal with date, closed vs open, and effort
-        ## Blackrock-C is a good example of this, where it is pretty hard to designate Primary and Secondary periods
-        ##   because it isn't clear at all if these should get designated at a subsite level or a site level...
-        ## ** Just a note that the current SecNumConsec are pretty wack for this location
+ ## 1) What to do with Primary and Secondary periods / allowing for open populations when each population is sampled so differently?
 
- ## 2) gamma still scaling p but in a funny way if we are assuming an open population. Need to do something
-  ##   more sensible with gamma to try and scale p (as the individual could have been present before they were sampled
-  ##   which could impact estimates of bd-detection and bd-surival. 
-  ##   BUT: if Bd being removed from the detection model, maybe we don't need gamma at all -- this will simplify the model
-        ## ------ [ ]
+  ## CONJECTURE: This problem mostly arises because of the need to collapse subsites, which is needed because:
+   ## -- some populations don't have subsites while some have many
+   ## -- some are very poorly measured so estimating subsite level deviates will be hard
+   ## --  most importantly in many cases animals move between subsites, so to not collapse subsites would likely require extra model layers of connectivity and
+   ##     the like, which is too much for these data (specifically the rarity of recaptures and bd swabbing)
+     ## -- There are some populations were some sub-sites are sampled at dates pretty far from one another but other sub-sites are sampled more commonly
+     ## -- Some populations are measured for many months, others only for a single month, which makes defining "closed" confusing [e.g., by year seems odd]
+   ## Blackrock-C is a good example of these issues ^^
 
- ## 3) "effort" is behaving a bit funny. Need to seriously consider adjusting dates a day forward or backward so each 
-  ## "date" is ONE sampling event of each sub-site
-        ## ------ [ ]
+  ## All taken together means that using a "closed" population over some primary period in which the population is sampled in secondary periods difficult to do well
+  
+  ## CONJECTURE: The alternative is to just allow for the population to be open (and collapse to site)
+    ## -- Which requires some choice for how to control for the gaps between sampling events
+     ## [a simple covariate controlling survival by time gap has produced counter-intuitive results]
+    ## -- Which also requires a choice for how to scale detection to deal with variable sampling effort by day
+     ## [a simple covaraite controlling detection by "effort" defined by the number of subsites sampled has produced counter-intuitive results]
+    
+     ## !!! a second option is to completely rework Secondary Periods into blocks of time explicitly with Site in mind doing as best as possible to
+      ## group sampling of multiple SubSites on consecutive days into defined time blocks. 
+       ## -- While this is sensible it becomes difficult for a lot of the sampling, e.g., Blackrock-C where individual sites were sampled much more
+        ## frequently than others 
+         
+    ## CONJECTURE: This style of sampling is a real problem for this model (when there are sites with pretty different forms of sampling) for a few reasons:
+     ## A) This will bias detection on certain animals that reside more often in that subsite vs other subsites
+     ## B) Which could affect the survival estimates because detection and survival are already hard to pull apart
+      ## ** A wish would be to have individual-level detection parameters, but that isn't feasible because so many individuals are only captured once,
+       ## which will make it really hard to separate that fine-grained level of detection from covaraite effects on survival
 
- ## 4) model for MeHg -- potentially estimating site-level mean [and sd?] from the individual distribution
-        ## ------ [ ]
+ ## 2) What to do with detection in periods before the animal was caught?
+   ## A) The simple answer is to just not inform detection in these periods.
+   ## B) However, if the animal really was in the population (and we think Bd effects detection for example), estimates of Bd survival could get biased down
+    ## by an overly high detection probability 
+     ## -- I don't think we really can estimate if we think an individual was present before we captured it though without a extra and pretty intricate 
+      ## layres of latent processes, so my inclination is to just avoid trying to deal with this
 
-## --- Other list of unresolved issues ---
+ ## 3) What to do with MeHg?
+   ## A) Try to impute an individual's latent MeHg and use that to predict survival
+   ## B) Estimate site-level mean [and sd?] from the individual distribution and use MeHg as a site-level covariate
+
+## --- Other unresolved issues ---
 
  ## DATA:
-  ## -- Some confusing notes in the FL data set remain 
+  ## i) DATA: Some confusing notes in the FL data set remain 
    ##     [Will email soon]
-  ## -- DAYMET data for 2021 to be available soon
+  ## ii) DATA: DAYMET data for 2021 to be available soon
    ##     [Brian T working on this]
-
- ## MODEL:
-  ## -- Most importantly it is still a pretty big question of what to do with sub-populations
-   ##   (opens a can of worms about meta-population, super-population, movement between subsites etc.)
-   ##   The major problems are about bias in detection because of assuming individuals are potentially found when they really are not
-   ##     (because they are in a different subpopulation)
-   ##   SEE OLDER NOTES FROM A PREVIOUS COMMIT FOR A LONGER DISCUSSION
-    ##    [Really not sure what to do about this yet....]
-    ##    [Continue for now with collapsing and having an "effort" covariate of the number of subsites sampled per day]
-     ##    [OR -- may want to collapse consecutive days into the same "period" if different subsites were sampled each day]
-      ##    [This is annoying because it may be site-by-site dependent and hard to do dynamically, but may have to go this route]
-  
-  ## -- And a slightly less major question about how to deal with primary periods and secondary periods vs continuous times between captures
-   ##     [Try a covariate for N days between sampling events]
-   ##     [But may want to revert to figuring out how to write out primary and secondary periods for all populations]
-  ## -- Still many open questions about what covariates to use and how to merge discrete covariates
-    ##    [ ]
-  ## -- Potential mercury latent model
-   ##     [Use distribution of mercury for a site-level covariate]
-    ##    [But first look better at the mercury data to make sure there is a reasonable amount of among-population variation]
-  ## -- Multiple imputation for unobserved covariates
-   ##     [Do multiple imputation for most species] 
-   ##     [For the really unmeasured species use a strong prior based on that species]
-  ## -- What to do with multiple swabs
-   ##     [Collapse as I already have done]
-  ## -- How to deal with length measured sometimes and size measured sometimes
-   ##     [Just use length]
+  ## iii) MODEL: Still many open questions about what covariates to use and how to merge discrete covariates
+   ##     TBD
 
 ## Packages and Functions
 source("packages_functions.R")
@@ -76,7 +70,7 @@ source("data_load.R")
 single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[12]
+which.dataset <- unique(data.all$pop_spec)[1]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }

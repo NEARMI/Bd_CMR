@@ -84,7 +84,9 @@ capt_history.p %<>%
 
 ## These p_zeros are used to inform a scaling factor on detection probability (one scaling factor for each
  ## individual in each primary period). Need an index for these scaling factors
-capt_history.p %<>% mutate(gamma_index = paste(interaction(Mark, Year, Month), "a", sep = "_"))
+capt_history.p %<>% mutate(gamma_index = paste(interaction(Mark, Year
+  #, Month
+  ), "a", sep = "_"))
 uni_gamma_index <- unique(capt_history.p$gamma_index)
 gamma_index     <- factor(capt_history.p$gamma_index, levels = uni_gamma_index) %>% as.numeric()
 
