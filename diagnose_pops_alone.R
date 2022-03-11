@@ -145,7 +145,7 @@ outval   <- matrix(seq(1, 4, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
-   out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]])
+   out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]] + stan.fit.samples$beta_p * 1)
 }
 
 out.pred <- reshape2::melt(out.pred) %>% 
@@ -284,7 +284,7 @@ beta_est.all %<>%
 ## And plotting
 ####
 
-beta_est.all %>% 
+(gg.1 <- beta_est.all %>% 
   filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 1)) %>% {
     ggplot(., aes(population, mid)) +
       geom_errorbar(aes(ymin = lwr, ymax = upr, colour = species), width = 0.3) +
@@ -297,44 +297,67 @@ beta_est.all %>%
       theme(
         axis.text.x = element_text(angle = 300, hjust = 0)
       )
-}
+})
 
-out.pred.all %>% filter(when == "offseason", variable == "Bd") %>% {
+(gg.2 <- out.pred.all %>% filter(when == "offseason", variable == "Bd") %>% {
   ggplot(., aes(gap, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
     geom_line(aes(colour = location), size = 1) +
     xlab("Bd Copies (log)") +
     ylab("Apparent Survival Between Seasons") +
     facet_wrap(~species)
-}
+})
 
-out.pred.all %>% filter(when == "offseason", variable == "MeHg") %>% {
+(gg.3 <- out.pred.all %>% filter(when == "offseason", variable == "MeHg") %>% {
   ggplot(., aes(gap, mid)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = location), alpha = 0.3) +
     geom_line(aes(colour = location), size = 1) +
     xlab("Bd Copies (log)") +
     ylab("Apparent Survival Between Seasons") +
     facet_wrap(~species)
-}
+})
 
-out.pred.p.all %>% {
+(gg.4 <- out.pred.p.all %>% {
   ggplot(., aes(gap, mid)) +
     geom_errorbar(aes(ymin = lwr, ymax = upr, colour = location), width = 0.3, size = 1) +
-    xlab("Size") +
+    xlab("Year") +
     ylab("Detection Probability") +
     facet_wrap(~species)
-}
+})
 
-ind_order.all %>% {
+(gg.5 <- ind_order.all %>% {
   ggplot(., aes(order_real, order_pred)) +
     geom_point(aes(colour = species, size = n_swabs)) +
     xlab("Real Bd Rank") +
     ylab("Estimated Bd Rank") +
     facet_wrap(~population, scales = "free")
-}
+})
 
-capt_history.phi %>% 
-  filter(pop_spec == "MatthewsPond.BCF") %>% 
-  group_by(Mark) %>% 
-  summarize(nswabs = sum(swabbed)) %>% 
-  arrange(nswabs)
+out.list.old <- list(
+  gg.1 = gg.1
+, gg.2 = gg.2
+, gg.3 = gg.3
+, gg.4 = gg.4
+, gg.5 = gg.5
+  )
+
+####
+## Some checking of fitdistr vs the distribution fit inside the stan model
+####
+
+capt_history.t <- capt_history %>% filter(pop_spec == "LostHorse.RALU")
+
+capt_history.t %<>% mutate(chi_est = colMeans(stan.fit.samples$chi))
+
+capt_history.t %>% dplyr::select(Mark, capture_date, Month, Year, captured, chi_est)
+
+names(stan.fit.samples)
+
+stan.fit.samples$ind_len_alpha %>% quantile(c(0.025, 0.50, 0.975))
+stan.fit.samples$ind_len_beta %>% quantile(c(0.025, 0.50, 0.975))
+
+stan.fit.samples$ind_len_scaled[3, ] %>% hist()
+hist(stan.fit.samples$ind_len_mis)
+
+fitdistrplus::fitdist(ind.len[!is.na(ind.len)], "gamma")
+hist(rgamma(10000, 60, 1.02), breaks = 200)

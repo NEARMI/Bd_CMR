@@ -3,48 +3,34 @@
 #####################################
 
 ####
-## Notes as of March 10:
+## Notes as of March 11:
 ####
 
-## 1) Repo is getting kinda ugly -- 
- ## A) remane and move appropriate stan models to dev 
- ## B) pick the few that can remain in the main folder for continued single population and multi-population development
- ## C) Build a readme for these models
+## --- There are still a few issues with the single population model to be resolved ---
 
-## There are still a few issues with the single population model to be resolved:
  ## 1) phi_ones designating a closed population still in the model with length of time between time gaps -- confounded
+        ## ------ [ ]
+        ## There are some populations were the sub-sites are sampled at dates pretty far from one another
+        ## And occasionally one subsite will be sampled multiple times in advance of a different subsite
+        ## This makes it hard to think how to deal with date, closed vs open, and effort
+        ## Blackrock-C is a good example of this, where it is pretty hard to designate Primary and Secondary periods
+        ##   because it isn't clear at all if these should get designated at a subsite level or a site level...
+        ## ** Just a note that the current SecNumConsec are pretty wack for this location
+
  ## 2) gamma still scaling p but in a funny way if we are assuming an open population. Need to do something
   ##   more sensible with gamma to try and scale p (as the individual could have been present before they were sampled
   ##   which could impact estimates of bd-detection and bd-surival. 
   ##   BUT: if Bd being removed from the detection model, maybe we don't need gamma at all -- this will simplify the model
- ## 3) multiple imputation added and model compiles, but need to check coherence
+        ## ------ [ ]
 
-## --- Made some solid progress on a bunch of other stuff:
+ ## 3) "effort" is behaving a bit funny. Need to seriously consider adjusting dates a day forward or backward so each 
+  ## "date" is ONE sampling event of each sub-site
+        ## ------ [ ]
 
-## The first aim is to get the dynamic stan model built for each population individually and use that
- ## to fit all 21 pop -x- species individually 
-  ## ** To add / resolve before fitting all of these **
-   ## 1) [x] Covaraite for effort
-    ## "Effort" -- for now quantified as the number of subsites sampled on each day
-     ## ** (later may want to adjust dates a day forward or backward so each "date" is ONE sampling
-      ## event of each sub-site --> I think this is actually going to be the strategy...) 
-       ## ^^^ Fits from March 10 provide a little bit of evidence that this second strategy may be the way to go.
-        ##    the "effort" as number of subsites sampled didn't really provide estimates in a consistent direction
-   ## 2) [x] Length as the only size covariate
-           ## -- Fine
-   ## 3) [x] Get MeHg in a reasonable enough spot for most populations
-           ## -- Fine for diagnostics, BUT
-            ## [Will want to convert to using MeHg as a site-level covariate if possible]
-             ## probably by estimating the mean? in stan? then using that...
+ ## 4) model for MeHg -- potentially estimating site-level mean [and sd?] from the individual distribution
+        ## ------ [ ]
 
- ## ----- Then after confirming this is somewhat sensible ------
-   ## 1) multiple imputation for unmeasured values
-     ## -- I think the sensible way to do this will be to estimate a gamma distribution in stan and then
-      ##   impute and then scale in the transformed parameters block (outside of stan scaled params get weird)
-       ## -- And this way if there are correlations to deal with it gets better cause that can just happen in the model as well
-         ## [Should be working now, but compiling the model seems insanely slow, so not sure what the issue is...]
-
-## ---- The list of unresolved issues ----
+## --- Other list of unresolved issues ---
 
  ## DATA:
   ## -- Some confusing notes in the FL data set remain 

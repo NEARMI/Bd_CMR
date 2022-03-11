@@ -101,8 +101,8 @@ if (red_ind) {
   ## to unify across data sets the plan here will be to just take the average for every individual
 #fitdistrplus::fitdist(data.i$MassG[!is.na(data.i$MassG)], "gamma")
 #fitdistrplus::fitdist(data.i$MeHg_conc_ppb[!is.na(data.i$MeHg_conc_ppb)], "gamma")
-missing_len    <- which(is.na(data.i$SVLmm))
-trial_fit_dist <- fitdistrplus::fitdist(data.i$SVLmm[!is.na(data.i$SVLmm)], "gamma")
+#missing_len    <- which(is.na(data.i$SVLmm))
+#trial_fit_dist <- fitdistrplus::fitdist(data.i$SVLmm[!is.na(data.i$SVLmm)], "gamma")
 
 ind_cov <- data.i %>% group_by(Mark) %>% 
   summarize(

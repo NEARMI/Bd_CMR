@@ -86,7 +86,9 @@ stan.fit  <- try(
 # file    = "CMR_single_population.stan"
 # file    = "CMR_single_population_con.stan"
 # file    = "CMR_single_population_con_mi.stan"
-  file    = "CMR_single_population_con_mi2.stan"
+# file    = "CMR_single_population_con_mi2.stan"
+# file    = "stan_current/CMR_single_population_con_mi2.stan"
+  file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

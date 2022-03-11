@@ -56,7 +56,6 @@ data {
 	int<lower=0> p_month[ind_occ];		            // Vector designating shorter periods (here month) for observational model (all occasions)
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
-	int<lower=1> gamma_index[ind_occ];		    // gamma value associated with each entry of p
 	real<lower=0, upper=1> p_effort[ind_occ];	    // number of sub-sites sampled on each given sampling day
   
   // long vector indices for survival model (phi)
@@ -66,7 +65,7 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> phi_ones[ind_occ_min1];	            // Time periods where we force survival to be 1 (assuming a closed population)
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
-	int<lower=0> capt_gaps[ind_occ_min1];		    // gaps between each sampling event
+	real<lower=0> capt_gaps[ind_occ_min1];		    // gaps between each sampling event
 
   // long vector indices for bd (bd)
 	int<lower=0> ind_bd_rep[ind_per_period_bd];	    // Index of which individual is associated with each estimated Bd value
@@ -127,7 +126,6 @@ parameters {
 
 	vector[4] beta_p_year;				 // differential detection by year
 	real beta_p;					 // differential detection by effort
-	vector<lower=0,upper=1>[ind_per_period_p] gamma; // an attempt to scale detection by whether we think the individual was present or not
 	
 // -----
 // imputed covariates
@@ -198,10 +196,6 @@ transformed parameters {
            phi[t] = 0;			 // must be non-na values in stan, but the likelihood is only informed from first capture onward so the 0 here doesn't matter
 	 } else {
 
-	  if (phi_ones[t] == 1) {
-           phi[t] = 1;			 // phi_ones == 1 designates a closed population. When closed survival = 1 
-	  } else {
-
 	   if (offseason[t] == 0) {	 // in season survival process
 
              phi[t] = inv_logit(beta_inseason_year[phi_year[t]] + beta_phi * capt_gaps[ind_occ_min1_rep[t]]);
@@ -215,7 +209,6 @@ transformed parameters {
  beta_offseason[3] * ind_hg[ind_occ_min1_rep[t]]
 );
 
-	   }
 
 	   }
 
@@ -227,17 +220,12 @@ transformed parameters {
 // Detection probability over the whole period
 // -----
 	
-	for (t in 1:ind_occ) {
-
-		// p_zeros is = 1 in each season prior to an individual being caught for the first time
-		// p gets scaled in these years in an attempt to scale the probability as a function of bd given that we don't know if the individual was there
-
-	 if (p_zeros[t] == 1) {				
-            p[t] = inv_logit(beta_p_year[p_year[t]] + beta_p * p_effort[t]);
-	 } else {
-            p[t] = inv_logit(beta_p_year[p_year[t]] + beta_p * p_effort[t]) * gamma[gamma_index[t]];
+	for (t in 1:ind_occ) {   
+	 if (p_zeros[t] == 0) {
+	   p[t] = 0;
+	 } else {       
+           p[t] = inv_logit(beta_p_year[p_year[t]] + beta_p * p_effort[t]);
 	 }
-
 	}
 	
 // -----
@@ -284,7 +272,6 @@ model {
 
 	beta_p_year  ~ normal(0, 1.45);
 	beta_p       ~ normal(0, 1.45);
-        gamma        ~ uniform(0, 1);
 
 // Imputed Covariates Priors
 
@@ -314,15 +301,16 @@ model {
 // -----
 
 	 for (i in 1:n_ind) {
+	     // Survival and detection are only informed in periods after the first time we capture an individual
+	      // Hypothetically detection could be informed in periods prior to the first capture if we also try to estimate how long that individual was in the population
+               // However, this becomes a whole extra latent process that will just make the model overly unwieldy
+	  
 	  for (t in (first[i] + 1):last[i]) {			
 	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    		   // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
-	  }
-	  for (t in 1:last[i]) {
 	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);   // Capture given detection
 	  }
+
 	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
 	 }
 
 }
-
-
