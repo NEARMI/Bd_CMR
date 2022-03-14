@@ -72,7 +72,7 @@ first_capt <- capt_history.p %>%
  ## (all periods in advance of first capturing them)
 capt_history.p %<>% 
   ungroup() %>% 
-  group_by(Mark, Month, Year) %>% 
+  group_by(Mark, Month, Year,  capture_date) %>% 
   mutate(p_zeros = ifelse(any(captured == 1), 1, 0)) %>%
   ungroup() %>%
   group_by(Mark) %>%

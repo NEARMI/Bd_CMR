@@ -6,12 +6,30 @@
 ## Notes as of March 14:
 ####
 
+## 0) Looking back at the model I am now worried a bit about a few things:
+ ## A) In the current model iterations for animals that were only ever captured once, the loop goes from one day before to that day, which pulls in a pred_phi that I
+  ##   tell the model has to be 0, which is wrong. 
+   ##   ^^ The question is whether the stan sample code 7.3 calculates _last_ differently from me (which I think must be the case) or if there is a bug in their model
+    ##     So the bottom line here is to first
+ ## B) Animals that were only ever captured on the last day can't contribute to the likelihood. 
+  ##    ^^ What is currently going on with these animals in my model???
+
+## POTENTIAL SOLUTIONS ##
+ ## A) Working through this now, but it may be to add an if esle to the stan model to rely only on chi for animals caught once.
+  ##    But before deciding on this course of action need to figure out exactly what the stan functions to calculate first and last are doing
+
+#### ----- 
+
 ## 1) The current major problem stems from the interaction of populations and sub populations and 
  ## primary periods and secondary periods. -- **See results for Blackrock-C.ANBO**
   ## -- essentially, by assigning 0s to individuals (not caught) on days where they basically couldn't 
    ## have been caught pushes the model to produce very low detection probabilities and very high survival
  ## --> Really need to figure out how to populate the complete sampling history for each individual accurately
   ## to avoid these weird results
+
+## POTENTIAL SOLUTIONS ##
+ ## A) having a daily detection probability (as a random effect) shows some reasonable promise (see Blackrock_debug.keynote)
+ ## B) p_zeros was broken and is now fixed. Need to rerun the model before diagnosing further
 
 
 ####

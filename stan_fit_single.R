@@ -113,6 +113,7 @@ stan.fit  <- try(
 )
 
 saveRDS(stan.fit, paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
+#stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)

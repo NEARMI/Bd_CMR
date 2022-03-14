@@ -141,30 +141,31 @@ out.pred.bd <- rbind(
 , out.pred.off.2
 )
 
-outval   <- matrix(seq(1, 4, by = 1))
-out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
+#outval   <- matrix(seq(1, 4, by = 1))
+#out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
-for (j in 1:ncol(out.pred)) {
-   out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]] + stan.fit.samples$beta_p * 1)
-}
+#for (j in 1:ncol(out.pred)) {
+  # out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]] + stan.fit.samples$beta_p * 1)
+#   out.pred[, j] <- plogis(stan.fit.samples$beta_p_year[, outval[j]] + stan.fit.samples$beta_p * 1)
+#}
 
-out.pred <- reshape2::melt(out.pred) %>% 
-  rename(iter = Var1, gap = Var2) %>% 
-  mutate(gap = plyr::mapvalues(gap
-    , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "detection_year")
+#out.pred <- reshape2::melt(out.pred) %>% 
+#  rename(iter = Var1, gap = Var2) %>% 
+#  mutate(gap = plyr::mapvalues(gap
+#    , from = unique(gap), to = unique(outval))) %>%
+#  mutate(variable = "detection_year")
 
-out.pred.p <- out.pred %>%
-  group_by(gap, variable) %>%
-  summarize(
-    lwr = quantile(value, 0.1)
-  , mid = quantile(value, 0.5)
-  , upr = quantile(value, 0.9)
-  ) %>% mutate(
-    population = this_pop
-  , location   = this_loc
-  , species    = this_spec  
-  )
+#out.pred.p <- out.pred %>%
+#  group_by(gap, variable) %>%
+#  summarize(
+#    lwr = quantile(value, 0.1)
+#  , mid = quantile(value, 0.5)
+#  , upr = quantile(value, 0.9)
+ # ) %>% mutate(
+#    population = this_pop
+#  , location   = this_loc
+#  , species    = this_spec  
+#  )
 
 stan.ind_pred_var <- stan.fit.samples$X %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
@@ -243,18 +244,22 @@ ind_order %<>% mutate(
   , species    = this_spec 
 )
 
+source("p_day_debug.R")
+
 if (i == 1) {
   beta_est.all          <- beta_est
   out.pred.all          <- out.pred.bd
   stan.ind_pred_var.all <- stan.ind_pred_var
   ind_order.all         <- ind_order
-  out.pred.p.all        <- out.pred.p
+#  out.pred.p.all        <- out.pred.p
+  stan.p_pred_var.all   <- stan.p_pred_var
 } else {
   beta_est.all          <- rbind(beta_est.all, beta_est)
   out.pred.all          <- rbind(out.pred.all, out.pred.bd)
   stan.ind_pred_var.all <- rbind(stan.ind_pred_var.all, stan.ind_pred_var)
   ind_order.all         <- rbind(ind_order.all, ind_order)
-  out.pred.p.all        <- rbind(out.pred.p.all, out.pred.p)
+#  out.pred.p.all        <- rbind(out.pred.p.all, out.pred.p)
+  stan.p_pred_var.all   <- rbind(stan.p_pred_var.all, stan.p_pred_var)
 }
 
 print("--------------")
@@ -334,13 +339,26 @@ beta_est.all %<>%
     facet_wrap(~population, scales = "free")
 })
 
-out.list.old <- list(
-  gg.1 = gg.1
-, gg.2 = gg.2
-, gg.3 = gg.3
-, gg.4 = gg.4
-, gg.5 = gg.5
-  )
+(gg.6 <- stan.p_pred_var.all %>% {
+  ggplot(., aes(rough_real_order, pred_order)) +
+    geom_point() +
+    xlab("Rank -- captures per day") +
+    ylab("Rank -- estimated detection probability") +
+    facet_wrap(~population, scales = "free")
+})
+
+(gg.7 <- stan.p_pred_var.all %>% 
+    group_by(population) %>%
+    filter(capture_date != min(capture_date)) %>%
+    filter(capture_date != "2018-05-05") %>%
+    mutate(capture_date = as.factor(capture_date)) %>% {
+  ggplot(., aes(mid, capture_date)) +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), size = 0.75, height = 0.3) +
+    geom_point() +
+    xlab("Daily detection probability deviate") +
+    ylab("Capture outing") +
+    facet_wrap(~population, scales = "free")
+})
 
 ####
 ## Some checking of fitdistr vs the distribution fit inside the stan model
@@ -416,6 +434,12 @@ all_sites <- expand.grid(
   mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
   pivot_wider(CaptureDate, values_from = sampled, names_from = visited) %>%
   mutate(total = QU + SP + ML + OX + MW) %>% arrange(desc(total))
+
+all_sites %<>% left_join(
+  .
+, stan.p_pred_var.all %>% filter(population == "Blackrock-C.ANBO") %>%
+    dplyr::select(mid, lwr, upr, capture_date) %>% rename(CaptureDate = capture_date)
+)
 
 data.all %>% filter(Mark %in% mark.look) %>% dplyr::select(-Notes) %>% 
   group_by(SubSite) %>% summarize(n())

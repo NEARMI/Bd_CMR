@@ -205,7 +205,7 @@ transformed parameters {
 
 	   if (offseason[t] == 0) {	 // in season survival process
 
-             phi[t] = inv_logit(beta_inseason_year[phi_year[t]] + beta_phi * capt_gaps[ind_occ_min1_rep[t]]);
+             phi[t] = inv_logit(beta_inseason_year[phi_year[t]] + beta_phi * capt_gaps[t]);
 
 	   } else {			 // off season survival process
 	     
@@ -322,15 +322,13 @@ model {
 // -----
 
 	 for (i in 1:n_ind) {
-	     // Survival and detection are only informed in periods after the first time we capture an individual
-	      // Hypothetically detection could be informed in periods prior to the first capture if we also try to estimate how long that individual was in the population
-               // However, this becomes a whole extra latent process that will just make the model overly unwieldy
-	  
+	
+	if (first[i] != last[i]) {
 	  for (t in (first[i] + 1):last[i]) {			
 	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    		   // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
 	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);   // Capture given detection
 	  }
-
+	}
 	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
 	 }
 
