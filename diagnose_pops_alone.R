@@ -285,7 +285,8 @@ beta_est.all %<>%
 ####
 
 (gg.1 <- beta_est.all %>% 
-  filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 1)) %>% {
+    filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 1)) %>% {
+ #  filter(params == "beta_p") %>% {
     ggplot(., aes(population, mid)) +
       geom_errorbar(aes(ymin = lwr, ymax = upr, colour = species), width = 0.3) +
       geom_point(aes(colour = species)) +
@@ -361,3 +362,73 @@ hist(stan.fit.samples$ind_len_mis)
 
 fitdistrplus::fitdist(ind.len[!is.na(ind.len)], "gamma")
 hist(rgamma(10000, 60, 1.02), breaks = 200)
+
+####
+## Misc debugging for Blackrock-C.ANBO
+####
+
+(capt_history %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>% 
+  group_by(capture_date) %>%
+  slice(1))$effort %>% hist()
+
+mark.look <- (data.all %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>%
+  group_by(Mark) %>%
+  summarize(all_pops = length(unique(SubSite))) %>% 
+  arrange(desc(all_pops)) %>% 
+  as.data.frame() %>% 
+  filter(all_pops == 2))$Mark
+
+## Unique locations by animal
+data.all %>% 
+  filter(Mark %in% mark.look) %>% 
+  dplyr::select(-Notes) %>% 
+  arrange(Mark)
+
+## Captures per SubSite
+data.all %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>%
+  group_by(CaptureDate) %>%
+  ungroup() %>%
+  group_by(SubSite) %>%
+  summarize(n())
+
+## Visits per SubSite
+data.all %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>%
+  group_by(SubSite) %>%
+  summarize(unidate = length(unique(CaptureDate))) 
+
+## Sites visited each date
+sites_visited <- data.all %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>%
+  group_by(CaptureDate) %>%
+  ungroup() %>%
+  group_by(CaptureDate) %>%
+  summarize(visited = unique(SubSite)) %>%
+  mutate(sampled = 1)
+
+all_sites <- expand.grid(
+  CaptureDate = unique(sites_visited$CaptureDate)
+, visited     = unique(sites_visited$visited)
+  ) %>% left_join(., sites_visited) %>% 
+  mutate(sampled = ifelse(is.na(sampled), 0, 1)) %>%
+  pivot_wider(CaptureDate, values_from = sampled, names_from = visited) %>%
+  mutate(total = QU + SP + ML + OX + MW) %>% arrange(desc(total))
+
+data.all %>% filter(Mark %in% mark.look) %>% dplyr::select(-Notes) %>% 
+  group_by(SubSite) %>% summarize(n())
+
+## yeras in which each animal was caught
+capt_history %>% 
+  filter(pop_spec == "Blackrock-C.ANBO") %>%
+  group_by(Mark, Year) %>%
+  dplyr::select(Mark, Year, captured) %>%
+  summarize(captured = sum(captured)) %>%
+  mutate(captured = ifelse(captured > 0, 1, 0)) %>%
+  pivot_wider(Mark, names_from = Year, values_from = captured) %>% 
+  mutate(total = `2018` +`2019` + `2020` + `2021`) %>% 
+  arrange(desc(total)) %>% ungroup() %>%
+  group_by(total) %>%
+  summarize(n())

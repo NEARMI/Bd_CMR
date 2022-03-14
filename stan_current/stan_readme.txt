@@ -1,22 +1,23 @@
 Current working stan models
 
-
 -- Current primary working model --
 
-CMR_single_population_con_mi2
+CMR_single_population_con_mi2_p_phi_adj
 	-- One population
 	-- continuous survival within season given number of days between sampling
 	-- multiple imputation second attempt
 
 [TO DO]
-	-- Check multiple imputation
-	-- clean up prim and sec periods with # days between samples for both phi and p
-	-- figure out what to do with gamma
+	-- Figure out what to do with Site, SubSite and sampling days
+
 
 {IN DEV working through TO DO list}
 
-CMR_single_population_con_mi2_p_phi_adj
-	-- Adjusting phi and p 
+CMR_single_population_con_mi2_p_phi_adj_p_per_day
+	-- Trying a random effect for detection, allowing each day to have its own detection probability
+
+
+
 
 
 -- Current primary working model --

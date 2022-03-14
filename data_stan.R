@@ -269,3 +269,10 @@ X_stat_index_covs <- capt_history.phi %>%
   dplyr::select(
     ind_in_pop_year, pop_for_bd, Mark
   )
+
+### Testing a date-level random effect for detection
+capt_history.p %<>% 
+  mutate(date_fac = as.character(capture_date)) %>% 
+  mutate(date_fac = as.factor(date_fac)) %>% 
+  mutate(date_fac = as.numeric(date_fac))
+

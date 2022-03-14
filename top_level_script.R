@@ -3,6 +3,18 @@
 #####################################
 
 ####
+## Notes as of March 14:
+####
+
+## 1) The current major problem stems from the interaction of populations and sub populations and 
+ ## primary periods and secondary periods. -- **See results for Blackrock-C.ANBO**
+  ## -- essentially, by assigning 0s to individuals (not caught) on days where they basically couldn't 
+   ## have been caught pushes the model to produce very low detection probabilities and very high survival
+ ## --> Really need to figure out how to populate the complete sampling history for each individual accurately
+  ## to avoid these weird results
+
+
+####
 ## Notes as of March 11:
 ####
 

@@ -27,7 +27,10 @@ stan_data     <- list(
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , gamma_index       = capt_history.p$gamma_index
- , p_effort          = capt_history.p$effort
+
+ , p_day             = capt_history.p$date_fac
+ , num_days          = length(unique(capt_history.p$date_fac))
+# , p_effort         = capt_history.p$effort
   
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -88,7 +91,8 @@ stan.fit  <- try(
 # file    = "CMR_single_population_con_mi.stan"
 # file    = "CMR_single_population_con_mi2.stan"
 # file    = "stan_current/CMR_single_population_con_mi2.stan"
- file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj.stan"
+# file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj.stan"
+ file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day.stan"
 #  file    = "stan_current/CMR_single_population_con_mi2_ppsp.stan"
 , data    = stan_data
 , chains  = 1
