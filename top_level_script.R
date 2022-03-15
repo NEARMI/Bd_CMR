@@ -3,33 +3,49 @@
 #####################################
 
 ####
-## Notes as of March 14:
+## Notes as of March 15:
 ####
 
+## -- A note about model structure -- ##
+
+## There are enough indexing columns created at this point that modifications to the largest model
+ ## are no longer difficult to make. For this reason I am moving most of the stan models to the
+  ## dev folder from here forward
+
+## -- Still to be cleaned up -- ## 
+
 ## 0) Looking back at the model I am now worried a bit about a few things:
- ## A) In the current model iterations for animals that were only ever captured once, the loop goes from one day before to that day, which pulls in a pred_phi that I
-  ##   tell the model has to be 0, which is wrong. 
-   ##   ^^ The question is whether the stan sample code 7.3 calculates _last_ differently from me (which I think must be the case) or if there is a bug in their model
-    ##     So the bottom line here is to first
- ## B) Animals that were only ever captured on the last day can't contribute to the likelihood. 
+ ## A) Animals that were only ever captured on the last day can't contribute to the likelihood. 
   ##    ^^ What is currently going on with these animals in my model???
 
-## POTENTIAL SOLUTIONS ##
- ## A) Working through this now, but it may be to add an if esle to the stan model to rely only on chi for animals caught once.
-  ##    But before deciding on this course of action need to figure out exactly what the stan functions to calculate first and last are doing
+## -- Some progress -- ## 
 
-#### ----- 
+## Made some nice progress on things by adding day-level and individual-level random effects
+ ## for detection and survival 
 
-## 1) The current major problem stems from the interaction of populations and sub populations and 
- ## primary periods and secondary periods. -- **See results for Blackrock-C.ANBO**
-  ## -- essentially, by assigning 0s to individuals (not caught) on days where they basically couldn't 
-   ## have been caught pushes the model to produce very low detection probabilities and very high survival
- ## --> Really need to figure out how to populate the complete sampling history for each individual accurately
-  ## to avoid these weird results
+## Stepping back to periods where the population is assumed to be closed and other periods where the population
+ ## is assumed to be open is providing some reasonable fits and seems like a way forward
+  ## ^^ It seems like estimating survival in very narrow time windows just isn't feasible
 
-## POTENTIAL SOLUTIONS ##
- ## A) having a daily detection probability (as a random effect) shows some reasonable promise (see Blackrock_debug.keynote)
- ## B) p_zeros was broken and is now fixed. Need to rerun the model before diagnosing further
+## Saved a nice plot showing little effect of different random effects at the day level and individual
+ ## level on survival estimates, but which seem to help clean up detection
+  ## ^^ Still need to try this on Blackrock
+
+## -- Still open questions -- ##
+
+## Honestly not too much remaining for individual populations before trying to fit every population
+ ## individually, BUT, still need to figure out:
+   ## 1) a threshold for all populations to assume open
+   ## 2) what covariates to include for within vs between season survival
+   ## 3) if to include any covariates in survival
+
+## -- The next steps -- ##
+
+## 1) Make a final decision for a reasonable structure
+## 2) Fit to all individual populations
+## 3) Make necessary adjustments to multi-population model
+  ##   STARTING with just ANBO
+## 4) Proceed from there
 
 
 ####
@@ -100,7 +116,7 @@ source("data_load.R")
 single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[1]
+which.dataset <- unique(data.all$pop_spec)[11]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -123,8 +139,8 @@ source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 600
-stan.burn     <- 200
+stan.iter     <- 800
+stan.burn     <- 300
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (single_pop) {

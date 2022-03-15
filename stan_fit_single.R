@@ -92,15 +92,17 @@ stan.fit  <- try(
 # file    = "CMR_single_population_con_mi2.stan"
 # file    = "stan_current/CMR_single_population_con_mi2.stan"
 # file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj.stan"
- file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day.stan"
-#  file    = "stan_current/CMR_single_population_con_mi2_ppsp.stan"
+# file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day.stan"
+# file     = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day2.stan"
+  file     = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day2_ind_rand.stan"
+# file   = "stan_current/CMR_single_population_con_mi2_ppsp.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
 , refresh = 10
 , init    = list(
   list(
-    ind_len_mis = rep(mean(ind.len, na.rm = T), length(len.mis))
+    ind_len_mis = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
   )
 )
 , iter    = stan.iter            

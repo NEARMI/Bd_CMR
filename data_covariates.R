@@ -58,6 +58,7 @@ ind.len <- capt_history %>%
 ind.len[ind.len$pop_spec == "LilyPond.BCF", ]$len     <- 0
 ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
 
+ind.len$len[1] <- NA
 ind.len <- ind.len$len
 
 len.mis  <- which(is.na(ind.len))
