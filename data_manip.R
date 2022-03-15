@@ -48,7 +48,7 @@ for (i in 1:n_sites) {
 period_range.i    <- period_range %>% filter(pop_spec == u_sites[i])
 data.i            <- data.all %>% filter(pop_spec == u_sites[i]) %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
 sampled_periods.i <- sampled_periods %>% filter(pop_spec == u_sites[i])
-  
+
 capt_history.t <- 
   ## First create that "all possible combinations" data frame (all secondary periods in which each animal
    ## could possibly have been caught)
@@ -89,7 +89,8 @@ capt_history.t %<>% group_by(Mark, Year) %>%
 # capt_history.t %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
 
 ## There are some duplicate entries. Rare but does happen. Probably either poor QA/QC or possibly individuals caught more than once in a day
-capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
+## UPDATE: There should no longer be any duplicate entries because of data cleaning
+# capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
 
 if (red_ind) {
   which_ind      <- sample(unique(capt_history.t$Mark), min(length(unique(capt_history.t$Mark)), num_ind))
@@ -127,6 +128,19 @@ if (num_no_data["num_no_size"] > 0) {
 #}
 
 capt_history.t %<>% left_join(., ind_cov)
+
+## Drop all individuals that were only ever captured in the final sampling period as these individuals cannot contribute anything to the model
+ ## Have to also then rename individuals so their numbers are consecutive
+ind_at_end <- (capt_history.t %>% 
+  group_by(Mark) %>% 
+  mutate(total_caps = cumsum(captured)) %>%
+  filter(total_caps == 1) %>% 
+  filter(captured == 1) %>% 
+  ungroup() %>%
+  filter(capture_date == max(capture_date)) %>%
+  summarize(ind_at_end = unique(Mark)))$ind_at_end
+
+capt_history.t %<>% filter(Mark %notin% ind_at_end) %>% droplevels() %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
 
 ## Jump through a few hoops to name unique individuals
  ## NOTE: this is an issue if individuals move populations (as that individual in each population will be

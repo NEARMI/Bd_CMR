@@ -12,12 +12,6 @@
  ## are no longer difficult to make. For this reason I am moving most of the stan models to the
   ## dev folder from here forward
 
-## -- Still to be cleaned up -- ## 
-
-## 0) Looking back at the model I am now worried a bit about a few things:
- ## A) Animals that were only ever captured on the last day can't contribute to the likelihood. 
-  ##    ^^ What is currently going on with these animals in my model???
-
 ## -- Some progress -- ## 
 
 ## Made some nice progress on things by adding day-level and individual-level random effects
@@ -116,7 +110,7 @@ source("data_load.R")
 single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[11]
+which.dataset <- unique(data.all$pop_spec)[12]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
