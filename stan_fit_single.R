@@ -30,8 +30,7 @@ stan_data     <- list(
 
  , p_day             = capt_history.p$date_fac
  , num_days          = length(unique(capt_history.p$date_fac))
-# , p_effort         = capt_history.p$effort
-  
+
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
  , offseason         = capt_history.phi$offseason
@@ -54,16 +53,20 @@ stan_data     <- list(
  , bd_last_index     = bd_last_index
  , x_bd_index        = capt_history.bd_load$X_stat_index
   
- , ind_size          = ind.size
- , ind_hg            = ind.hg
-  
+  ## individual length data
  , ind_len_which_have = len.have
  , ind_len_which_mis  = len.mis %>% as.array()
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
- , ind_len_mean       = 0
- , ind_len_sd         = 1
+
+  ## individual mehg data
+# , ind_hg             = ind.hg
+ , ind_mehg_which_have = hg.have
+ , ind_mehg_which_mis  = hg.mis
+ , n_ind_mehg_have     = length(hg.have)
+ , n_ind_mehg_mis      = length(hg.mis)
+ , ind_mehg_have       = ind.hg[hg.have]
   
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
@@ -80,35 +83,29 @@ stan_data     <- list(
  , y               = capt_history.p$captured
  , first           = capture_range$first
  , last            = capture_range$final
+ , n_capt_per_day  = (capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)))$num_capt
 
   )
   
 stan.fit  <- try(
   {
  stan(
-# file    = "CMR_single_population.stan"
-# file    = "CMR_single_population_con.stan"
-# file    = "CMR_single_population_con_mi.stan"
-# file    = "CMR_single_population_con_mi2.stan"
-# file    = "stan_current/CMR_single_population_con_mi2.stan"
-# file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj.stan"
-# file    = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day.stan"
-# file     = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day2.stan"
-  file     = "stan_current/CMR_single_population_con_mi2_p_phi_adj_p_per_day2_ind_rand.stan"
-# file   = "stan_current/CMR_single_population_con_mi2_ppsp.stan"
+# file    = "stan_current/CMR_single_population_ind_rand.stan"
+  file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
 , data    = stan_data
 , chains  = 1
 , cores   = 1
 , refresh = 10
 , init    = list(
   list(
-    ind_len_mis = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
+    ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
+  , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
   )
 )
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
+, control = list(adapt_delta = 0.94, max_treedepth = 13)
   )
   }
 , silent = TRUE

@@ -6,6 +6,11 @@
 ## Notes as of March 16:
 ####
 
+########## ---- 0) Some nice progress [But didn't make it to really cleaning things up so need to start there]
+
+ ## A) Regression of MeHg on imputed length and then using that relationship to impute MeHg is a decent success 
+ ## B) Generated quantities for population size implemented and seems sensible, but need to check across a number of pops
+
 ########## ---- 1) Things I have learned about the single population model
 
  ## A) Estimating the effect of Bd on survival is hard... Most estimates overlap 0
@@ -17,7 +22,8 @@
   ##   ^^ Which means using periods of open vs closed populations is likely the way forward
   ##   ^^ But what then is the threshold with so many different sampling schemes?
 
- ## D) Adding individual and day random effects for detection (and survival for individuals) costs little
+ ## D) Adding individual and day random effects for detection costs little
+  ##    (though individual random effect for within-season survival is unidentifiable)
   ##   Mixing still fast, estimates very similar to them not included except for detection which improves
 
  ## E) With three processes (between season survival, within season survival, and detection) it is still an open
@@ -58,10 +64,10 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- FALSE
+single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[4]
+which.dataset <- unique(data.all$pop_spec)[10]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -84,8 +90,8 @@ source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 1300
-stan.burn     <- 300
+stan.iter     <- 800
+stan.burn     <- 250
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (single_pop) {

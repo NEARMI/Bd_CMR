@@ -58,6 +58,7 @@ ind.len <- capt_history %>%
 ind.len[ind.len$pop_spec == "LilyPond.BCF", ]$len     <- 0
 ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
 
+## !! Temporary placeholder because the stan model breaks if there are no NA values...
 ind.len$len[1] <- NA
 ind.len <- ind.len$len
 
@@ -71,16 +72,19 @@ ind.hg <- capt_history %>%
   group_by(Mark, pop_spec) %>% 
   summarize(merc = mean(merc, na.rm = T)) %>%
   ungroup() %>%
-  group_by(pop_spec) %>%
-  mutate(merc_mean = mean(merc, na.rm = T)) %>%
-  mutate(merc = ifelse(!is.na(merc), merc, merc_mean)) %>%
-  dplyr::select(-merc_mean) %>%
-  mutate(merc = scale(merc)[, 1])
+  group_by(pop_spec)# %>%
+#  mutate(merc_mean = mean(merc, na.rm = T)) %>%
+#  mutate(merc = ifelse(!is.na(merc), merc, merc_mean)) %>%
+#  dplyr::select(-merc_mean) %>%
+#  mutate(merc = scale(merc)[, 1])
 
 ## ONLY FOR NOW just set all NA to 0
-ind.hg[is.na(ind.hg$merc), ]$merc <- 0
+# ind.hg[is.na(ind.hg$merc), ]$merc <- 0
 
 ind.hg <- ind.hg$merc
+
+hg.mis  <- which(is.na(ind.hg))
+hg.have <- which(!is.na(ind.hg))
 
 ## -- Site level covariates -- ##
 
@@ -141,4 +145,3 @@ site_covar.con %<>%
   , Temp_Mean   = ifelse(is.na(Temp_Mean), mean(Temp_Mean, na.rm = T), Temp_Mean)
   , Temp_SD     = ifelse(is.na(Temp_SD), mean(Temp_SD, na.rm = T), Temp_SD)
     )
-
