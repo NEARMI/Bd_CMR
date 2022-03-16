@@ -49,8 +49,8 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
   out.pred[, j] <- plogis(
-    stan.fit.samples$beta_inseason_year[, 2] + 
-    stan.fit.samples$beta_phi * outval[j] 
+    # stan.fit.samples$beta_inseason_year + 
+    stan.fit.samples$beta_phi
     )
 }
 
@@ -78,10 +78,10 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
-    stan.fit.samples$beta_offseason_year[, 2] + 
-    stan.fit.samples$beta_offseason[, 1] * outval[j] +
-    stan.fit.samples$beta_offseason[, 2] * 0 +
-    stan.fit.samples$beta_offseason[, 3] * 0
+    stan.fit.samples$beta_offseason[, 1] +
+    stan.fit.samples$beta_offseason[, 2] * outval[j] +
+    stan.fit.samples$beta_offseason[, 3] * 0 +
+    stan.fit.samples$beta_offseason[, 4] * 0
     )
 }
 
@@ -109,10 +109,10 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
-    stan.fit.samples$beta_offseason_year[, 2] + 
-    stan.fit.samples$beta_offseason[, 1] * 5 +
-    stan.fit.samples$beta_offseason[, 2] * 0 +
-    stan.fit.samples$beta_offseason[, 3] * outval[j]
+    stan.fit.samples$beta_offseason[, 1] +
+    stan.fit.samples$beta_offseason[, 2] * 5 +
+    stan.fit.samples$beta_offseason[, 3] * 0 +
+    stan.fit.samples$beta_offseason[, 4] * outval[j]
     )
 }
 
@@ -290,7 +290,7 @@ beta_est.all %<>%
 ####
 
 (gg.1 <- beta_est.all %>% 
-    filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 1)) %>% {
+    filter((params == "beta_phi" & param_lev == 1) | (params == "beta_offseason" & param_lev == 2)) %>% {
  #  filter(params == "beta_p") %>% {
     ggplot(., aes(population, mid)) +
       geom_errorbar(aes(ymin = lwr, ymax = upr, colour = species), width = 0.3) +

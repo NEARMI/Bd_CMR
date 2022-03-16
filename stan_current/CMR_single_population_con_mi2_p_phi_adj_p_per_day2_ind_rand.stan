@@ -120,19 +120,17 @@ parameters {
 	real beta_phi;                  		 // survival within season as a function of time between samples
 	vector[4] beta_offseason;  			 // survival as a function of bd stress
 
-	real<lower=0> phi_delta_sigma;
-	real phi_delta_eps[n_ind];
-
 // -----
 // detection
 // -----
+	
+	real beta_p;
 	
 	real<lower=0> p_delta_sigma;
 	real p_delta_eps[n_ind];
 
 	real<lower=0> p_day_delta_sigma;
 	real p_day_delta_eps[num_days];
-	
 	
 // -----
 // imputed covariates
@@ -162,8 +160,6 @@ transformed parameters {
 	real p_ind_dev[n_ind];
 	real p_day_dev[num_days];
 
-	real phi_ind_dev[n_ind];
-
 // -----
 // Imputed NA Data values
 // -----
@@ -175,7 +171,6 @@ transformed parameters {
 	ind_len_sd   = sd(ind_len);
 
 	ind_len_scaled = (ind_len - ind_len_mean)/ind_len_sd;
-
 
 // -----
 // bd submodel, contained to estimating within-season bd
@@ -197,14 +192,9 @@ transformed parameters {
 
         }
 
-
 // -----
 // Survival probability over the whole period
 // -----
-
-	for (i in 1:n_ind) {
-  	  phi_ind_dev[i]  = phi_delta_sigma * phi_delta_eps[i];  
-	}
 
 
 	for (t in 1:ind_occ_min1) {
@@ -218,7 +208,7 @@ transformed parameters {
 	   if (phi_ones[t] == 1) { 
 	     phi[t] = 1;
            } else {
-             phi[t] = inv_logit(beta_phi + phi_ind_dev[ind_occ_min1_rep[t]]);
+             phi[t] = inv_logit(beta_phi);
 	   }
 
 	  } else {			 // off season survival process
@@ -249,12 +239,11 @@ transformed parameters {
   	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
 	}
 
-	
 	for (t in 1:ind_occ) {   
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(p_ind_dev[ind_occ_rep[t]] + p_day_dev[p_day[t]]);
+           p[t] = inv_logit(beta_p + p_ind_dev[ind_occ_rep[t]] + p_day_dev[p_day[t]]);
 	 }
 	}
 	
@@ -297,23 +286,18 @@ model {
 	beta_offseason[3]   ~ normal(0, 0.85);
 	beta_offseason[4]   ~ normal(0, 0.85);
 
-	for (i in 1:n_ind) {
-	  phi_delta_eps[i] ~ normal(0, 1.45);
-	}
-
-	phi_delta_sigma     ~ inv_gamma(8, 15);
-
 // Detection Priors
 
+	beta_p            ~ normal(0, 1.15);
 	p_delta_sigma     ~ inv_gamma(8, 15);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
 
 	for (i in 1:n_ind) {
-	  p_delta_eps[i] ~ normal(0, 1.45);
+	  p_delta_eps[i] ~ normal(0, 1.15);
 	}
 
 	for (i in 1:num_days) {
-	  p_day_delta_eps[i] ~ normal(0, 1.45);
+	  p_day_delta_eps[i] ~ normal(0, 1.15);
 	}
 
 // Imputed Covariates Priors

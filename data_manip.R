@@ -89,8 +89,7 @@ capt_history.t %<>% group_by(Mark, Year) %>%
 # capt_history.t %>% group_by(Mark) %>% summarize(n_capt = sum(captured)) %>% arrange(n_capt)
 
 ## There are some duplicate entries. Rare but does happen. Probably either poor QA/QC or possibly individuals caught more than once in a day
-## UPDATE: There should no longer be any duplicate entries because of data cleaning
-# capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
+capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
 
 if (red_ind) {
   which_ind      <- sample(unique(capt_history.t$Mark), min(length(unique(capt_history.t$Mark)), num_ind))
@@ -140,7 +139,11 @@ ind_at_end <- (capt_history.t %>%
   filter(capture_date == max(capture_date)) %>%
   summarize(ind_at_end = unique(Mark)))$ind_at_end
 
-capt_history.t %<>% filter(Mark %notin% ind_at_end) %>% droplevels() %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
+capt_history.t %<>% filter(Mark %notin% ind_at_end) %>% droplevels()
+
+## For speed for the very largest (mutate and as.factor is really slow)
+new_marks           <- capt_history.t$Mark %>% as.factor() %>% as.numeric()
+capt_history.t$Mark <- new_marks
 
 ## Jump through a few hoops to name unique individuals
  ## NOTE: this is an issue if individuals move populations (as that individual in each population will be
