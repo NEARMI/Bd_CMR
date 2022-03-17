@@ -3,13 +3,13 @@
 #####################################
 
 ####
-## Notes as of March 16:
+## Notes as of March 17:
 ####
 
-########## ---- 0) Some nice progress [But didn't make it to really cleaning things up so need to start there]
+########## ---- 0) Some nice progress 
 
- ## A) Regression of MeHg on imputed length and then using that relationship to impute MeHg is a decent success 
- ## B) Generated quantities for population size implemented and seems sensible, but need to check across a number of pops
+## A) Fitting and plotting scripts automated and working [?]
+
 
 ########## ---- 1) Things I have learned about the single population model
 
@@ -67,7 +67,7 @@ source("data_load.R")
 single_pop <- TRUE
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[10]
+which.dataset <- unique(data.all$pop_spec)[4]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -91,7 +91,7 @@ source("capt_plot.R")
 
 ## And finally run the stan model
 stan.iter     <- 800
-stan.burn     <- 250
+stan.burn     <- 300
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (single_pop) {

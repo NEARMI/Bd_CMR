@@ -12,7 +12,7 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 red_ind    <- FALSE
 single_pop <- TRUE
 
-for (this_pop_now in 1:21) {
+for (this_pop_now in c(1:4, 7:14, 16:19, 21, 6, 5, 20, 15)) {
 
 source("data_load.R")
   
@@ -25,7 +25,9 @@ if (single_pop) {
 source("data_manip.R")
 source("data_stan.R")
 source("data_covariates.R")
+source("dataset_notes.R")
 source("stan_fit_single.R")
+source("plotting.R")
 
 rm(stan.fit)
 rm(stan_data)
