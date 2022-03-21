@@ -258,6 +258,7 @@ capt_history.phi %<>%
     mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>%
     mutate(pop_year = as.numeric(pop_year))
 
+## Self-contained data frame for the bd submodel
 X_stat_index_covs <- capt_history.phi %>% 
   group_by(X_stat_index) %>% 
   slice(1) %>% 
@@ -265,10 +266,11 @@ X_stat_index_covs <- capt_history.phi %>%
   mutate(
     ind_in_pop_year = factor(pop_year, levels = unique(pop_year))
   , pop_for_bd      = as.numeric(pop_spec)
+  , spec_for_bd     = as.numeric(Species)
     ) %>%
   mutate(ind_in_pop_year = as.numeric(ind_in_pop_year)) %>%
   dplyr::select(
-    ind_in_pop_year, pop_for_bd, Mark
+    ind_in_pop_year, pop_for_bd, spec_for_bd, Mark
   )
 
 ### Testing a date-level random effect for detection

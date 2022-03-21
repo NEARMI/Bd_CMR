@@ -39,7 +39,6 @@ data {
   // dimensional and bookkeeping params (single vals)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years and all populations)	
-	int<lower=1> ind_per_period_p;			    // n_ind * month-year (unique periods in time in which an individual could have entered the population)
 	int<lower=1> ind_per_period_bd;			    // n_ind * year (the unique periods of time in which each individual's bd is estimated)
 	int<lower=0> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
 	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
@@ -52,7 +51,6 @@ data {
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
-	int<lower=0> p_year[ind_occ];		  	    // Vector designating longer periods (here year) for observational model (all occasions)
 	int<lower=0> p_month[ind_occ];		            // Vector designating shorter periods (here month) for observational model (all occasions)
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
@@ -67,7 +65,6 @@ data {
 	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
 	int<lower=0> phi_ones[ind_occ_min1];	            // Time periods where we force survival to be 1 (assuming a closed population)
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
-	real<lower=0> capt_gaps[ind_occ_min1];		    // gaps between each sampling event
 
   // long vector indices for bd (bd)
 	int<lower=0> ind_bd_rep[ind_per_period_bd];	    // Index of which individual is associated with each estimated Bd value
@@ -267,7 +264,7 @@ transformed parameters {
 
 	  if (offseason[t] == 0) {	 // in season survival process
 
-	   if (phi_ones[t] == 1) { 
+	   if (phi_ones[t] == 1) { 	 // closed population assumption where survival is set to 1
 	     phi[t] = 1;
            } else {
              phi[t] = inv_logit(beta_phi);
@@ -318,8 +315,7 @@ transformed parameters {
 // Probability of never detecting an individual again after time t
 // -----
 
-		// For each individual calculate the probability it won't be captured again
-
+  // For each individual calculate the probability it won't be captured again
 	for (i in 1:n_ind) {
 	 chi[p_first_index[i]:(p_first_index[i] + ind_occ_size[i] - 1)] = prob_uncaptured(ind_occ_size[i], 
               segment(p, p_first_index[i], ind_occ_size[i]), segment(phi, phi_first_index[i], ind_occ_min1_size[i]));

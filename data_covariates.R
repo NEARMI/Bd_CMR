@@ -4,44 +4,7 @@
 
 ## -- Individual specific covariates -- ##
 
-## Small problem in that different datasets have slightly differnet measures for individual-level covariates.
- ## Need to pick what "size" covaraite to use based on pop-spec.
-  ## From this list it seems best probably to just use size and scale within population
-# 1      Blackrock-C.ANBO -- Weight or Length
-# 2      Blackrock-H.ANBO -- Weight or Length
-# 3    DilmanMeadows.RAPR -- Weight or Length
-# 4       EmmaCarlin.NOVI -- Length
-# 5         FoxCreek.RABO -- Weight or Length
-# 6        JonesPond.ANBO -- Weight or Length
-# 7        JonesPond.RALU -- Weight or Length
-# 8          LilyPond.BCF -- Neither measured usually
-# 9        LostHorse.RALU -- Weight or Length
-# 10     MatthewsPond.BCF -- Neither measured at all
-# 11         MudLake.NOVI -- Length
-# 12 SanFrancisquito.RADR -- Weight or Length
-# 13   ScotiaBarrens.NEWT -- Length
-# 14         SMNWR_E.AMCI -- Weight or Length
-# 15         SMNWR_E.NOVI -- Only two individuals, so will likely be best to just drop these two data points
-# 16         SMNWR_W.AMCI -- Weight or Length
-# 17         SMNWR_W.NOVI -- Weight or Length
-# 18  SonomaMountain.ANBO -- Weight or Length
-# 19             SPR.NEWT -- Length
-# 20    SummitMeadow.RASI -- Weight or Length
-# 21     ThreeCreeks.RACA -- Weight or Length
-# 22     TwoMedicine.ANBO -- Weight or Length
-
-## Again, really need to move to multiple imputation (filling in NAs using the distribution across all individuals--i.e., treating
- ## an NA as a parameter with a prior but one that isn't estimated)
-  ## for both size and mercury. HOWEVER, want to first get the model running
-ind.size <- capt_history %>% 
-  group_by(Mark, pop_spec) %>% 
-  summarize(size = mean(size, na.rm = T)) %>%
-  ungroup() %>%
-  group_by(pop_spec) %>%
-  mutate(size_mean = mean(size, na.rm = T)) %>%
-  mutate(size = ifelse(!is.na(size), size, size_mean)) %>%
-  dplyr::select(-size_mean) %>%
-  mutate(size = scale(size)[, 1])
+## Most populations measure SVL so using that as the covariate for size
 
 ind.len <- capt_history %>% 
   group_by(Mark, pop_spec) %>% 
@@ -59,7 +22,9 @@ ind.len[ind.len$pop_spec == "LilyPond.BCF", ]$len     <- 0
 ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
 
 ## !! Temporary placeholder because the stan model breaks if there are no NA values...
+if (all(!is.na(ind.len$len))) {
 ind.len$len[1] <- NA
+}
 ind.len <- ind.len$len
 
 len.mis  <- which(is.na(ind.len))
@@ -79,7 +44,9 @@ ind.hg <- capt_history %>%
 #  mutate(merc = scale(merc)[, 1])
 
 ## ONLY FOR NOW just set all NA to 0
-# ind.hg[is.na(ind.hg$merc), ]$merc <- 0
+if (all(!is.na(ind.hg$merc))) {
+ind.hg$merc[1] <- NA
+}
 
 ind.hg <- ind.hg$merc
 

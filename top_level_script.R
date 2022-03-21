@@ -3,8 +3,16 @@
 #####################################
 
 ####
-## Notes as of March 17:
+## Notes as of March 21:
 ####
+
+## 1) First, for lots of notes on the single population model see previous commit
+
+## 2) Starting the multi-population model today...
+
+
+
+
 
 ########## ---- 0) Some nice progress 
 
@@ -64,10 +72,21 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- TRUE
+single_pop <- FALSE
+if (!single_pop) {
+some_pops  <- TRUE
+} else {
+some_pops  <- FALSE 
+}
+
+if (some_pops) {
+which_spec    <- "ANBO"
+data.all      %<>% filter(Species %in% which_spec) %>% droplevels()
+sampling      %<>% filter(Species %in% which_spec) %>% droplevels()
+}
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[4]
+which.dataset <- unique(data.all$pop_spec)[8]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
