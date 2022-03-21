@@ -11,6 +11,7 @@ stan_data     <- list(
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
+ , n_days          = length(unique(capt_history.p$date_fac))
   
    ## n_spec placeholder to compare to stan_fit.R
   
@@ -28,7 +29,6 @@ stan_data     <- list(
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , p_day             = capt_history.p$date_fac
- , num_days          = length(unique(capt_history.p$date_fac))
 
    ## pop_p placeholder to compare to stan_fit.R
    ## spec_p placeholder to compare to stan_fit.R

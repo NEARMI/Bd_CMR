@@ -11,6 +11,7 @@ stan_data     <- list(
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
+ , n_days            = (capt_history.p %>% group_by(pop_spec) %>% summarize(days_in_pop = n_distinct(date_fac)))$days_in_pop %>% sum()
 
  , n_spec            = length(unique(capt_history$Species))
   
@@ -20,7 +21,11 @@ stan_data     <- list(
  , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index  
   
- , ind_which_pop     = ind_which_pop
+ , ind_in_pop        = ind_in_pop
+  
+  ## short vector indexes (length of n_days)
+ , day_which_pop     = (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
+ , spec_which_pop    = (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
  
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = capt_history.p$Mark
@@ -28,8 +33,7 @@ stan_data     <- list(
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , p_day             = capt_history.p$date_fac
- , num_days          = length(unique(capt_history.p$date_fac))
-  
+
  , pop_p             = as.numeric(capt_history.p$pop_spec)
  , spec_p            = as.numeric(capt_history.p$Species)
 
@@ -83,18 +87,16 @@ stan_data     <- list(
  , first           = capture_range$first
  , last            = capture_range$final
   
- , n_capt_per_day  = (capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)))$num_capt
+ , n_capt_per_day  = (capt_history.p %>% group_by(date_fac) %>% summarize(num_capt = sum(captured)))$num_capt
 
   )
 
 if (exists("ind.hg")) {
-  
  stan_data <- c(stan_data, ind_hg = ind.hg)
-  
 }
   
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_red_ni_cov.stan"
+  file    = "stan_current/CMR_multiple_populations_expanding.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -107,7 +109,7 @@ stan.fit  <- stan(
 # , pars    = c("phi", "p", "chi")
   )
 
-## stan.fit <- readRDS("no_int.Rds")
+# stan.fit  <- readRDS("fits/multi_test.Rds")
 ## shinystan::launch_shinystan(stan.fit)
 
 stan.fit.summary <- summary(stan.fit)[[1]]

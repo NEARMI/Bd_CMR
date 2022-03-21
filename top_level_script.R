@@ -8,16 +8,25 @@
 
 ## 1) First, for lots of notes on the single population model see previous commit
 
-## 2) Starting the multi-population model today...
+## 2) Starting the multi-population model today with just the 5 ANBO populations 
+ ## -- Model compiles and runs reasonably fast sub-setting to 150 individuals per population
+ ## -- Model scales quite poorly with increasing numbers of individuals 
+ ## -- Running on the other laptop and working to add a number of extensions, including:
+  ## A) Extremely poor fits having one effect of Bd on survival and having a random intercept of background survival by population. 
+   ##   ^^ Potentially also have a random effect for population-level effect -of- Bd on survival
+   ##   ^^ Or just a species-level intercept
+  ## B) Length imputation broken up by species
+  ## C) Figuring out what to do with MeHg
+  ## D) Figuring out what to do with the rest of the covariates
 
+## 3) Running the model with all individuals in the 5 ANBO populations today. Tasks for tomorrow include:
+ ## A) Debugging this fit
+ ## B) Comparing this fit to the populations run individually
+ ## C) Setting up Yeti to run the 5 ANBO populations + the populations of two other species
 
-
-
-
-########## ---- 0) Some nice progress 
-
-## A) Fitting and plotting scripts automated and working [?]
-
+####
+## Notes as of March 18:
+####
 
 ########## ---- 1) Things I have learned about the single population model
 
@@ -91,7 +100,7 @@ data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
-red_ind    <- FALSE
+red_ind    <- TRUE
 if (red_ind) {
 num_ind    <- 150
 }

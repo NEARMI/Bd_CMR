@@ -42,6 +42,7 @@ data {
 	int<lower=1> ind_per_period_bd;			    // n_ind * year (the unique periods of time in which each individual's bd is estimated)
 	int<lower=0> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
 	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
+	int<lower=0> n_days;				    // number of sampling occasions
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -55,7 +56,6 @@ data {
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
 
-	int<lower=0> num_days;				    // number of sampling occasions
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
   
   // long vector indices for survival model (phi)
@@ -101,7 +101,7 @@ data {
   	int<lower=0> first[n_ind];         		    // Capture event in which each individual was first captured
   	int<lower=0> last[n_ind];         		    // Capture event in which each individual was last captured
 
-	vector<lower=0>[num_days] n_capt_per_day;
+	vector<lower=0>[n_days] n_capt_per_day;
 
 }
 
@@ -123,7 +123,7 @@ parameters {
 // survival
 // -----
 
-	real beta_phi;                  		 // survival within season as a function of time between samples
+	real beta_phi;                  		 // single background intercept for survival in the offseason
 	vector[4] beta_offseason;  			 // survival as a function of bd stress
 
 // -----
@@ -136,7 +136,7 @@ parameters {
 	real p_delta_eps[n_ind];
 
 	real<lower=0> p_day_delta_sigma;
-	real p_day_delta_eps[num_days];
+	real p_day_delta_eps[n_days];
 	
 // -----
 // imputed covariates: length
@@ -195,9 +195,9 @@ transformed parameters {
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
 
 	real p_ind_dev[n_ind];
-	real p_day_dev[num_days];
+	real p_day_dev[n_days];
 
-	vector<lower=0,upper=1>[num_days] p_per_day;	 // average detection per day
+	vector<lower=0,upper=1>[n_days] p_per_day;	 // average detection per day
 
 // -----
 // Imputed NA Data values
@@ -294,7 +294,7 @@ transformed parameters {
   	  p_ind_dev[i]  = p_delta_sigma * p_delta_eps[i];  
 	}
 
-	for (i in 1:num_days) {
+	for (i in 1:n_days) {
   	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
 	}
 
@@ -306,7 +306,7 @@ transformed parameters {
 	 }
 	}
 
-	for (t in 1:num_days) {
+	for (t in 1:n_days) {
 	  p_per_day[t] = inv_logit(beta_p + p_day_dev[t]);
 	}
 	 
@@ -359,7 +359,7 @@ model {
 	  p_delta_eps[i] ~ normal(0, 1.15);
 	}
 
-	for (i in 1:num_days) {
+	for (i in 1:n_days) {
 	  p_day_delta_eps[i] ~ normal(0, 1.15);
 	}
 
@@ -420,7 +420,7 @@ model {
 generated quantities {
 // ------------------------------ generated quantities ------------------------------
  
-  vector<lower=0>[num_days] pop_size;
+  vector<lower=0>[n_days] pop_size;
   pop_size = n_capt_per_day ./ p_per_day;
 
 }

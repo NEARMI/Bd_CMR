@@ -102,8 +102,6 @@ site_covar.con <- temp_precip_hab; rm(temp_precip_hab)
 ## remove continuous covariates for site:years that I do not have 
 site_covar.con %<>% left_join(sampled_years, .)
 
-## ANOTHER issue with missing data and potential need for imputation. This could get really out of hand
- ## very soon... For now just assume no trend...
 site_covar.con %<>% 
   group_by(pop_spec) %>% 
   mutate(
@@ -112,3 +110,14 @@ site_covar.con %<>%
   , Temp_Mean   = ifelse(is.na(Temp_Mean), mean(Temp_Mean, na.rm = T), Temp_Mean)
   , Temp_SD     = ifelse(is.na(Temp_SD), mean(Temp_SD, na.rm = T), Temp_SD)
     )
+
+## Scale the various covariates
+site_covar.con %<>% 
+  ungroup() %>%
+  mutate(
+    Precip_Mean = scale(Precip_Mean)[, 1]
+  , Precip_SD   = scale(Precip_SD)[, 1]
+  , Temp_Mean   = scale(Temp_Mean)[, 1]
+  , Temp_SD     = scale(Temp_SD)[, 1]
+    )
+  

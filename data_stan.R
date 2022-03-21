@@ -160,13 +160,13 @@ capt_history.phi$X_stat_index <- X_stat_index
 
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
 # capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
-capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 0, 1))
+capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 1, 0))
 
 ####
 ## One final adjustment to capt.history
 ####
 
-capt_history %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_")) 
+capt_history     %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_")) 
 uni_X_stat_index <- unique(capt_history$X_stat_index)
 X_stat_index     <- factor(capt_history$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
 
@@ -201,7 +201,7 @@ phi_bd_index <- (left_join(
 capt_history.phi %<>% ungroup() %>% mutate(phi_bd_index = phi_bd_index)
 
 ## same thing for p
-p_bd_index <- (left_join(
+p_bd_index       <- (left_join(
   capt_history.p %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
 , capt_history   %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
   ))$index
@@ -209,7 +209,7 @@ p_bd_index <- (left_join(
 capt_history.p %<>% ungroup() %>% mutate(p_bd_index = p_bd_index)
 
 ## And finally, what actual measured bd values inform the latent bd process?
-x_bd_index <- (left_join(
+x_bd_index             <- (left_join(
   capt_history.bd_load %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
 , capt_history         %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
   ))$index
@@ -223,7 +223,7 @@ capt_history.bd_load %<>% left_join(
 
 ## Determine which population each individual is associated with
 
-ind_which_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
+ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
 
 ## Get the species and sites to be factors in the order that they appear in the data frames. 
 capt_history.phi     %<>% mutate(
@@ -275,7 +275,8 @@ X_stat_index_covs <- capt_history.phi %>%
 
 ### Testing a date-level random effect for detection
 capt_history.p %<>% 
-  mutate(date_fac = as.character(capture_date)) %>% 
+  mutate(date_fac = interaction(pop_spec, capture_date)) %>%
+  mutate(date_fac = as.character(date_fac)) %>% 
   mutate(date_fac = as.factor(date_fac)) %>% 
   mutate(date_fac = as.numeric(date_fac))
 
