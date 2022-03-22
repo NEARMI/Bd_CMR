@@ -162,8 +162,12 @@ parameters {
 	real<lower=0> offseason_pop_bd_sigma;		 // variation in offseason survival by population (slope over bd)
 	real offseason_pop_bd_eps[n_pop];
 
+	real<lower=0> offseason_pop_len_sigma;		 // variation in offseason survival by population (slope over animal length)
+	real offseason_pop_len_eps[n_pop];
+
 	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
 	real inseason_pop_eps[n_pop];
+
 
 
 // -----
@@ -179,7 +183,6 @@ parameters {
 	
 	real<lower=0> p_day_delta_sigma[n_pop];	         // variation in detection by day (nested within each population)
 	real p_day_delta_eps[n_days];
-
 
 // -----
 // imputed covariates ** need to make this variable by species or population
@@ -214,6 +217,7 @@ transformed parameters {
 	real inseason_pop[n_pop];
 	real offseason_pop[n_pop];
 	real offseason_pop_bd[n_pop];
+	real offseason_pop_len[n_pop];
 
   // Detection 
 	real<lower=0,upper=1> p[ind_occ];                // detection at time t
@@ -268,9 +272,10 @@ transformed parameters {
 // -----
 
 	for (pp in 1:n_pop) {
-	 inseason_pop[pp]     = inseason_pop_sigma  * inseason_pop_eps[pp];
-	 offseason_pop[pp]    = offseason_pop_sigma * offseason_pop_eps[pp];
-	 offseason_pop_bd[pp] = offseason_pop_bd_sigma * offseason_pop_bd_eps[pp];
+	 inseason_pop[pp]      = inseason_pop_sigma  * inseason_pop_eps[pp];
+	 offseason_pop[pp]     = offseason_pop_sigma * offseason_pop_eps[pp];
+	 offseason_pop_bd[pp]  = offseason_pop_bd_sigma  * offseason_pop_bd_eps[pp];
+	 offseason_pop_len[pp] = offseason_pop_len_sigma * offseason_pop_len_eps[pp];
 	} 
 
 	for (t in 1:ind_occ_min1) {
@@ -295,8 +300,8 @@ transformed parameters {
   // offseason survival given by a population-level intercept, a bd-effect, and a size effect ** MeHg and other site-level covariates to be added
 	     phi[t] = inv_logit(
 offseason_pop[pop_phi[t]] + 
-(beta_offseason[1] + offseason_pop_bd[pop_phi[t]]) * X[phi_bd_index[t]] + 
-beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
+(beta_offseason[1] + offseason_pop_bd[pop_phi[t]])  * X[phi_bd_index[t]] + 
+(beta_offseason[2] + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]]
 );
 
 	  }
@@ -368,26 +373,28 @@ model {
 
   // Survival Priors
 
-	beta_offseason[1]   ~ normal(0, 1.15);
-	beta_offseason[2]   ~ normal(0, 1.15);
+	beta_offseason[1]   ~ normal(0, 0.85);
+	beta_offseason[2]   ~ normal(0, 0.85);
 
 	for (i in 1:n_spec) {
 	  beta_inseason[i]  ~ normal(0, 1.15);
 	}
 
-	offseason_pop_sigma    ~ inv_gamma(8, 15);
-	offseason_pop_bd_sigma ~ inv_gamma(8, 15);
-	inseason_pop_sigma     ~ inv_gamma(8, 15);
+	offseason_pop_sigma     ~ inv_gamma(8, 15);
+	offseason_pop_bd_sigma  ~ inv_gamma(8, 15);
+	offseason_pop_len_sigma ~ inv_gamma(8, 15);
+	inseason_pop_sigma      ~ inv_gamma(8, 15);
 
 	for (i in 1:n_ind) {
 	  bd_ind_eps[i]   ~ normal(0, 3);
 	}
 
 	for (i in 1:n_pop) {
-	  p_pop_eps[i]            ~ normal(0, 1.15);
-	  inseason_pop_eps[i]     ~ normal(0, 1.45);
-	  offseason_pop_eps[i]    ~ normal(0, 1.15);
-	  offseason_pop_bd_eps[i] ~ normal(0, 1.15);
+	  p_pop_eps[i]             ~ normal(0, 1.15);
+	  inseason_pop_eps[i]      ~ normal(0, 1.45);
+	  offseason_pop_eps[i]     ~ normal(0, 0.85);
+	  offseason_pop_bd_eps[i]  ~ normal(0, 0.85);
+	  offseason_pop_len_eps[i] ~ normal(0, 0.85);
 	}
 
   // Detection Priors
@@ -411,14 +418,6 @@ model {
 
 	ind_len_alpha ~ inv_gamma(10, 4);	
 	ind_len_beta  ~ inv_gamma(10, 4);
-
-
-// -----
-// Imputed NA Data values
-// -----
-
-	ind_len_have ~ gamma(ind_len_alpha, ind_len_beta);
-	ind_len_mis  ~ gamma(ind_len_alpha, ind_len_beta);
 
 
 // -----

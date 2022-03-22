@@ -15,9 +15,9 @@
   ##        cant help resolve this relationship. Will want to have population-unique deviates for basically all covariates
 
 ## 2) Next steps are to:
-  ## --- A) Add random effect of size impact on survival
-  ## --- B) Get some other site-level covariates into the model 
-  ## --- C) Figure out what to do with MeHg
+  ## --- A) [X DONE, yet to debug] Add random effect of size impact on survival
+  ## --- B) Get some other site-level covariates into the model. But where in the model and which covariates?
+  ## --- C) [X DONE, yet to debug] Figure out what to do with MeHg
   ## --- D) Try and fit with two more populations of RALU and see if a fixed effect of species shows any hope of working, or what
   ##        combination of fixed and random effects will work, which will first require:
        ## -- i) Length imputation broken up by species
@@ -56,7 +56,7 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- TRUE
+single_pop <- FALSE
 if (!single_pop) {
 some_pops  <- TRUE
 } else {

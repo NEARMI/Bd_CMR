@@ -23,6 +23,9 @@ stan_data     <- list(
   
  , ind_in_pop        = ind_in_pop
   
+  ## short vector indexes (length of n_pop)
+ , spec_pop          = (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+  
   ## short vector indexes (length of n_days)
  , day_which_pop     = (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
  , spec_which_pop    = (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
@@ -71,6 +74,12 @@ stan_data     <- list(
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
   
+  ## individual MeHg data
+ , n_ind_mehg         = length(ind.hg[hg.have])
+ , ind_mehg           = ind.hg[hg.have]
+ , ind_mehg_pop       = ind.hg.pop[hg.have]
+ , ind_mehg_spec      = ind.hg.spec[hg.have]
+  
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
     ## from the correct pop:spec
@@ -96,11 +105,12 @@ if (exists("ind.hg")) {
 }
   
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_expanding.stan"
+  file    = "stan_current/CMR_multiple_populations_expanding2.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
 , refresh = 10
+, init    = list(list(ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()))
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin

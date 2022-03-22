@@ -34,21 +34,20 @@ len.have <- which(!is.na(ind.len))
 ## This is a pretty rough strategy for mercury given how many were not measured. Again,
  ## definitely need some form of latent process or at the very worst simple multiple imputation
 ind.hg <- capt_history %>% 
-  group_by(Mark, pop_spec) %>% 
+  group_by(Mark, pop_spec, Species) %>% 
   summarize(merc = mean(merc, na.rm = T)) %>%
-  ungroup() %>%
-  group_by(pop_spec)# %>%
-#  mutate(merc_mean = mean(merc, na.rm = T)) %>%
-#  mutate(merc = ifelse(!is.na(merc), merc, merc_mean)) %>%
-#  dplyr::select(-merc_mean) %>%
-#  mutate(merc = scale(merc)[, 1])
+  mutate(
+    pop_spec = as.numeric(pop_spec)
+  , Species  = as.numeric(Species))
 
 ## ONLY FOR NOW just set all NA to 0
 if (all(!is.na(ind.hg$merc))) {
 ind.hg$merc[1] <- NA
 }
 
-ind.hg <- ind.hg$merc
+ind.hg.spec <- ind.hg$Species 
+ind.hg.pop  <- ind.hg$pop_spec
+ind.hg      <- ind.hg$merc
 
 hg.mis  <- which(is.na(ind.hg))
 hg.have <- which(!is.na(ind.hg))

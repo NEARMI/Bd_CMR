@@ -56,9 +56,12 @@ data {
 
 	int<lower=0> ind_in_pop[n_ind];		   	    // Which population each individual belongs to
 
+  // short vector indexes (length of n_pop)
+	int<lower=1> spec_pop[n_pop];			    // Which species is found in each pop_spec
+
   // short vector indexes (length of n_days)
-	int<lower=1> day_which_pop[n_days];
-	int<lower=1> spec_which_pop[n_days];
+	int<lower=1> day_which_pop[n_days];		    // Which pop is associated with each unique sampling day (for day-level detection deviates)
+	int<lower=1> spec_which_pop[n_days];		    // Which species is associated with each sampling day
 		
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -102,6 +105,12 @@ data {
 	int<lower=0> ind_len_which_have[n_ind_len_have];    // Index of individuals that we have length data
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
+
+  // covariates (MeHg)
+ 	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
+ 	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
+ 	vector<lower=0>[n_ind_mehg] ind_mehg_pop;	    // Populations associated with each measure of MeHg
+ 	vector<lower=0>[n_ind_mehg] ind_mehg_spec;	    // Species associated with each measure of MeHg
 
   // site-level covariates, categorical
 	int<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown
@@ -162,6 +171,9 @@ parameters {
 	real<lower=0> offseason_pop_bd_sigma;		 // variation in offseason survival by population (slope over bd)
 	real offseason_pop_bd_eps[n_pop];
 
+	real<lower=0> offseason_pop_len_sigma;		 // variation in offseason survival by population (slope over animal length)
+	real offseason_pop_len_eps[n_pop];
+
 	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
 	real inseason_pop_eps[n_pop];
 
@@ -190,6 +202,17 @@ parameters {
 	real<lower=0> ind_len_alpha; 			 // estimated gamma parameter of length distribution
 	real<lower=0> ind_len_beta;			 // estimated gamma parameter of length distribution
 
+
+// -----
+// imputed covariates: MeHg
+// -----
+
+	real<lower=0> inverse_phi_mehg;		         // variance parameter for gamma regression
+	vector[n_spec] beta_mehg;			 // species-specific MeHg means 
+
+	real<lower=0> mehg_pop_sigma;			 // variation in mean MeHg by population
+	real mehg_pop_eps[n_pop];
+
 }
 
 
@@ -201,6 +224,15 @@ transformed parameters {
 	vector[n_ind] ind_len_scaled;			 // all individual lengths scaled
 	real ind_len_mean;				 // mean of ind_len
 	real ind_len_sd;				 // sd of ind_len
+
+  // mehg
+
+  	vector[n_ind_mehg] mu_mehg;	 		 // the expected values for the gamma regression
+  	vector[n_ind_mehg] rate_mehg;	 	         // rate parameter for the gamma distribution
+
+	real mehg_pop[n_pop];				 // MeHg contamination deviate by population
+	real mehg_pop_est[n_pop];			 // mean MeHg contamination by population
+	real mehg_pop_est_scaled[n_pop];		 // mean MeHg contamination by population scaled
 
   // bd
 	real bd_ind[n_ind];				 // individual random effect deviates
@@ -214,6 +246,7 @@ transformed parameters {
 	real inseason_pop[n_pop];
 	real offseason_pop[n_pop];
 	real offseason_pop_bd[n_pop];
+	real offseason_pop_len[n_pop];
 
   // Detection 
 	real<lower=0,upper=1> p[ind_occ];                // detection at time t
@@ -225,6 +258,7 @@ transformed parameters {
 
   // Chi estimator 
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
+
 
 // -----
 // Imputed NA Data values
@@ -238,6 +272,24 @@ transformed parameters {
 	ind_len_sd   = sd(ind_len);
 
 	ind_len_scaled = (ind_len - ind_len_mean)/ind_len_sd;
+
+
+// -----
+// Estimated population-level mean MeHg 
+// -----
+
+  for (p in 1:n_pop) {
+   mehg_pop[p] = mehg_pop_sigma * mehg_pop_eps[p];
+  } 
+
+  for (i in 1:n_ind_mehg) {
+   mu_mehg[i]  = exp(beta_mehg[ind_mehg_spec[i]] + mehg_pop[ind_mehg_pop[i]]);
+  }
+   rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;
+
+  for (p in 1:n_pop) {
+   mehg_pop_est[p] = exp(beta_mehg[spec_pop[p]] + mehg_pop[p]);
+  } 
 
 
 // -----
@@ -268,9 +320,10 @@ transformed parameters {
 // -----
 
 	for (pp in 1:n_pop) {
-	 inseason_pop[pp]     = inseason_pop_sigma  * inseason_pop_eps[pp];
-	 offseason_pop[pp]    = offseason_pop_sigma * offseason_pop_eps[pp];
-	 offseason_pop_bd[pp] = offseason_pop_bd_sigma * offseason_pop_bd_eps[pp];
+	 inseason_pop[pp]      = inseason_pop_sigma  * inseason_pop_eps[pp];
+	 offseason_pop[pp]     = offseason_pop_sigma * offseason_pop_eps[pp];
+	 offseason_pop_bd[pp]  = offseason_pop_bd_sigma  * offseason_pop_bd_eps[pp];
+	 offseason_pop_len[pp] = offseason_pop_len_sigma * offseason_pop_len_eps[pp];
 	} 
 
 	for (t in 1:ind_occ_min1) {
@@ -295,8 +348,8 @@ transformed parameters {
   // offseason survival given by a population-level intercept, a bd-effect, and a size effect ** MeHg and other site-level covariates to be added
 	     phi[t] = inv_logit(
 offseason_pop[pop_phi[t]] + 
-(beta_offseason[1] + offseason_pop_bd[pop_phi[t]]) * X[phi_bd_index[t]] + 
-beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
+(beta_offseason[1] + offseason_pop_bd[pop_phi[t]])  * X[phi_bd_index[t]] + 
+(beta_offseason[2] + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]]
 );
 
 	  }
@@ -368,26 +421,28 @@ model {
 
   // Survival Priors
 
-	beta_offseason[1]   ~ normal(0, 1.15);
-	beta_offseason[2]   ~ normal(0, 1.15);
+	beta_offseason[1]   ~ normal(0, 0.85);
+	beta_offseason[2]   ~ normal(0, 0.85);
 
 	for (i in 1:n_spec) {
 	  beta_inseason[i]  ~ normal(0, 1.15);
 	}
 
-	offseason_pop_sigma    ~ inv_gamma(8, 15);
-	offseason_pop_bd_sigma ~ inv_gamma(8, 15);
-	inseason_pop_sigma     ~ inv_gamma(8, 15);
+	offseason_pop_sigma     ~ inv_gamma(8, 15);
+	offseason_pop_bd_sigma  ~ inv_gamma(8, 15);
+	offseason_pop_len_sigma ~ inv_gamma(8, 15);
+	inseason_pop_sigma      ~ inv_gamma(8, 15);
 
 	for (i in 1:n_ind) {
 	  bd_ind_eps[i]   ~ normal(0, 3);
 	}
 
 	for (i in 1:n_pop) {
-	  p_pop_eps[i]            ~ normal(0, 1.15);
-	  inseason_pop_eps[i]     ~ normal(0, 1.45);
-	  offseason_pop_eps[i]    ~ normal(0, 1.15);
-	  offseason_pop_bd_eps[i] ~ normal(0, 1.15);
+	  p_pop_eps[i]             ~ normal(0, 1.15);
+	  inseason_pop_eps[i]      ~ normal(0, 1.45);
+	  offseason_pop_eps[i]     ~ normal(0, 0.85);
+	  offseason_pop_bd_eps[i]  ~ normal(0, 0.85);
+	  offseason_pop_len_eps[i] ~ normal(0, 0.85);
 	}
 
   // Detection Priors
@@ -412,6 +467,13 @@ model {
 	ind_len_alpha ~ inv_gamma(10, 4);	
 	ind_len_beta  ~ inv_gamma(10, 4);
 
+  // Imputed Covariates Priors: mehg
+	inverse_phi_mehg  ~ inv_gamma(8, 15);	
+	beta_mehg         ~ normal(0, 3);
+	mehg_pop_sigma    ~ inv_gamma(8, 15);
+	for (i in 1:n_pop) {
+	  mehg_pop_eps[i] ~ normal(0, 3);
+	}
 
 // -----
 // Imputed NA Data values
@@ -419,6 +481,13 @@ model {
 
 	ind_len_have ~ gamma(ind_len_alpha, ind_len_beta);
 	ind_len_mis  ~ gamma(ind_len_alpha, ind_len_beta);
+
+
+// -----
+// MeHg regression imputation
+// -----
+
+	ind_mehg ~ gamma(inverse_phi_mehg, rate_mehg);
 
 
 // -----
