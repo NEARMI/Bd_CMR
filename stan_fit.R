@@ -105,7 +105,7 @@ if (exists("ind.hg")) {
 }
   
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_expanding2.stan"
+  file    = "stan_current/CMR_multiple_populations_expanding3.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

@@ -76,9 +76,9 @@ data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
-red_ind    <- FALSE
+red_ind    <- TRUE
 if (red_ind) {
-num_ind    <- 150
+num_ind    <- 100
 }
 
 source("data_manip.R")
@@ -94,8 +94,8 @@ source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 2000
-stan.burn     <- 500
+stan.iter     <- 600
+stan.burn     <- 300
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (single_pop) {

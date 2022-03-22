@@ -109,8 +109,8 @@ data {
   // covariates (MeHg)
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
- 	vector<lower=0>[n_ind_mehg] ind_mehg_pop;	    // Populations associated with each measure of MeHg
- 	vector<lower=0>[n_ind_mehg] ind_mehg_spec;	    // Species associated with each measure of MeHg
+ 	int<lower=0> ind_mehg_pop[n_ind_mehg];	   	    // Populations associated with each measure of MeHg
+ 	int<lower=0> ind_mehg_spec[n_ind_mehg];	   	    // Species associated with each measure of MeHg
 
   // site-level covariates, categorical
 	int<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown
@@ -161,7 +161,7 @@ parameters {
 // -----
 
   // fixed
-	vector[2] beta_offseason;  			 // survival as a function of bd stress
+	vector[3] beta_offseason;  			 // survival as a function of bd stress
 	real beta_inseason[n_spec];			 // in season survival intercept
 
   // random
@@ -278,18 +278,15 @@ transformed parameters {
 // Estimated population-level mean MeHg 
 // -----
 
-  for (p in 1:n_pop) {
-   mehg_pop[p] = mehg_pop_sigma * mehg_pop_eps[p];
+  for (z in 1:n_pop) {
+   mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z];
+   mehg_pop_est[z] = exp(beta_mehg[spec_pop[z]] + mehg_pop[z]);
   } 
 
   for (i in 1:n_ind_mehg) {
    mu_mehg[i]  = exp(beta_mehg[ind_mehg_spec[i]] + mehg_pop[ind_mehg_pop[i]]);
   }
    rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;
-
-  for (p in 1:n_pop) {
-   mehg_pop_est[p] = exp(beta_mehg[spec_pop[p]] + mehg_pop[p]);
-  } 
 
 
 // -----
@@ -349,7 +346,8 @@ transformed parameters {
 	     phi[t] = inv_logit(
 offseason_pop[pop_phi[t]] + 
 (beta_offseason[1] + offseason_pop_bd[pop_phi[t]])  * X[phi_bd_index[t]] + 
-(beta_offseason[2] + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]]
+(beta_offseason[2] + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]] +
+beta_offseason[3] * mehg_pop_est[pop_phi[t]]
 );
 
 	  }
@@ -423,6 +421,7 @@ model {
 
 	beta_offseason[1]   ~ normal(0, 0.85);
 	beta_offseason[2]   ~ normal(0, 0.85);
+	beta_offseason[3]   ~ normal(0, 0.85);
 
 	for (i in 1:n_spec) {
 	  beta_inseason[i]  ~ normal(0, 1.15);
