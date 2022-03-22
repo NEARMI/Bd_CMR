@@ -17,7 +17,8 @@
 ## 2) Next steps are to:
   ## --- A) [X DONE, yet to debug] Add random effect of size impact on survival
   ## --- B) Get some other site-level covariates into the model. But where in the model and which covariates?
-  ## --- C) [X DONE, yet to debug] Figure out what to do with MeHg
+  ## --- C) [IN PROGRESS] Figure out what to do with MeHg
+    ##        What I have seems sensible, but I need to add the predicted average MeHg as an actual covaraite in the model
   ## --- D) Try and fit with two more populations of RALU and see if a fixed effect of species shows any hope of working, or what
   ##        combination of fixed and random effects will work, which will first require:
        ## -- i) Length imputation broken up by species
