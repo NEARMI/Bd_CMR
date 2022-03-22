@@ -231,8 +231,8 @@ transformed parameters {
   	vector[n_ind_mehg] rate_mehg;	 	         // rate parameter for the gamma distribution
 
 	real mehg_pop[n_pop];				 // MeHg contamination deviate by population
-	real mehg_pop_est[n_pop];			 // mean MeHg contamination by population
-	real mehg_pop_est_scaled[n_pop];		 // mean MeHg contamination by population scaled
+	vector[n_pop] mehg_pop_est;			 // mean MeHg contamination by population
+	vector[n_pop] mehg_pop_est_scaled;		 // mean MeHg contamination by population scaled
 
   // bd
 	real bd_ind[n_ind];				 // individual random effect deviates
@@ -282,6 +282,8 @@ transformed parameters {
    mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z];
    mehg_pop_est[z] = exp(beta_mehg[spec_pop[z]] + mehg_pop[z]);
   } 
+
+   mehg_pop_est_scaled = (mehg_pop_est - mean(mehg_pop_est))/sd(mehg_pop_est);
 
   for (i in 1:n_ind_mehg) {
    mu_mehg[i]  = exp(beta_mehg[ind_mehg_spec[i]] + mehg_pop[ind_mehg_pop[i]]);
@@ -347,7 +349,7 @@ transformed parameters {
 offseason_pop[pop_phi[t]] + 
 (beta_offseason[1] + offseason_pop_bd[pop_phi[t]])  * X[phi_bd_index[t]] + 
 (beta_offseason[2] + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]] +
-beta_offseason[3] * mehg_pop_est[pop_phi[t]]
+beta_offseason[3] * mehg_pop_est_scaled[pop_phi[t]]
 );
 
 	  }
