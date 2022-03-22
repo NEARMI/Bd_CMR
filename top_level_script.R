@@ -3,32 +3,29 @@
 #####################################
 
 ####
-## Notes as of March 21:
+## Notes as of March 22:
 ####
 
-## 1) First, for lots of notes on the single population model see previous commit
+## 1) Multi-pop ANBO is a reasonable success. Lots of debugging show that the estimates match the single population
+ ##   fits very well. Some things I learned:
+  ## --- A) The small populations can teach us basically nothing. Because of this using single intercepts for "species" is likely
+  ##        going to be pretty dangerous. The strategy is likely going to have to be to have species as a random effect -- but then we
+  ##        are back to the original problem of how to specify these random effects (as location and species are super correlated)
+  ## --- B) ^^ Continuing this thought, having something like one effect of "size" gets washed out across populations when so many populations
+  ##        cant help resolve this relationship. Will want to have population-unique deviates for basically all covariates
 
-## 2) Starting the multi-population model today with just the 5 ANBO populations 
- ## -- Model compiles and runs reasonably fast sub-setting to 150 individuals per population
- ## -- Model scales quite poorly with increasing numbers of individuals 
- ## -- Running on the other laptop and working to add a number of extensions, including:
-  ## A) Extremely poor fits having one effect of Bd on survival and having a random intercept of background survival by population. 
-   ##   ^^ Potentially also have a random effect for population-level effect -of- Bd on survival
-   ##   ^^ Or just a species-level intercept
-  ## B) Length imputation broken up by species
-  ## C) Figuring out what to do with MeHg
-  ## D) Figuring out what to do with the rest of the covariates
-
-## 3) Running the model with all individuals in the 5 ANBO populations today. Tasks for tomorrow include:
- ## A) Debugging this fit
- ## B) Comparing this fit to the populations run individually
- ## C) Setting up Yeti to run the 5 ANBO populations + the populations of two other species
+## 2) Next steps are to:
+  ## --- A) Add random effect of size impact on survival
+  ## --- B) Get some other site-level covariates into the model 
+  ## --- C) Figure out what to do with MeHg
+  ## --- D) Try and fit with two more populations of RALU and see if a fixed effect of species shows any hope of working, or what
+  ##        combination of fixed and random effects will work, which will first require:
+       ## -- i) Length imputation broken up by species
+       ## -- 
 
 ####
-## Notes as of March 18:
+## Older notes about what I learned about the single population model that I am keeping around for now:
 ####
-
-########## ---- 1) Things I have learned about the single population model
 
  ## A) Estimating the effect of Bd on survival is hard... Most estimates overlap 0
 
@@ -49,28 +46,6 @@
  ## F) I have indexing columns that modification of the model structure is now easy. There is probably less need
   ##   to have so many .stan files in stan_current
 
-########## ---- 2) Thoughts on how to deal with a multi-population model
-
- ## A) My -hope- will be to have species as a fixed effect and population as a random effect
-  ##    ^^ Though this may be impossible because of the overlap of these two factors
-
- ## B) Will need lots of nested random effects (different variance by population -- for Bd, p, and phi)
-
- ## C) My aim will be to figure out some way to impute MeHg, but this could get confusing if it is correlated with
-  ##   both Bd and length. 
-   ##   ^^ It seems _feasible_ to write down a joint latent / multiple imputation problem, but it is unclear if this will just become soup
-
- ## D) It is still an open question of what covaraites to use and in which processes.
-  ##   As well as how to average categorical covariate 
-   ##   ^^ But maybe this averaging isn't necessary if the individual capture on each day is traceable to the subpopulation and the covaraties there
-
-########## ---- 3) The next steps
-
-## 1) Make a final decision for a reasonable structure for the single population model
-## 2) Fit to all individual populations
-## 3) Make necessary adjustments to multi-population model, STARTING with just ANBO
-## 4) Proceed from there
-
 ##################
 
 ## Packages and Functions
@@ -81,7 +56,7 @@ source("data_load.R")
 
 ## Construct modified data frame of recapture histories for each individual in each population
  ## For single species debug purposes pick a single data set
-single_pop <- FALSE
+single_pop <- TRUE
 if (!single_pop) {
 some_pops  <- TRUE
 } else {
@@ -95,12 +70,12 @@ sampling      %<>% filter(Species %in% which_spec) %>% droplevels()
 }
 
 if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[8]
+which.dataset <- unique(data.all$pop_spec)[12]
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
-red_ind    <- TRUE
+red_ind    <- FALSE
 if (red_ind) {
 num_ind    <- 150
 }
@@ -118,8 +93,8 @@ source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 800
-stan.burn     <- 300
+stan.iter     <- 2000
+stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (single_pop) {

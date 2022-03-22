@@ -23,7 +23,7 @@ ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
 
 ## !! Temporary placeholder because the stan model breaks if there are no NA values...
 if (all(!is.na(ind.len$len))) {
-ind.len$len[1] <- NA
+ind.len$len[sample(length(ind.len$len), 1)] <- NA
 }
 ind.len <- ind.len$len
 
@@ -120,4 +120,3 @@ site_covar.con %<>%
   , Temp_Mean   = scale(Temp_Mean)[, 1]
   , Temp_SD     = scale(Temp_SD)[, 1]
     )
-  

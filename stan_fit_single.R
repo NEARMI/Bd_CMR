@@ -11,7 +11,7 @@ stan_data     <- list(
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
- , n_days          = length(unique(capt_history.p$date_fac))
+ , n_days            = length(unique(capt_history.p$date_fac))
   
    ## n_spec placeholder to compare to stan_fit.R
   
@@ -100,21 +100,22 @@ stan.fit  <- try(
   {
  stan(
 # file    = "stan_current/CMR_single_population_ind_rand.stan"
-  file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
+# file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
+  file    = "stan_current/CMR_single_population_ind_rand_no_mehg.stan" 
 , data    = stan_data
 , chains  = 1
 , cores   = 1
 , refresh = 10
 , init    = list(
   list(
-    ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
-  , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
+     ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
+ # , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
   )
 )
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.97, max_treedepth = 13)
+, control = list(adapt_delta = 0.94, max_treedepth = 13)
   )
   }
 , silent = TRUE
@@ -125,3 +126,4 @@ saveRDS(stan.fit, paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds",
 
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)
+
