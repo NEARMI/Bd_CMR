@@ -7,29 +7,28 @@
 ## Most populations measure SVL so using that as the covariate for size
 
 ind.len <- capt_history %>% 
-  group_by(Mark, pop_spec) %>% 
+  group_by(Mark, pop_spec, Species) %>% 
   summarize(len = mean(len, na.rm = T)) %>%
+  mutate(
+    pop_spec = as.numeric(pop_spec)
+  , Species  = as.numeric(Species)) %>%
   ungroup() %>%
-  group_by(pop_spec)# %>%
-#  mutate(len_mean = mean(len, na.rm = T)) %>%
-#  mutate(len = ifelse(!is.na(len), len, len_mean)) %>%
-#  dplyr::select(-len_mean) %>%
-#  mutate(len = scale(len)[, 1])
-
-## !! Not sure what else to do here for now. These individual-level traits simply were not measured for this
- ## species. Just having 0s will just return the prior, which I guess is fine...
-ind.len[ind.len$pop_spec == "LilyPond.BCF", ]$len     <- 0
-ind.len[ind.len$pop_spec == "MatthewsPond.BCF", ]$len <- 0
+  mutate(index = seq(n()))
 
 ## !! Temporary placeholder because the stan model breaks if there are no NA values...
 if (all(!is.na(ind.len$len))) {
 ind.len$len[sample(length(ind.len$len), 1)] <- NA
 }
-ind.len <- ind.len$len
+
+ind_len_spec_first_index <- (ind.len %>% group_by(Species) %>% summarize(first_index = min(index)))$first_index
+ind_len_spec_size        <- (ind.len %>% group_by(Species) %>% count())$n
+
+ind.len.spec <- ind.len$Species 
+ind.len.pop  <- ind.len$pop_spec
+ind.len      <- ind.len$len
 
 len.mis  <- which(is.na(ind.len))
 len.have <- which(!is.na(ind.len))
-# ind.len[missing_len] <- 0
 
 ## This is a pretty rough strategy for mercury given how many were not measured. Again,
  ## definitely need some form of latent process or at the very worst simple multiple imputation

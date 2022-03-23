@@ -73,6 +73,11 @@ stan_data     <- list(
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
+ , ind_len_spec_have  = ind.len.spec[len.have]
+ , ind_len_spec_mis   = ind.len.spec[len.mis]
+ , ind_len_spec       = ind.len.spec
+ , ind_len_spec_first_index = ind_len_spec_first_index
+ , ind_len_spec_size        = ind_len_spec_size
   
   ## individual MeHg data
  , n_ind_mehg         = length(ind.hg[hg.have])
@@ -105,7 +110,8 @@ if (exists("ind.hg")) {
 }
   
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_expanding3.stan"
+#  file    = "stan_current/CMR_multiple_populations_expanding3.stan"
+  file    = "stan_current/CMR_multiple_populations_expanding_ms.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -114,7 +120,7 @@ stan.fit  <- stan(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 12)
+, control = list(adapt_delta = 0.94, max_treedepth = 12)
 # , include = FALSE
 # , pars    = c("phi", "p", "chi")
   )

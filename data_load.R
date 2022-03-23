@@ -251,12 +251,14 @@ sampling %<>%
 sampling %<>% filter(!(Site == "JonesPond" & Species == "ANBO" & SecNumConsec > 13))
 
 ## population defined as a species in a site
-data.all %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
+data.all %<>% mutate(pop_spec = interaction(Species, Site)) %>% droplevels() %>%
+  mutate(pop_spec = as.character(pop_spec)) %>%
+  arrange(pop_spec) %>% 
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
-sampling %<>% mutate(pop_spec = interaction(Site, Species)) %>% droplevels() %>%
+sampling %<>% mutate(pop_spec = interaction(Species, Site)) %>% droplevels() %>%
+  mutate(pop_spec = as.character(pop_spec)) %>%
+  arrange(pop_spec) %>% 
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
-
-
 
 ####
 ## Mercury and Habitat characteristics
