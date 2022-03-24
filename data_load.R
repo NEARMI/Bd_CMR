@@ -2,17 +2,6 @@
 ## Load each of the data files in the directory ##
 ##################################################
 
-## Location specific issues that need to be resolved
- ## DM_TC_RAPR -- duplicate swabs (have a solution for now implemented near the bottom of this loop)
- ## EC_ML_NOVI -- duplicate swabs
- ## SM_NOVI    -- quite a number of weird comments (Will email)
- ## SB_NEWT    -- quite a number of questionable individual marks (emailed Jill)
-
-## General open data questions
- ## -- Incorporate known deaths in some way (for now just dropping)
- ## -- What to do with length, weight, sex, and age if different data sets measured different variables and some
-  ##   did not remeasure individuals that were already captured once
-
 data.files <- list.files("data/cleaned_cmr_csv")
 data.files <- paste("data/cleaned_cmr_csv/", data.files, sep = "")
 
@@ -23,6 +12,10 @@ sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv") %>%
 ## remove the minimal sampling of the Blackrock population in the late season
   filter(Notes != "Opportunistic") %>% 
   droplevels()
+
+## For now convert RAXX to RANA 
+RANA_spec <- unique(sampling$Species)[grep("RA", unique(sampling$Species))]
+sampling  %<>% mutate(Species = plyr::mapvalues(Species, from = RANA_spec, to = rep("RANA", length(RANA_spec))))
 
 date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
   a <- strsplit(x, split = "/")[[1]]
@@ -41,19 +34,13 @@ sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strs
 
 sampling %<>% mutate(CaptureDate = as.Date(date_convert, "%m/%d/%y"))
 
-## "Effort" -- for now quantified as the number of subsites sampled on each day
- ## ** (later may want to adjust dates a day forward or backward so each "date" is ONE sampling
-  ## event of each sub-site --> I think this is actually going to be the strategy...)
-sampling.effort <- sampling %>% group_by(Site, Species) %>% 
-  mutate(num_subsites = length(unique(SubSite))) %>% 
-  group_by(Site, Species, CaptureDate) %>%
-  summarize(effort = length(unique(SubSite)) / num_subsites) %>% 
-  rename(capture_date = CaptureDate) %>% 
-  distinct()
-
 for (i in seq_along(data.files)) {
 
-  data.temp <- read.csv(data.files[i])
+  data.temp  <- read.csv(data.files[i])
+  check.rana <- unique(data.temp$Species)[grep("RA", unique(data.temp$Species))]
+  if (length(check.rana) > 0) {
+  data.temp  %<>% mutate(Species = plyr::mapvalues(Species, from = check.rana, to = rep("RANA", length(check.rana))))   
+  }
   
 if (strsplit(data.temp$CaptureDate[1], split = " ")[[1]] %>% length() > 1) {
   ddate <- apply(matrix(data.temp$CaptureDate), 1, FUN = function(x) strsplit(x, split = " ")[[1]][1])
@@ -234,6 +221,10 @@ if (i == 1) {
   
 }
 
+## Build a data frame that contains a description of the habitat structure "seen" each day during sampling at each Site given
+ ## which SubSites were sampled on that day (for detection in the model)
+daily_hab_covar <- sampling %>% dplyr::select(Region, Site, SubSite, Species, CaptureDate)
+
 ## Adjust the master "sampling" file to match the choices for the data 
  ## (i.e., dropping subsites as I am doing for now)
 sampling %<>% 
@@ -270,6 +261,14 @@ Oth_hab_cov     <- read.csv("data/cleaned_cov_csv/ARMI_CMR_OtherHabitatCovariate
 temp_precip_hab <- read.csv("data/cleaned_cov_csv/ARMI_CMR_TempPrecip.csv") %>% 
   filter(Site %in% unique(data.all$Site))
 
+## Edit daily_hab_covar dataframe to get covaraties on each day for detection
+daily_hab_covar %<>% left_join(., Oth_hab_cov) %>% 
+  group_by(Site, CaptureDate) %>%
+  summarize(
+    drawdown = mean(DRAWDOWN, na.rm = T) %>% round()
+  , veg      = mean(VEG, na.rm = T) %>% round()
+  )
+  
 ## Habitat covaraite details:
 # HYDRO	     -- Hydroperiod: Temporary (T) or Permanent (P)
 # DRAWDOWN	 -- Drawdown % disappeared, 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
@@ -318,4 +317,3 @@ cov_meas <- data.all %>%
   , prop_sex    = length(which(!is.na(Sex))) / n()
   , prop_age    = length(which(!is.na(Age))) / n()
   )
-

@@ -77,15 +77,25 @@ site_covar.cat <- Oth_hab_cov %>%
   summarize(
     HYDRO    = tail(names(sort(table(HYDRO))), 1)
   , DRAWDOWN = round(mean(DRAWDOWN))
-  , CANOPY   = round(mean(DRAWDOWN))
-  , VEG      = tail(names(sort(table(VEG))), 1)
+  , CANOPY   = round(mean(CANOPY))
+  , VEG      = round(mean(VEG))
   , SUB      = tail(names(sort(table(SUB))), 1)
   , WCOL     = tail(names(sort(table(WCOL))), 1)
   , SULF     = tail(names(sort(table(SULF))), 1)
   , PRODUC   = tail(names(sort(table(PRODUC))), 1)
-)
+  , region   = REGION[1] 
+) %>% ungroup()
 
 site_covar.cat %<>% left_join(sites_for_cov, .)
+
+## Convert to numerics for use
+site_covar.cat %<>% mutate(
+  HYDRO    = as.factor(HYDRO) %>% as.numeric()
+, SUB      = as.factor(SUB) %>% as.numeric()
+, DRAWDOWN = as.factor(DRAWDOWN) %>% as.numeric()
+, VEG      = as.factor(VEG) %>% as.numeric()
+, region   = as.factor(region) %>% as.numeric() 
+)
 
 ## continuous covariates
 temp_precip_hab %<>% pivot_longer(cols = starts_with(c("Temp", "Precip")), names_to = "con_cov", values_to = "value")
@@ -121,3 +131,17 @@ site_covar.con %<>%
   , Temp_Mean   = scale(Temp_Mean)[, 1]
   , Temp_SD     = scale(Temp_SD)[, 1]
     )
+
+####
+## Categorical covariates for detection
+####
+
+## Jump through a quick hoop to make sure that both Site and Capture Date have stayed in the correct orders
+
+daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_by(Site, capture_date) %>% slice(1) %>% left_join(.
+  , 
+  daily_hab_covar %>% rename(capture_date = CaptureDate)
+  ) %>% mutate(
+    drawdown = as.factor(drawdown) %>% as.numeric()
+  , veg      = as.factor(veg) %>% as.numeric()
+  )

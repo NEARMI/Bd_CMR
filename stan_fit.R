@@ -86,9 +86,12 @@ stan_data     <- list(
  , ind_mehg_spec      = ind.hg.spec[hg.have]
   
   ## site-level covariates, categorical 
-   ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
-    ## from the correct pop:spec
- ## , pop_drawdown     = site_covar.cat$DRAWDOWN
+  , pop_drawdown     = site_covar.cat$DRAWDOWN
+  , pop_hydro        = site_covar.cat$HYDRO
+  , pop_sub          = site_covar.cat$SUB
+  , pop_region       = site_covar.cat$region
+  , p_drawdown       = daily_hab_covar$drawdown
+  , p_veg            = daily_hab_covar$veg
   
   ## site-level covariates, continuous
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
@@ -110,8 +113,8 @@ if (exists("ind.hg")) {
 }
   
 stan.fit  <- stan(
-#  file    = "stan_current/CMR_multiple_populations_expanding3.stan"
-  file    = "stan_current/CMR_multiple_populations_expanding_ms.stan"
+# file    = "stan_current/CMR_multiple_populations_expanding3.stan"
+  file    = "stan_current/CMR_multiple_populations_expanding_ms2.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

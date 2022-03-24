@@ -89,9 +89,9 @@ some_pops  <- FALSE
 }
 
 if (some_pops) {
-which_spec    <- c("ANBO", "RALU")
-data.all      %<>% filter(Species %in% which_spec) %>% droplevels()
-sampling      %<>% filter(Species %in% which_spec) %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
+data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
 if (single_pop) {

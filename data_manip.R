@@ -182,9 +182,6 @@ print("--------------")
 ## Sort data frame in the appropriate order (counting through consecutive weeks one individual at a time)
 capt_history %<>% arrange(Mark, Year, Site, Month, SecNumConsec)
 
-## Add the _current_ measure of sampling effort to the captures data frame
-capt_history %<>% left_join(., sampling.effort) %>% relocate(effort, .after = capture_date)
-
 ## individuals' measured bd 
 capt_history.bd_load <- capt_history %>% 
   ungroup() %>%
