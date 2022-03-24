@@ -120,7 +120,7 @@ data {
  	int<lower=0> ind_mehg_spec[n_ind_mehg];	   	    // Species associated with each measure of MeHg
 
   // site-level covariates, categorical
-	int<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown
+	// int<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown
 
   // site-level covariates, continuous
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
@@ -230,7 +230,7 @@ parameters {
 transformed parameters {
 // ------------------------------ transformed parameters ------------------------------
 
-  // Individual lengths ** need to make this variable by species or population
+  // Individual lengths 
 	vector[n_ind] ind_len;				 // all individual lengths (combining data and imputed values)
 	vector[n_ind] ind_len_scaled;			 // all individual lengths scaled
 	real ind_len_mean[n_spec];			 // mean of ind_len
@@ -284,7 +284,8 @@ transformed parameters {
 
 	  ind_len_mean[ns] = mean(temp_ind_len);
 	  ind_len_sd[ns]   = sd(temp_ind_len);
-	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns])] = (temp_ind_len - ind_len_mean[ns])/ind_len_sd[ns];
+	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - ind_len_mean[ns])/ind_len_sd[ns];
+
 	}
 
 // -----

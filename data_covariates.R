@@ -15,6 +15,9 @@ ind.len <- capt_history %>%
   ungroup() %>%
   mutate(index = seq(n()))
 
+### A test to see if the length -by- species is working
+ind.len[ind.len$Species == 2, ]$len <- ind.len[ind.len$Species == 2, ]$len / 2 
+
 ## !! Temporary placeholder because the stan model breaks if there are no NA values...
 if (all(!is.na(ind.len$len))) {
 ind.len$len[sample(length(ind.len$len), 1)] <- NA
@@ -56,12 +59,12 @@ hg.have <- which(!is.na(ind.hg))
 ## Data frame of the sites in the order that they appear in the overall data (note, have to
  ## do this because of the repeated sites because of site:species)
 sites_for_cov <- data.frame(
- Site = apply(
+ Species = apply(
   matrix(unique(capt_history$pop_spec) %>% as.character())
 , 1
 , FUN = function(x) strsplit(x, "[.]")[[1]][1]
 )
-, Species = apply(
+, Site = apply(
   matrix(unique(capt_history$pop_spec) %>% as.character())
 , 1
 , FUN = function(x) strsplit(x, "[.]")[[1]][2]

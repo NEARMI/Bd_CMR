@@ -88,7 +88,7 @@ stan_data     <- list(
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
     ## from the correct pop:spec
- , pop_drawdown     = site_covar.cat$DRAWDOWN
+ ## , pop_drawdown     = site_covar.cat$DRAWDOWN
   
   ## site-level covariates, continuous
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
