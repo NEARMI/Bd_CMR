@@ -160,7 +160,7 @@ capt_history.phi$X_stat_index <- X_stat_index
 
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
 # capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
-capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 1, 0))
+capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 0, 1))
 
 ####
 ## One final adjustment to capt.history

@@ -227,7 +227,7 @@ parameters {
 // -----
 
 	real<lower=0> inverse_phi_mehg;		         // variance parameter for gamma regression
-	vector[n_spec] beta_mehg_spec;			 // species-specific MeHg means 
+	real beta_mehg_spec[n_spec];			 // species-specific MeHg means 
 	real beta_mehg_drawdown[3];
 	real beta_mehg_hydro[2];
 	real beta_mehg_sub[1];
@@ -305,22 +305,6 @@ transformed parameters {
 // Estimated population-level mean MeHg 
 // -----
 
-	for (i in 1:n_ind_mehg) {
-
-	  mu_mehg[i]  = exp(
-beta_mehg_spec[ind_mehg_spec[i]] + 
-beta_mehg_drawdown[pop_drawdown[ind_mehg_pop[i]]] +
-beta_mehg_hydro[pop_hydro[ind_mehg_pop[i]]] +
-beta_mehg_sub[pop_sub[ind_mehg_pop[i]]] +
-beta_mehg_region[pop_region[ind_mehg_pop[i]]] +
-mehg_pop[ind_mehg_pop[i]]
-);
-
-	}
-	
-	rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;
-
-
 	for (z in 1:n_pop) {
 	  mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z];
 
@@ -335,6 +319,23 @@ mehg_pop[z]
 	} 
 
 	mehg_pop_est_scaled = (mehg_pop_est - mean(mehg_pop_est))/sd(mehg_pop_est);
+
+	for (i in 1:n_ind_mehg) {
+
+	  mu_mehg[i]  = exp(
+beta_mehg_spec[ind_mehg_spec[i]] + 
+beta_mehg_drawdown[pop_drawdown[ind_mehg_pop[i]]] +
+beta_mehg_hydro[pop_hydro[ind_mehg_pop[i]]] +
+beta_mehg_sub[pop_sub[ind_mehg_pop[i]]] +
+beta_mehg_region[pop_region[ind_mehg_pop[i]]] +
+mehg_pop[ind_mehg_pop[i]]
+);
+
+	}
+
+	rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;
+
+
 
 
 // -----
@@ -422,12 +423,12 @@ beta_offseason_mehg[spec_phi[t]] * mehg_pop_est_scaled[pop_phi[t]]
 	 if (p_zeros[t] == 0) {       // just a placeholder because stan can't have NA -- these are periods before an animal was captured that doesn't impact the likelihood
 	   p[t] = 0;
 	 } else {
-           p[t] = inv_logit(p_pop[pop_p[t]] + p_day_dev[p_day[t]] + beta_p_drawdown[p_day[t]] + beta_p_veg[p_day[t]] + beta_p_spec[spec_p[t]] * ind_len_scaled[ind_occ_rep[t]]);
+           p[t] = inv_logit(p_pop[pop_p[t]] + p_day_dev[p_day[t]] + beta_p_drawdown[p_drawdown[p_day[t]]] + beta_p_veg[p_veg[p_day[t]]] + beta_p_spec[spec_p[t]] * ind_len_scaled[ind_occ_rep[t]]);
 	 }
 	}
 
 	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(p_pop[day_which_pop[t]] + p_day_dev[t] + beta_p_drawdown[t] + beta_p_veg[t] + beta_p_spec[spec_which_pop[t]]);
+	  p_per_day[t] = inv_logit(p_pop[day_which_pop[t]] + p_day_dev[t] + beta_p_drawdown[p_drawdown[t]] + beta_p_veg[p_veg[t]] + beta_p_spec[spec_which_pop[t]]);
 	}	
 
 
@@ -526,7 +527,7 @@ model {
 	  mehg_pop_eps[i] ~ normal(0, 3);
 	}
 
-	beta_mehg_spec    ~ normal(0, 3);
+	beta_mehg_spec     ~ normal(0, 3);
 	beta_mehg_drawdown ~ normal(0, 3);
 	beta_mehg_hydro    ~ normal(0, 3);
 	beta_mehg_sub      ~ normal(0, 3);

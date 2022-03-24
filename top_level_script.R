@@ -6,51 +6,34 @@
 ## Notes as of March 24:
 ####
 
-## Ended yesterday in the midst of working on breaking up individual length imputation by species
-
-## TO DO today:
-
- ## 1) Debug the ANBO 5 pop fit from yesterday
- ## 2) Check why length imputation isn't working
- ## 3) Covaraite TODOs (see book) for detection and MeHg
+## 1) Exciting that the model with individual length imputation broken up by species seems to be working well
+## 2) Fixed a small bug that had within-season survival opposite of what it should have been
+## 3) Model done[???] for all of the categorical predictors -- but still need to debug this
 
 ## TO DO later:
  
  ## 1) Reach out to various PIs about fits
  ## 2) Reach out to Brian T for what he is doing with MeHg and survival
 
-####
-## Notes as of March 23:
-####
 
-## 1) Returned to a summary of all populations today to try and figure out what the full model will look like. A few things stand out that I will
- ## need to deal with:
-  ## --- A) Huge overlap between species and populations, and many species are rarely sampled, making species as a fixed effect probably a no-go[?]
-    ##        ^^ Evan's suggestion is to collapse all of the Rana species, as this will allow for a fixed effect of species and a random effect of location 
-  ## --- B) One species doesn't have any MeHg and the location isn't shared. Will have to try and use a fixed effect + pop_spec random effect?
-    ##        ^^ The hope here would be to use an intercept and a species and random location so at least the intercept can inform
-
+##################################################################
 ## Some older notes that are still relevant
+####
 
-## 1) Multi-pop ANBO is a reasonable success. Lots of debugging show that the estimates match the single population
- ##   fits very well. Some things I learned:
+#### ---- Multi-pop model
+ ## A) Because of difficulty with the overlap of species and location I am collapsing
+  ##   all of the Rana species, as this will allow for a fixed effect of species and a random effect of location 
+ ## B) One species doesn't have any MeHg and the location isn't shared. Will have to try and use a fixed effect + pop_spec random effect?
+  ##   The hope here would be to use an intercept and a species and random location so at least the intercept can inform
+
+#### ---- Some things I learned from playing with the multi-pop model:
   ## --- A) The small populations can teach us basically nothing. Because of this using single intercepts for "species" is likely
   ##        going to be pretty dangerous. The strategy is likely going to have to be to have species as a random effect -- but then we
   ##        are back to the original problem of how to specify these random effects (as location and species are super correlated)
   ## --- B) ^^ Continuing this thought, having something like one effect of "size" gets washed out across populations when so many populations
   ##        cant help resolve this relationship. Will want to have population-unique deviates for basically all covariates
 
-## 2) Next steps are to:
-  ## --- A) [X DONE, debug fit in progress] Add random effect of size impact on survival
-  ## --- B) Get some other site-level covariates into the model. But where in the model and which covariates?
-  ## --- C) [X DONE, debug fit in progress] Figure out what to do with MeHg
-  ## --- D) Try and fit with two more populations of RALU and see if a fixed effect of species shows any hope of working, or what
-  ##        combination of fixed and random effects will work, which will first require:
-       ## -- i) Length imputation broken up by species
-
-####
-## Older notes about what I learned about the single population model that I am keeping around for now:
-####
+#### ----  what I learned about the single population model
 
  ## A) Estimating the effect of Bd on survival is hard... Most estimates overlap 0
 
@@ -71,7 +54,7 @@
  ## F) I have indexing columns that modification of the model structure is now easy. There is probably less need
   ##   to have so many .stan files in stan_current
 
-##################
+##################################################################
 
 ## Packages and Functions
 source("packages_functions.R")

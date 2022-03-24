@@ -17,6 +17,7 @@ ind.len <- capt_history %>%
 
 ### A test to see if the length -by- species is working
 ind.len[ind.len$Species == 2, ]$len <- ind.len[ind.len$Species == 2, ]$len / 2 
+ind.len[ind.len$Species == 2, ]$len[20] <- NA
 
 ## !! Temporary placeholder because the stan model breaks if there are no NA values...
 if (all(!is.na(ind.len$len))) {
@@ -141,7 +142,7 @@ site_covar.con %<>%
 daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_by(Site, capture_date) %>% slice(1) %>% left_join(.
   , 
   daily_hab_covar %>% rename(capture_date = CaptureDate)
-  ) %>% mutate(
+  ) %>% ungroup() %>% mutate(
     drawdown = as.factor(drawdown) %>% as.numeric()
   , veg      = as.factor(veg) %>% as.numeric()
   )
