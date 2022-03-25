@@ -6,7 +6,7 @@
 ## Notes as of March 25:
 ####
 
-## 1) Model fits -- all indexing seems correct. Time to clean up some code and fit with all individuals
+## 1) FULL and somewhat reduced model complete and compile. Need to run and debug the reduced version
 
 ### --- TO DO next:
 
@@ -16,7 +16,6 @@
 ### --- TO DO later:
  
 ## 1) Reach out to various PIs about fits
-
 
 ##################################################################
 ## Some older notes that are still relevant
