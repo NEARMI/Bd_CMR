@@ -114,14 +114,14 @@ data {
   // site-level covariates, forced categorical
   	int<lower=0> pop_sub[n_pop];      		    // population specific covariate for substrate
   	int<lower=0> pop_region[n_pop];   		    // population specific covariate for region of the country
+  	int<lower=0> pop_hydro[n_pop];    		    // population specific covariate for hydro period
 
   // site-level covariates, categorical but potentially continuous
-	int<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown    
-  	int<lower=0> pop_hydro[n_pop];    		    // population specific covariate for hydro period
+	real<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown    
   	
   // site-by-day level covariates, categorical but potentially continuous
-	int<lower=0> p_drawdown[n_days];   		    // average value of drawdown among all of the sampled SubSites on a given day (for daily detection) 
-  	int<lower=0> p_veg[n_days];        		    // average value of vegetation among all of the sampled SubSites on a given day (for daily detection)
+	real<lower=0> p_drawdown[n_days];   		    // average value of drawdown among all of the sampled SubSites on a given day (for daily detection) 
+  	real<lower=0> p_veg[n_days];        		    // average value of vegetation among all of the sampled SubSites on a given day (for daily detection)
 
   // site-level covariates, continuous
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
@@ -315,8 +315,8 @@ transformed parameters {
 
   // calculate the mean at the population level	
 	  mehg_pop_est[z] = exp(
-beta_mehg_spec[spec_pop[z]]         + 							// species effect on MeHg			
-beta_mehg_drawdown[pop_drawdown[z]] + 							// drawdown effect on MeHg
+beta_mehg_spec[spec_pop[z]]          + 							// species effect on MeHg			
+beta_mehg_drawdown * pop_drawdown[z] + 							// drawdown effect on MeHg
 mehg_pop[z]										// population deviate on MeHg
 );
 	} 
@@ -327,8 +327,8 @@ mehg_pop[z]										// population deviate on MeHg
 
   // mean estimate generated from each individuals measured bd
 	  mu_mehg[i]  = exp(
-beta_mehg_spec[ind_mehg_spec[i]]                  + 					// species effect on MeHg
-beta_mehg_drawdown[pop_drawdown[ind_mehg_pop[i]]] + 					// drawdown effect on MeHg
+beta_mehg_spec[ind_mehg_spec[i]]                   + 					// species effect on MeHg
+beta_mehg_drawdown * pop_drawdown[ind_mehg_pop[i]] + 					// drawdown effect on MeHg
 mehg_pop[ind_mehg_pop[i]]								// population deviate on MeHg
 );
 
@@ -431,7 +431,7 @@ beta_offseason_mehg[spec_phi[t]] * mehg_pop_est_scaled[pop_phi[t]]
 p_pop[pop_p[t]]                        + 
 p_day_dev[p_day[t]]                    + 
 beta_p_drawdown * p_drawdown[p_day[t]] + 
-beta_p_veg * p_veg[p_day[t]]]          + 
+beta_p_veg * p_veg[p_day[t]]           + 
 beta_p_spec[spec_p[t]] * ind_len_scaled[ind_occ_rep[t]]
 );
 	 }

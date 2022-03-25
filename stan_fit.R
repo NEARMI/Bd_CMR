@@ -82,14 +82,14 @@ stan_data     <- list(
   ## site-level covariates, forced categorical
   , pop_sub          = site_covar.cat$SUB
   , pop_region       = site_covar.cat$region
-  
-  ## site-level covariates, categorical but potentially continuous
-  , pop_drawdown     = site_covar.cat$DRAWDOWN
   , pop_hydro        = site_covar.cat$HYDRO
   
+  ## site-level covariates, categorical but potentially continuous
+  , pop_drawdown     = site_covar.cat$drawdown_cont
+  
   ## site-by-day level covariates, categorical but potentially continuous
-  , p_drawdown       = daily_hab_covar$drawdown
-  , p_veg            = daily_hab_covar$veg
+  , p_drawdown       = daily_hab_covar$drawdown_cont
+  , p_veg            = daily_hab_covar$veg_cont
   
   ## site-level covariates, continuous (long-form vector unlike the above)
  , pop_temp         = site_covar.con$Temp_Mean
@@ -105,8 +105,8 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_full.stan"
-# file    = "stan_current/CMR_multiple_populations_reduced.stan"
+# file    = "stan_current/CMR_multiple_populations_full.stan"
+ file    = "stan_current/CMR_multiple_populations_reduced.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
