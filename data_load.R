@@ -2,21 +2,23 @@
 ## Load each of the data files in the directory ##
 ##################################################
 
+## Loop over all files 
 data.files <- list.files("data/cleaned_cmr_csv")
 data.files <- paste("data/cleaned_cmr_csv/", data.files, sep = "")
 
-## Load the PPSP 
+## Load the detailed sampling histor for each location
 sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv") %>% 
-## remove the 2 individual SMNWR_E-NOVI
+## remove the 2 individual SMNWR_E-NOVI site. It is not helpful to have these data in the model
   filter(!(Site == "SMNWR_E" & Species == "NOVI")) %>%
 ## remove the minimal sampling of the Blackrock population in the late season
   filter(Notes != "Opportunistic") %>% 
   droplevels()
 
-## For now convert RAXX to RANA 
+## *** For now (as of March 25) convert all RAXX to RANA to help [the jury is still out] fixed effect estimates
 RANA_spec <- unique(sampling$Species)[grep("RA", unique(sampling$Species))]
 sampling  %<>% mutate(Species = plyr::mapvalues(Species, from = RANA_spec, to = rep("RANA", length(RANA_spec))))
 
+## Deal with non-date dates 
 date_convert <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) {
   a <- strsplit(x, split = "/")[[1]]
   b <- a[3]
@@ -34,22 +36,24 @@ sampling$Month <- apply(matrix(sampling$CaptureDate), 1, FUN = function (x) strs
 
 sampling %<>% mutate(CaptureDate = as.Date(date_convert, "%m/%d/%y"))
 
+## Loop over all cleaned files
 for (i in seq_along(data.files)) {
 
-  data.temp  <- read.csv(data.files[i])
-  check.rana <- unique(data.temp$Species)[grep("RA", unique(data.temp$Species))]
-  if (length(check.rana) > 0) {
-  data.temp  %<>% mutate(Species = plyr::mapvalues(Species, from = check.rana, to = rep("RANA", length(check.rana))))   
-  }
+## load the file
+data.temp  <- read.csv(data.files[i])
+check.rana <- unique(data.temp$Species)[grep("RA", unique(data.temp$Species))]
+
+## *** if RAXX convert to RANA
+if (length(check.rana) > 0) {
+ data.temp  %<>% mutate(Species = plyr::mapvalues(Species, from = check.rana, to = rep("RANA", length(check.rana))))   
+}
   
+## deal with dates
 if (strsplit(data.temp$CaptureDate[1], split = " ")[[1]] %>% length() > 1) {
   ddate <- apply(matrix(data.temp$CaptureDate), 1, FUN = function(x) strsplit(x, split = " ")[[1]][1])
   data.temp$CaptureDate <- ddate
 }
   
-####
-## Deal with annoying date formats
-####
 if (length(grep("/", data.temp$CaptureDate[1])) > 0) {
 
 date_convert <- apply(matrix(data.temp$CaptureDate), 1, FUN = function (x) {
@@ -100,15 +104,17 @@ if ("TrgetCopies.swb" %in% names(data.temp)) {
   
 }
   
-## Convert bd load to a numeric and drop all individuals that were never marked as they should
- ## not be used to inform the model.
-   ## !! For now also drop individuals found dead
+## Convert bd load to a numeric and drop all individuals that were never marked as they can't be used to inform the model
+ ## *** For now also drop individuals found dead. Could add a flag in the model to indicate that we know that an individual
+  ## died at some point between the last capture and the current capature of the dead individual, but this is kind of a hassle
+   ## for just a couple of individuals and definitely will not have an impact
 data.temp %<>% mutate(bd_load = as.numeric(bd_load)) %>%
   rename(Mark = IndividualID) %>%
   filter(!is.na(Mark), Mark != "") %>%
   filter(dead != 1 | is.na(dead))
 
-## check which years have no swabbing and remove them
+## *** check which years have no swabbing and remove them as this is just going to complicate the model structure and
+ ## isn't going to help resolve bd vs survival (and is rare--maybe just one or two years total across all populations)
 no.swabyear <- data.temp %>% group_by(Year) %>% 
   summarize(tot_ss = length(which(!is.na(bd_load)))) %>% 
   filter(tot_ss == 0)
@@ -118,8 +124,7 @@ data.temp %<>% filter(Year %notin% no.swabyear$Year) %>% droplevels()
 ## Create a subset of sampling to link up with the data to get the correct prim num and sec num
 sampling.temp <- sampling %>% filter(Site %in% data.temp$Site)
 
-## Stupid numeric and non-numeric subsites, probably better to just convert all subsites to numeric
- ## to avoid this sort of issue
+## Deal with the mix of numeric and non-numeric subsites
 if ((class(data.temp$SubSite) == "integer" | class(data.temp$SubSite) == "numeric") & 
     class(sampling.temp$SubSite) == "character") {
   sampling.temp %<>% mutate(SubSite = as.numeric(SubSite))
@@ -131,9 +136,7 @@ if (class(data.temp$SubSite) == "character" &
 }
 
 ## Link up the PrimNum and SecNumConsec from "sampling" with data.temp
-data.temp %<>% left_join(.
-  , sampling.temp %>% dplyr::select(Site, SubSite, Species, CaptureDate, PrimNum, SecNumConsec)
-)
+data.temp %<>% left_join(., sampling.temp %>% dplyr::select(Site, SubSite, Species, CaptureDate, PrimNum, SecNumConsec))
 
 ## Some datasets have extra (and different) data columns than other datasets. Extract the necessary 
  ## columns from each (already processed so that all files contain at least these)
@@ -144,10 +147,9 @@ data.temp %<>% dplyr::select(
   ) %>%
   mutate(dataset = i)
 
-## One strategy (probably the simplest one but could run into issues with detection if 
- ## animals don't really move among sub-populations) is to collapse all SubSites and just use
-  ## the main site. Taking this strategy means SecNumConsec needs to be rewritten as well.
-   ## Do this here 
+## *** The current strategy is to collapse all SubSites and just use the main site. 
+ ## Which SubSites are sampled is still used to calculate each animals detection probability
+  ## Recalculate SecNumConsec as well just as a count from 1:n() of days each site is sampled
 sampling.temp %<>% 
   rename(SecNumConsec_corrected = SecNumConsec) %>%
   arrange(Site, CaptureDate) %>% 
@@ -159,20 +161,17 @@ sampling.temp %<>%
   ungroup(CaptureDate) %>%
   mutate(SecNumConsec_corrected = seq(n())) 
 
-data.temp %<>% left_join(., sampling.temp)
+data.temp %<>% left_join(., sampling.temp) %>% dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
 
-data.temp %<>% dplyr::select(-SecNumConsec) %>% rename(SecNumConsec = SecNumConsec_corrected)
-
-## -- this will have to be non-dynamic?? -- ##
-## certain species disappear and capture events become mostly opportunistic. Need to figure out what to 
- ## do with these data, but for now just drop them
+## *** There are a few "opportunistic" sampling events in JonesPond when other work was being done. Drop these as the
+ ## population is not the same as it is on-season which adds a wrinkle to the model that isn't worth dealing with
 if (data.temp$Site[1] == "JonesPond" & data.temp$Species[1] == "ANBO") {
   data.temp %<>% filter(Month < 6)
 }
 
-## -- same -- ##
-## For those locations with "duplicate" swabs (the same individual swabbed multiple times), something sensible
- ## will eventually need to be done... but for now need to collapse to one
+## *** Some locations (for just a few animals) have "duplicate" swabs (the same individual swabbed multiple times)
+ ## For now collapsing these measures to a single measure per animal in a sensible way 
+  ## (details given in this ~50 line section)
 if (data.temp %>% filter(reason == "duplicate") %>% nrow() > 0) {
 
 data.temp.d <- data.temp %>% filter(reason == "duplicate")
@@ -221,12 +220,11 @@ if (i == 1) {
   
 }
 
-## Build a data frame that contains a description of the habitat structure "seen" each day during sampling at each Site given
- ## which SubSites were sampled on that day (for detection in the model)
+## Build a data frame that contains a description of the habitat structure in each
+ ## SubSite sampled on that day (for detection in the model)
 daily_hab_covar <- sampling %>% dplyr::select(Region, Site, SubSite, Species, CaptureDate)
 
-## Adjust the master "sampling" file to match the choices for the data 
- ## (i.e., dropping subsites as I am doing for now)
+## *** Adjust the master "sampling" file to match the choices for the data (i.e., dropping subsites as I am doing for now)
 sampling %<>% 
   group_by(Site) %>% 
   arrange(Site, CaptureDate) %>% 
@@ -237,9 +235,6 @@ sampling %<>%
   slice(1) %>% 
   ungroup(CaptureDate) %>%
   mutate(SecNumConsec = seq(n()))
-
-## drop the opportunistic sampling of ANBO from JonesPond
-sampling %<>% filter(!(Site == "JonesPond" & Species == "ANBO" & SecNumConsec > 13))
 
 ## population defined as a species in a site
 data.all %<>% mutate(pop_spec = interaction(Species, Site)) %>% droplevels() %>%
@@ -252,38 +247,32 @@ sampling %<>% mutate(pop_spec = interaction(Species, Site)) %>% droplevels() %>%
   mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 
 ####
-## Mercury and Habitat characteristics
+## Habitat characteristics and MeHg
 ####
 
 ## Load and subset to the sites that I have data for so far
-Oth_hab_cov     <- read.csv("data/cleaned_cov_csv/ARMI_CMR_OtherHabitatCovariates.csv") %>% 
-  filter(Site %in% unique(data.all$Site))
-temp_precip_hab <- read.csv("data/cleaned_cov_csv/ARMI_CMR_TempPrecip.csv") %>% 
-  filter(Site %in% unique(data.all$Site))
+Oth_hab_cov     <- read.csv("data/cleaned_cov_csv/ARMI_CMR_OtherHabitatCovariates.csv") %>% filter(Site %in% unique(data.all$Site))
+temp_precip_hab <- read.csv("data/cleaned_cov_csv/ARMI_CMR_TempPrecip.csv") %>% filter(Site %in% unique(data.all$Site))
+MeHG            <- read.csv("data/cleaned_cov_csv/CMR_MeHg.csv") 
+
+## Add some columns converting binned quantiative values into continuous metrics
+Oth_hab_cov %<>% mutate(
+  drawdown_cont = plyr::mapvalues(DRAWDOWN, from = c(1, 2, 3, 4), to = c(12.5, 37.5, 62.5, 87.5))
+, canopy_cont   = plyr::mapvalues(CANOPY, from = c(1, 2, 3, 4), to = c(12.5, 37.5, 62.5, 87.5))
+, veg_cont      = plyr::mapvalues(VEG, from = c(1, 2, 3, 4), to = c(12.5, 37.5, 62.5, 87.5))
+)
 
 ## Edit daily_hab_covar dataframe to get covaraties on each day for detection
 daily_hab_covar %<>% left_join(., Oth_hab_cov) %>% 
   group_by(Site, CaptureDate) %>%
   summarize(
-    drawdown = mean(DRAWDOWN, na.rm = T) %>% round()
-  , veg      = mean(VEG, na.rm = T) %>% round()
+    drawdown      = mean(DRAWDOWN, na.rm = T) %>% round()
+  , veg           = mean(VEG, na.rm = T) %>% round()
+  , drawdown_cont = mean(drawdown_cont, na.rm = T)
+  , veg_cont      = mean(veg_cont, na.rm = T)
   )
   
-## Habitat covaraite details:
-# HYDRO	     -- Hydroperiod: Temporary (T) or Permanent (P)
-# DRAWDOWN	 -- Drawdown % disappeared, 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
-# CANOPY	   -- % Woody canopy cover over wetland 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
-# VEG	       -- % sub and emergent vegetation in wetland 1 (0-25), 2 (26-50), 3 (51-75), 4 (76-100)
-# SUB	       -- substrate, organic (O) or inorganic (I)
-# WCOL	     -- water color: clear (C), brown (B), clear but tannin browned (TB)
-# SULF	     -- smell of sulfur: Yes (Y), Sometimes (S), No (N)
-# PRODUC	   -- Productivity: Oligo (O), Meso (M), Eutrophic (E)
-# Temp and Precip available 2017-2020, named sensibly
-
-## Mercury load 
-MeHG            <- read.csv("data/cleaned_cov_csv/CMR_MeHg.csv") 
-
-## Checking for errors
+## Data frame to look for some MeHg errors
 Me_Hg_error_check <- data.all %>% 
   ungroup() %>% 
   group_by(Site) %>% 
@@ -297,8 +286,7 @@ Me_Hg_error_check <- data.all %>%
   droplevels() %>%
   summarize(num_with_measured_MeHg = n()))
 
-## Add the Mercury data to the main data frame
- ## For mercury will simply rely on the barcode and not site -- which can take on different names :(
+## Add the Mercury data to the main data frame (rely on the barcode)
 data.all %<>% left_join(.
   , MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb)
   ) %>% dplyr::select(-HgSampleID)
@@ -306,8 +294,7 @@ data.all %<>% left_join(.
 data.all %<>% relocate(c(flagged, reason, Notes), .after = MeHg_conc_ppb)
 data.all %<>% relocate(pop_spec, .after = Species)
 
-## Before filling in some unmeasured covariates in later scripts for model development (later will do something
- ## more sensible), check how often these covariates were measured
+## Quick check how often each covariate is measured in each population was measured 
 cov_meas <- data.all %>%
   group_by(Site) %>%
   summarize(

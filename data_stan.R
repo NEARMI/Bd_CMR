@@ -1,7 +1,19 @@
-############################################################
-## Data and indexing vectors in the needed structure for  ##
-## the "long form" or "database form" stan model          ##
-############################################################
+##########################################################################
+## Data and indexing vectors in the needed structure for the stan model ##
+## in "long form" or "database form" -- necessary for the variability   ##
+## in sampling among populations                                        ##
+##########################################################################
+
+####
+## NOTE: The way the "long-form / database-form" model works is to have a single long vector for each piece of data
+## paired with index vectors that give details about the individuals/populations/days etc. associated with each
+## entry in the data vectors
+####
+## The easiest and most transparent way to set up the correct structure (even though it requires a substantial
+## amount of code and some duplication of coding effort) is to subset the complete capture history
+## data frame into three, each corresponding to one of the major model components (survival, detection, Bd)
+## (given the need for slightly different lengths for survival, detection, and bd given the structure of the model)
+####
 
 ## total number of individuals across all populations
 n_ind     <- length(unique(capt_history$Mark))
@@ -23,34 +35,11 @@ n_occ     <- sampled_periods %>%
   dplyr::select(-Year) %>% as.matrix()
 n_occ[is.na(n_occ)] <- 0
 
-## number of secondary periods in each of the primary periods in each site
-n_occ.m <- sampled_periods %>% 
-  group_by(Year, Month, pop_spec) %>%
-  summarize(n_occ = length(unique(SecNumConsec))) %>% 
-  mutate(pop_spec = factor(pop_spec, levels = u_sites)) %>%
-  arrange(pop_spec) %>%
-  pivot_wider(values_from = n_occ, names_from = pop_spec) %>% 
-  arrange(Year, Month) %>%
-  ungroup() %>%
-  dplyr::select(-Year, -Month) %>% 
-  as.matrix()
-
-###
-## Note: The way the "long-form / database-form" model works is to have long vectors of the
-## data and outcomes and index vectors giving details/grouping associations about each data point
-
-## The easiest way to set up the correct structure is to subset the complete capture history
-## data frame into three (given the need for slightly different lengths for survival, 
-## detection, and bd given the structure of the model)
-###
-
 ####
-## Data for detection (.p for detection)
+## Data for detection ("XXXX.p" for detection)
 ####
 
-capt_history.p   <- capt_history %>% 
-  filter(sampled == 1) %>% 
-  ungroup()
+capt_history.p   <- capt_history %>% filter(sampled == 1) %>% ungroup()
 
 ## Index vector that designates which entries of a single vector of detection probabilities
  ## corresponds to a new individual (i.e., the first entry for each individual)
@@ -82,8 +71,10 @@ capt_history.p %<>%
 ## Mutate gets __really__ slow with very large data frames, so instead pull out the column, adjust it along, and stick it back into the data frame
  ## There may be a better way to do this, but for speed considerations I am not aware of any
 
-## These p_zeros are used to inform a scaling factor on detection probability (one scaling factor for each
- ## individual in each primary period). Need an index for these scaling factors
+## These p_zeros are used to set up a scaling factor on detection probability (one scaling factor for each
+ ## individual in each primary period) that could _maybe_ be used to try and scale detection in periods
+  ## prior to an individual being captured for the first time. Call this gamma_index.
+   ## *** Not currently actually used (As of March 25), but leaving it for now
 capt_history.p %<>% mutate(gamma_index = paste(interaction(Mark, Year
   #, Month
   ), "a", sep = "_"))
@@ -97,8 +88,10 @@ X_stat_index     <- factor(capt_history.p$X_stat_index, levels = uni_X_stat_inde
 capt_history.p$gamma_index  <- gamma_index
 capt_history.p$X_stat_index <- X_stat_index
 
+
+
 ####
-## Data for survival (.phi for survival)
+## Data for survival ("XXXX.phi" for survival)
 ####
 
 ## phi not calculable on the last time step so drop it
@@ -127,8 +120,7 @@ time_gaps <- (capt_history %>%
  
 capt_history.phi %<>% mutate(time_gaps = time_gaps)
 
-## The second of the survival processes concerns survival between years
- ## Designated with "offseason"
+## The second of the survival processes concerns survival between years. Designated with "offseason"
 capt_history.phi %<>% 
   group_by(pop_spec, Mark) %>%
   mutate(offseason = Year - lag(Year, 1)) %>% 
@@ -151,7 +143,6 @@ capt_history.phi %<>%
 
 ## Index for periods over which to take summary values of bd to inform between season survival.
  ## Another spot where it is faster to not use factor() inside of mutate()
-
 capt_history.phi %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_"))
 uni_X_stat_index <- unique(capt_history.phi$X_stat_index)
 X_stat_index     <- factor(capt_history.phi$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
@@ -159,13 +150,13 @@ X_stat_index     <- factor(capt_history.phi$X_stat_index, levels = uni_X_stat_in
 capt_history.phi$X_stat_index <- X_stat_index
 
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
-# capt_history.phi %<>% mutate(phi_ones = ifelse(time_gaps == 1 | offseason == 1, 0, 1))
 capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 0, 1))
 
 ####
 ## One final adjustment to capt.history
 ####
 
+## Set up an idex for which entries of the full capture_history data frame correspond to bd values in the shortened Bd dataframe
 capt_history     %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_")) 
 uni_X_stat_index <- unique(capt_history$X_stat_index)
 X_stat_index     <- factor(capt_history$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
@@ -222,7 +213,6 @@ capt_history.bd_load %<>% left_join(
 )
 
 ## Determine which population each individual is associated with
-
 ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
 
 ## Get the species and sites to be factors in the order that they appear in the data frames. 
@@ -273,10 +263,11 @@ X_stat_index_covs <- capt_history.phi %>%
     ind_in_pop_year, pop_for_bd, spec_for_bd, Mark
   )
 
-### Testing a date-level random effect for detection
+####
+## Finally, create an index vector for unique sampling dates for a date-level random effect for detection
+####
 capt_history.p %<>% 
   mutate(date_fac = interaction(pop_spec, capture_date)) %>%
   mutate(date_fac = as.character(date_fac)) %>% 
   mutate(date_fac = as.factor(date_fac)) %>% 
   mutate(date_fac = as.numeric(date_fac))
-

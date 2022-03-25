@@ -3,17 +3,19 @@
 #####################################
 
 ####
-## Notes as of March 24:
+## Notes as of March 25:
 ####
 
-## 1) Exciting that the model with individual length imputation broken up by species seems to be working well
-## 2) Fixed a small bug that had within-season survival opposite of what it should have been
-## 3) Model done[???] for all of the categorical predictors -- but still need to debug this
+## 1) Model fits -- all indexing seems correct. Time to clean up some code and fit with all individuals
 
-## TO DO later:
+### --- TO DO next:
+
+## 1) Set up Yeti and send jobs
+## 2) Create an overleaf with some writing and model fits
+
+### --- TO DO later:
  
- ## 1) Reach out to various PIs about fits
- ## 2) Reach out to Brian T for what he is doing with MeHg and survival
+## 1) Reach out to various PIs about fits
 
 
 ##################################################################
@@ -56,20 +58,16 @@
 
 ##################################################################
 
+#### NOTE: In this file and all other files search *** for current choices that could potentially change
+
 ## Packages and Functions
 source("packages_functions.R")
 
 ## Read in data
 source("data_load.R")
 
-## Construct modified data frame of recapture histories for each individual in each population
- ## For single species debug purposes pick a single data set
-single_pop <- FALSE
-if (!single_pop) {
+## For dev and debug purposes pick a subset of locations
 some_pops  <- TRUE
-} else {
-some_pops  <- FALSE 
-}
 
 if (some_pops) {
 which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
@@ -77,17 +75,14 @@ data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
-if (single_pop) {
-which.dataset <- unique(data.all$pop_spec)[12]
-data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
-sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
-}
-
+## For dev and debug purposes also can subset total number of individuals 
+ ## (done randomly though a seed is set in packages_functions.R)
 red_ind    <- TRUE
 if (red_ind) {
-num_ind    <- 100
+num_ind    <- 200
 }
 
+## Create the capture history scaffold from the raw data
 source("data_manip.R")
 
 ## Create the indexing vectors and capture history structure needed for the stan model
@@ -101,11 +96,11 @@ source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 800
-stan.burn     <- 300
+stan.iter     <- 1000
+stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
-if (single_pop) {
+if (length(which.dataset) == 1) {
 source("stan_fit_single.R")
 } else {
 source("stan_fit.R") 
