@@ -61,6 +61,7 @@
 
 ## Packages and Functions
 source("packages_functions.R")
+source("../ggplot_theme.R")
 
 ## Read in data
 source("data_load.R")
@@ -69,7 +70,8 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -91,7 +93,7 @@ source("data_stan.R")
 source("data_covariates.R")
 
 ## Quick look at a given population
-source("capt_plot.R")
+#source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
@@ -106,4 +108,4 @@ source("stan_fit.R")
 }
 
 ## And some diagnostics and such
-source("diagnostics.R")
+#source("diagnostics.R")

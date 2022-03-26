@@ -271,6 +271,8 @@ daily_hab_covar %<>% left_join(., Oth_hab_cov) %>%
   , drawdown_cont = mean(drawdown_cont, na.rm = T)
   , veg_cont      = mean(veg_cont, na.rm = T)
   )
+
+## 
   
 ## Data frame to look for some MeHg errors
 Me_Hg_error_check <- data.all %>% 

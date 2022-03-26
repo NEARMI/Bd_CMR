@@ -109,8 +109,8 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
- file    = "stan_current/CMR_multiple_populations_full.stan"
-# file    = "stan_current/CMR_multiple_populations_reduced.stan"
+# file    = "stan_current/CMR_multiple_populations_full.stan"
+  file    = "stan_current/CMR_multiple_populations_reduced.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -120,8 +120,8 @@ stan.fit  <- stan(
 , warmup  = stan.burn
 , thin    = stan.thin
 , control = list(adapt_delta = 0.94, max_treedepth = 12)
-# , include = FALSE
-# , pars    = c("phi", "p", "chi")
+, include = FALSE
+, pars    = c("phi", "p", "chi")
   )
 
 saveRDS(stan.fit, paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = "."))

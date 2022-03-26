@@ -23,10 +23,10 @@ SummitMeadow,Y-1687,2,Y,N,Mariposa,NoCal,CA,37.678409,-119.650880,E,4,1,2,O,TB,N
 DilmanMeadows,1,1,Y,Y,Deschutes,PNW,OR,44.104747,-121.635093,P,1,2,2,I,C,N,M
 DilmanMeadows,2,1,Y,Y,Deschutes,PNW,OR,44.102866,-121.640409,P,1,4,1,I,C,N,M
 DilmanMeadows,3,1,Y,Y,Deschutes,PNW,OR,44.101420,-121.642228,P,1,1,1,I,C,N,M
-ThreeCreeks,4,1,Y,N,Deschutes,PNW,OR,43.700572,-121.663596,E,4,1,3,O,C,S,E
-ThreeCreeks,5,1,Y,N,Deschutes,PNW,OR,43.699560,-121.663283,P,2,1,3,O,C,S,E
-ThreeCreeks,6,1,Y,N,Deschutes,PNW,OR,43.699350,-121.661550,P,2,1,3,O,C,S,E
-ThreeCreeks,7,1,Y,N,Deschutes,PNW,OR,43.699636,-121.664460,E,4,1,3,O,C,S,E
+ThreeCreeks,1,1,Y,N,Deschutes,PNW,OR,43.700572,-121.663596,E,4,1,3,O,C,S,E
+ThreeCreeks,2,1,Y,N,Deschutes,PNW,OR,43.699560,-121.663283,P,2,1,3,O,C,S,E
+ThreeCreeks,3,1,Y,N,Deschutes,PNW,OR,43.699350,-121.661550,P,2,1,3,O,C,S,E
+ThreeCreeks,4,1,Y,N,Deschutes,PNW,OR,43.699636,-121.664460,E,4,1,3,O,C,S,E
 JonesPond,1,NA,N,N,Missoula,RMN,MT,46.896303,-113.441379,P,3,1,1,O,C,S,M
 LostHorse,1,NA,N,N,Ravalli,RMN,MT,46.097140,-114.264030,E,4,1,4,O,C,N,O
 TwoMedicine,1,1,Y,Y,Glacier,RMN,MT,48.479100,-113.369500,P,4,1,3,O,C,N,O
