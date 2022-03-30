@@ -2,10 +2,14 @@
 
  ## !!!! This will be an important debugging script to show in the final repo so dont delete
 
-stan.fit <- readRDS(paste("fits/multi_spec_more", "Rds", sep = "."))
+stan.fit <- readRDS(paste("fits/stan_fit_multipop3_2022-03-29", "Rds", sep = "."))
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
+
+shinystan::launch_shinystan(stan.fit)
+
+shinystan::launch_shinystan(shinystan::as.shinystan(stan.fit, pars = names(stan.fit.samples)[-c(6, 26, 28, 36, 37, 40, 41, 45, 46, 53, 54, 55)]))
 
 capt_history.r <- capt_history %>% filter(pop_spec == which.dataset)
 
@@ -17,14 +21,16 @@ mark_check <- mark_check.all$n_mark[1] +
   mark_check.all$n_mark[3] +
   mark_check.all$n_mark[4] +
   mark_check.all$n_mark[5] +
-  mark_check.all$n_mark[6] + 10
+  mark_check.all$n_mark[6] + 
 
+mark_check <- sample(sum(mark_check.all$n_mark), 1)
 capt_history.phi %>% 
   filter(Mark == mark_check) %>% 
   dplyr::select(-Month, -Year, -month_year, -pop_spec, -Region, -State, -Site, -PrimNum) %>%
   mutate(pred_phi = stan.fit.samples$phi[, which(capt_history.phi$Mark == mark_check)] %>% colMeans()) %>%
   as.data.frame()
 
+mark_check <- sample(sum(mark_check.all$n_mark), 1)
 capt_history %>% 
   filter(Mark == mark_check) %>% 
   dplyr::select(-Month, -Year, -month_year, -pop_spec, -Region, -State, -Site) %>%
@@ -74,11 +80,11 @@ capt_history %>% group_by(pop_spec) %>% summarize(
   mean(merc, na.rm = T)
 )
 
-stan.fit.samples$beta_mehg_spec[, 1] %>% hist()
+stan.fit.samples$beta_mehg_spec[, 3] %>% hist()
 
 stan.fit.samples$mehg_pop[, 1] %>% hist()
 
-stan.fit.samples$mehg_pop_est[, 2] %>% hist()
+stan.fit.samples$mehg_pop_est[, 1] %>% hist()
 
 len.mis %>% as.array()
 
@@ -125,15 +131,19 @@ stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>%
 ## What is going on with Bd in each population?
 ####
 
+unique(capt_history$pop_spec)
+spectoplot <- 2
+poptoplot  <- 6
+
 outval   <- matrix(seq(1, 14, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
-     stan.fit.samples$beta_offseason_int[, 2] + stan.fit.samples$offseason_pop[, 6] +
-       (stan.fit.samples$beta_offseason_bd[, 2] + stan.fit.samples$offseason_pop_bd[, 6]) * outval[j] +
-       (stan.fit.samples$beta_offseason_len[, 2] + stan.fit.samples$offseason_pop_len[, 6]) * 0 +
-       stan.fit.samples$beta_offseason_mehg[, 2] * stan.fit.samples$mehg_pop_est_scaled[, 6]
+     stan.fit.samples$beta_offseason_int[, spectoplot] + stan.fit.samples$offseason_pop[, poptoplot] +
+       (stan.fit.samples$beta_offseason_bd[, spectoplot] + stan.fit.samples$offseason_pop_bd[, poptoplot]) * outval[j] +
+       (stan.fit.samples$beta_offseason_len[, spectoplot] + stan.fit.samples$offseason_pop_len[, poptoplot]) * 0 +
+       stan.fit.samples$beta_offseason_mehg[, spectoplot] * stan.fit.samples$mehg_pop_est_scaled[, poptoplot]
     )
 }
 
@@ -153,6 +163,4 @@ out.pred.off <- out.pred %>%
     when       = "offseason"
   )
 
-
-
-
+out.pred.off %>% {ggplot(., aes(gap, mid)) + geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) + geom_line()}

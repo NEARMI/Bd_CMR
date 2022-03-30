@@ -119,9 +119,9 @@ stan.fit  <- stan(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.94, max_treedepth = 12)
-, include = FALSE
-, pars    = c("phi", "p", "chi")
+, control = list(adapt_delta = 0.85, max_treedepth = 10) ## 96 and 13
+#, include = FALSE
+#, pars    = c("phi", "p", "chi")
   )
 
 saveRDS(stan.fit, paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = "."))

@@ -101,7 +101,8 @@ stan.fit  <- try(
  stan(
 # file    = "stan_current/CMR_single_population_ind_rand.stan"
 # file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
-  file    = "stan_current/CMR_single_population_ind_rand_no_mehg.stan" 
+# file    = "stan_current/CMR_single_population_ind_rand_no_mehg.stan" 
+  file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand.stan"  
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -115,7 +116,11 @@ stan.fit  <- try(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.94, max_treedepth = 13)
+, control = list(adapt_delta = 0.96, max_treedepth = 13)
+#, include = FALSE
+#, pars    = c(
+#  "chi", "phi", "p", "X", "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
+#, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
   )
   }
 , silent = TRUE

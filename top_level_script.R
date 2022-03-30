@@ -3,19 +3,30 @@
 #####################################
 
 ####
-## Notes as of March 25:
+## Notes as of March 30:
 ####
 
-## 1) FULL and somewhat reduced model complete and compile. Need to run and debug the reduced version
+## 1) The model run with all of the individuals from all populations apart from NOVI ran with no divergent transitions.
+ ## A) though 400 warmup and 600 samples will be far too little for the full model. Probably something like 500 warmup and 2500
+  ##   samples could be enough
+ ## B) Even with all of the individuals, the fixed effect coefficient estimates are still pretty garbage
+    ##   ^^ Most overlapping zero with wide CI
+    ##   ^^ RANA having a super strong length effect ** Need to add sex?
+ ## C) The model has changed a lot so need to work back through all of the priors to make sure they are still sensible 
 
-### --- TO DO next:
+## 2) Some things to add:
+ ## A) A covariate (what exactly I don't know) to deal with variation in sampling period by year
+ ## B) Length to predicted Bd at the individual level
+ ## C) Sex in survival 
 
-## 1) Set up Yeti and send jobs
-## 2) Create an overleaf with some writing and model fits
+## 3) Data checks and potential larger modifications
+ ## A) Florida sampling scheme being fundamentally different to the other populations
+ ## B) What individuals were actually marked for NOVI for the Wisconsin populations
 
-### --- TO DO later:
- 
-## 1) Reach out to various PIs about fits
+## 4) Longer term strategy:
+ ## A) Big model
+ ## B) Bd-MeHg interaction model for the best sampled populations
+ ## C) Seasonal variation model for the newts
 
 ##################################################################
 ## Some older notes that are still relevant
@@ -71,7 +82,8 @@ some_pops  <- TRUE
 
 if (some_pops) {
 # which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+  which.dataset <- unique(data.all$pop_spec)[14] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -97,8 +109,8 @@ source("data_covariates.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 1000
-stan.burn     <- 400
+stan.iter     <- 800
+stan.burn     <- 300
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {
