@@ -2,7 +2,7 @@
 
  ## !!!! This will be an important debugging script to show in the final repo so dont delete
 
-stan.fit <- readRDS(paste("fits/stan_fit_multipop3_2022-03-29", "Rds", sep = "."))
+stan.fit <- readRDS(paste("fits/stan_fit_multipop_2022-03-26", "Rds", sep = "."))
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
