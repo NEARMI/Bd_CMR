@@ -2,6 +2,34 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
+#### Notes to myself for April 8 ----
+
+## Next stuff to do on this project
+
+## 1) Start by continuing to debug the use of sex in length imputation 
+ ## -- Check if any datasets will be a problem
+ ## -- Fit both models in the data sets with the most missing length data
+ ## -- If ok write this version in all models
+
+## 2) Fit old and new ind MeHg model with interaction term and without in the most sampled population
+ ## -- Save an output for the Overleaf
+
+## 3) Make sure Sex in survival is returning sensible results
+ ## ^^ Bigger question that needs to be revisited is if the way I am handling categorial covariates is sensible
+
+## 4) Make the changes for the random effect for pop-spec to site
+ ## -- Run a small multi-pop model to check for sensible indexing
+
+## 5) Build the script to run all populations individually
+ ## -- And send jobs to Sherlock
+
+## 6) Send two big model fits -- sans newts and with newts
+
+## 7) Expand the current non MeHg individual model for Bd trajectories over time for PA newts
+
+## 8) Compile all results, update methods, and send overleaf out to PIs
+
+
 #### Notes as of April 7 ----
 
 ## 1) Finished writing methods today. It actually was pretty hard to write the text given all of the difficulties with
