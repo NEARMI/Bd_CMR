@@ -10,7 +10,7 @@ data.files <- paste("data/cleaned_cmr_csv/", data.files, sep = "")
 sampling   <- read.csv("data/cleaned_cov_csv/PP_SP.csv") %>% 
 ## remove the 2 individual SMNWR_E-NOVI site. It is not helpful to have these data in the model
   filter(!(Site == "SMNWR_E" & Species == "NOVI")) %>%
-## remove the minimal sampling of the Blackrock population in the late season
+## remove the minimal sampling of the Jones Pond population in the late season
   filter(Notes != "Opportunistic") %>% 
   droplevels()
 
@@ -306,3 +306,9 @@ cov_meas <- data.all %>%
   , prop_sex    = length(which(!is.na(Sex))) / n()
   , prop_age    = length(which(!is.na(Age))) / n()
   )
+
+## store all of the types of entries for sex for use in cleaning later
+data.all    %<>% mutate(Sex = plyr::mapvalues(Sex, from = "", to = "U"))
+
+sex_entries <- unique(data.all$Sex)
+

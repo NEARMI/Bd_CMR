@@ -69,12 +69,15 @@ stan_data     <- list(
  , ind_len_have       = ind.len[len.have]
 
   ## individual mehg data
-# , ind_hg             = ind.hg
  , ind_mehg_which_have = hg.have
  , ind_mehg_which_mis  = hg.mis
  , n_ind_mehg_have     = length(hg.have)
  , n_ind_mehg_mis      = length(hg.mis)
  , ind_mehg_have       = ind.hg[hg.have]
+
+  ## ind sex
+ , n_sex             = length(unique(ind.sex$Sex))
+ , ind_sex           = ind.sex$Sex
   
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
@@ -102,7 +105,9 @@ stan.fit  <- try(
 # file    = "stan_current/CMR_single_population_ind_rand.stan"
 # file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
 # file    = "stan_current/CMR_single_population_ind_rand_no_mehg.stan" 
-  file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand.stan"  
+# file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand.stan" 
+  file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand_expanding.stan" 
+# file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand_expanding_gl.stan" 
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -116,7 +121,7 @@ stan.fit  <- try(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.96, max_treedepth = 13)
+, control = list(adapt_delta = 0.94, max_treedepth = 13)
 #, include = FALSE
 #, pars    = c(
 #  "chi", "phi", "p", "X", "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"

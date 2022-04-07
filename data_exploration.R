@@ -146,24 +146,25 @@ set.seed(10002)
 
 ## Data from WI, MA, and PA
 # Bd_Newts_AllSites <- read.csv("Bd_Newts_AllSites.csv")
-Bd_Newts_AllSites   <- read.csv("Bd_Newts_AllSites_10.1.21.csv")
+# Bd_Newts_AllSites <- read.csv("Bd_Newts_AllSites_10.1.21.csv")
+Bd_Newts_AllSites   <- read.csv("data/cleaned_cmr_csv/SB_NOVI.csv")
 
 ## Stupid dates in R
-if (length(grep("/", Bd_Newts_AllSites$Date[1])) > 0) {
+if (length(grep("/", Bd_Newts_AllSites$CaptureDate[1])) > 0) {
 
-date_convert <- apply(matrix(Bd_Newts_AllSites$Date), 1, FUN = function (x) {
+date_convert <- apply(matrix(Bd_Newts_AllSites$CaptureDate), 1, FUN = function (x) {
   a <- strsplit(x, split = "/")[[1]]
   b <- a[3]
   b <- strsplit(b, "")[[1]][c(3, 4)] %>% paste(collapse = "")
   paste(c(a[c(1, 2)], b), collapse = "/")
 })
 
-Bd_Newts_AllSites$Date <- date_convert
-Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date, "%m/%d/%y"))
+Bd_Newts_AllSites$CaptureDate <- date_convert
+Bd_Newts_AllSites      %<>% mutate(CaptureDate = as.Date(CaptureDate, "%m/%d/%y"))
 
 } else {
   
-Bd_Newts_AllSites      %<>% mutate(Date = as.Date(Date))
+Bd_Newts_AllSites      %<>% mutate(CaptureDate = as.Date(CaptureDate))
   
 }
 

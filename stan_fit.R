@@ -79,6 +79,9 @@ stan_data     <- list(
  , ind_mehg_pop       = ind.hg.pop[hg.have]
  , ind_mehg_spec      = ind.hg.spec[hg.have]
   
+  ## ind sex
+ , ind_sex           = ind.sex$Sex
+  
   ## site-level covariates, forced categorical
   , pop_sub          = site_covar.cat$SUB
   , pop_region       = site_covar.cat$region

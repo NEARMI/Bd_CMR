@@ -35,6 +35,7 @@ ind.len      <- ind.len$len
 len.mis  <- which(is.na(ind.len))
 len.have <- which(!is.na(ind.len))
 
+
 ## Proceed in a similar way with MeHg -- same code, used differently in the single (individual deviate estimated) 
  ## and multiple population models (pop mean estimated)
 ind.hg <- capt_history %>% 
@@ -50,6 +51,17 @@ ind.hg      <- ind.hg$merc
 
 hg.mis  <- which(is.na(ind.hg))
 hg.have <- which(!is.na(ind.hg))
+
+
+## Individual sex, important for survival and length imputation
+ind.sex <- capt_history %>% 
+  group_by(Mark, pop_spec, Species) %>% 
+  summarize(Sex = unique(Sex)) %>%
+  mutate(
+    pop_spec = as.numeric(pop_spec)
+  , Species  = as.numeric(Species)
+  , Sex2      = as.factor(Sex)) %>%
+  mutate(Sex2 = as.numeric(Sex2))
 
 ## -- Site level covariates -- ##
 

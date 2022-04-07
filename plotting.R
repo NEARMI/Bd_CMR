@@ -59,6 +59,8 @@ out.pred.in <- out.pred %>%
 outval   <- matrix(seq(1, 14, by = 1))
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
+# stan.fit.samples$beta_offseason <- cbind(stan.fit.samples$beta_offseason, rep(0, dim(stan.fit.samples$beta_offseason)[1]))
+
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
     stan.fit.samples$beta_offseason[, 1] +
@@ -306,7 +308,6 @@ beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")
 
 beta_est %<>% mutate(param = interaction(params, param_lev))
-
 
 
 ####

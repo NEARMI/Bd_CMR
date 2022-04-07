@@ -103,6 +103,66 @@ ind_cov <- data.i %>% group_by(Mark) %>%
 
 capt_history.t %<>% left_join(., ind_cov)
 
+## *** Also deal with individual sex, for which there can be lots of possibilities because of misidentification. Don't want to deal with
+ ## a whole extra complication in the model itself (misidentification) so doing some pre-processing here to settle on a sex for each individual
+ind_sex          <- data.i %>% group_by(Mark) %>% summarize(all_sex = unique(Sex))
+
+## only enter in the loop to assing a single sex for those individuals with more than one sex given
+sex_to_fix <- ind_sex %>% group_by(Mark) %>% summarize(nsex = n()) %>% filter(nsex > 1) %>% left_join(., ind_sex)
+ind_sex    <- ind_sex %>% filter(Mark %notin% unique(sex_to_fix$Mark))
+
+uni_ind_sex_mark <- unique(sex_to_fix$Mark)
+
+if (length(uni_ind_sex_mark) > 0) {
+
+for (ii in 1:length(unique(uni_ind_sex_mark))) {
+  ind_sex.temp <- sex_to_fix %>% filter(Mark == uni_ind_sex_mark[ii])
+  num_sex      <- apply(as.matrix(sex_entries), 1, FUN = function(x) length(which(ind_sex.temp$all_sex == x))) %>% unlist()
+  fill.sex     <- ind_sex.temp[1, ]
+  num_sex      <- c(
+    f = num_sex[1]
+  , m = num_sex[3]
+  , u = num_sex[2]
+  )
+   ## if more than one sex entry is given for an individual, need to assign a sex
+  if (sum(num_sex != 0) > 1) {
+   ## there are 4 possibilities for greater than 1 entry
+     ## 1, 1, 0
+     ## 1, 0, 1
+     ## 0, 1, 1
+     ## 1, 1, 1
+   ## Need to assign a choice to each option
+    if (num_sex["f"] > 0 & num_sex["m"] > 0 & num_sex["u"] == 0) {
+      ## for any animal assigned m, f, and u, it is pretty clear we don't know so give them u
+      fill.sex$all_sex <- "U"
+    } else if (num_sex["f"] > 0 & num_sex["m"] == 0 & num_sex["u"] > 0) {
+      ## for any animal assigned f and u give the benefit of the doubt and go with f
+      fill.sex$all_sex <- "F" 
+    } else if (num_sex["f"] == 0 & num_sex["m"] > 0 & num_sex["u"] > 0) {
+      ## for any animal assigned m and u give the benefit of the doubt and go with m
+      fill.sex$all_sex <- "M" 
+    } else if (num_sex["f"] > 0 & num_sex["m"] > 0 & num_sex["u"] > 0) {
+      ## for any animal assigned m and f go with u
+      fill.sex$all_sex <- "U" 
+    }
+  } 
+  if (ii == 1) {
+    ind_sex.a <- fill.sex
+  } else {
+    ind_sex.a <- rbind(ind_sex.a, fill.sex)
+  }
+}
+  
+ind_sex <- rbind(ind_sex, ind_sex.a) %>% dplyr::select(-nsex) %>% arrange(Mark) %>% rename(Sex = all_sex)
+  
+} else {
+  
+ind_sex %<>% rename(Sex = all_sex)
+  
+}
+
+capt_history.t %<>% left_join(., ind_sex)
+
 ## Drop all individuals that were only ever captured in the final sampling period as these individuals cannot contribute anything to the model
  ## Have to also then rename individuals so their numbers are consecutive
 ind_at_end <- (capt_history.t %>% 
