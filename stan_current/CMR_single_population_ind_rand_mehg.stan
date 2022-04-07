@@ -93,6 +93,9 @@ data {
 	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];      // Index of individuals with missing mehg data
 	vector[n_ind_mehg_have] ind_mehg_have;		      // The actual mehg values that we have
 	
+  // covariates (sex)
+	int n_sex;					    // Number of sex entries (M, F, but possibly U)
+	int<lower=0> ind_sex[n_ind];			    // Sex of each individual
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -113,6 +116,8 @@ parameters {
 // ----- 
 
 	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
+
+	real beta_bd_len;				 // individual-specific length effect on bd levels
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
 	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
@@ -124,7 +129,8 @@ parameters {
 // -----
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
-	vector[4] beta_offseason;  			 // survival as a function of bd stress
+	vector[5] beta_offseason;  			 // survival as a function of bd stress
+	real beta_offseason_sex[n_sex];			 // sex effect on survival
 
 // -----
 // detection
@@ -132,9 +138,6 @@ parameters {
 	
 	real beta_p;
 	
-	real<lower=0> p_delta_sigma;
-	real p_delta_eps[n_ind];
-
 	real<lower=0> p_day_delta_sigma;
 	real p_day_delta_eps[n_days];
 	
@@ -194,7 +197,6 @@ transformed parameters {
 	real<lower=0,upper=1> p[ind_occ];                // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
 
-	real p_ind_dev[n_ind];
 	real p_day_dev[n_days];
 
 	vector<lower=0,upper=1>[n_days] p_per_day;	 // average detection per day
@@ -247,7 +249,7 @@ transformed parameters {
 
 		// latent bd model before obs error
 
-	  X[t] = (beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]]);      
+	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
 
         }
 
@@ -273,10 +275,12 @@ transformed parameters {
 	  } else {			 // off season survival process
 	     
 	     phi[t] = inv_logit(
- beta_offseason[1] + 
- beta_offseason[2] * X[phi_bd_index[t]] + 
- beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]] +
- beta_offseason[4] * ind_mehg_scaled[ind_occ_min1_rep[t]]
+beta_offseason[1] + 
+beta_offseason[2] * X[phi_bd_index[t]] + 
+beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]] +
+beta_offseason[4] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
+beta_offseason[5] * ind_len_scaled[ind_occ_min1_rep[t]] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
+beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
 );
 
 
@@ -290,10 +294,6 @@ transformed parameters {
 // Detection probability over the whole period
 // -----
 
-	for (i in 1:n_ind) {
-  	  p_ind_dev[i]  = p_delta_sigma * p_delta_eps[i];  
-	}
-
 	for (i in 1:n_days) {
   	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
 	}
@@ -302,7 +302,7 @@ transformed parameters {
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(beta_p + p_ind_dev[ind_occ_rep[t]] + p_day_dev[p_day[t]]);
+           p[t] = inv_logit(beta_p + p_day_dev[p_day[t]]);
 	 }
 	}
 
@@ -336,6 +336,8 @@ model {
 	bd_delta_sigma ~ inv_gamma(8, 15);
 	bd_obs         ~ inv_gamma(10, 4);
 
+	beta_bd_len    ~ normal(0, 3);
+
 	for (i in 1:n_ind) {
 	  bd_delta_eps[i] ~ normal(0, 3);
 	}
@@ -344,20 +346,17 @@ model {
 
 	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.45);
-	beta_offseason[1]   ~ normal(0, 0.85);
-	beta_offseason[2]   ~ normal(0, 0.85);
-	beta_offseason[3]   ~ normal(0, 0.85);
-	beta_offseason[4]   ~ normal(0, 0.85);
+	beta_offseason[1]   ~ normal(0, 0.60);
+	beta_offseason[2]   ~ normal(0, 0.60);
+	beta_offseason[3]   ~ normal(0, 0.60);
+	beta_offseason[4]   ~ normal(0, 0.60);
+	beta_offseason[5]   ~ normal(0, 0.60);
+	beta_offseason_sex  ~ normal(0, 0.60);
 
 // Detection Priors
 
 	beta_p            ~ normal(0, 1.15);
-	p_delta_sigma     ~ inv_gamma(8, 15);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
-
-	for (i in 1:n_ind) {
-	  p_delta_eps[i] ~ normal(0, 1.15);
-	}
 
 	for (i in 1:n_days) {
 	  p_day_delta_eps[i] ~ normal(0, 1.15);

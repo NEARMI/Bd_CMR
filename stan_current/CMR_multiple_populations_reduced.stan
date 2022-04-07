@@ -443,8 +443,7 @@ beta_p_spec[spec_p[t]] * ind_len_scaled[ind_occ_rep[t]]
 p_pop[day_which_pop[t]]         + 
 p_day_dev[t]                    + 
 beta_p_drawdown * p_drawdown[t] + 
-beta_p_veg * p_veg[t]           + 
-beta_p_spec[spec_which_pop[t]]
+beta_p_veg * p_veg[t]
 );
 	}	
 
