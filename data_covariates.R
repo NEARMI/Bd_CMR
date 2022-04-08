@@ -156,4 +156,3 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
     drawdown = as.factor(drawdown) %>% as.numeric()
   , veg      = as.factor(veg) %>% as.numeric()
   )
-

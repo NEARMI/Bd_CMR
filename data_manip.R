@@ -45,16 +45,10 @@ period_range.i    <- period_range %>% filter(pop_spec == u_sites[i])
 data.i            <- data.all %>% filter(pop_spec == u_sites[i]) %>% mutate(Mark = as.factor(Mark)) %>% mutate(Mark = as.numeric(Mark))
 sampled_periods.i <- sampled_periods %>% filter(pop_spec == u_sites[i])
 
-## *** Pretty sure this can be simplified dropping Month and Year and just using unique(Mark) and unique(CaptureDate)
- ## Will come back to this as it is just cleanup and wont change anything
 capt_history.t <- 
-  ## First create that "all possible combinations" data frame (all secondary periods in which each animal
-   ## could possibly have been caught)
 expand.grid(
-  Month    = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
-, Year     = unique(sampled_periods.i$Year)
-, pop_spec = u_sites[i]
-, Mark     = unique(data.i$Mark)) %>% 
+  CaptureDate = unique(data.i$CaptureDate)
+, Mark        = unique(data.i$Mark)) %>% 
   ## Add species to not screw up multi-species sites
   left_join(., data.i %>% dplyr::select(Mark, Species) %>% distinct()) %>%
   ## Add in which periods were sampled and which individuals were sampled

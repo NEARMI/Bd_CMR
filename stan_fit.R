@@ -13,6 +13,7 @@ stan_data     <- list(
  , ind_occ_min1      = nrow(capt_history.phi)
  , n_days            = (capt_history.p %>% group_by(pop_spec) %>% summarize(days_in_pop = n_distinct(date_fac)))$days_in_pop %>% sum()
  , n_spec            = length(unique(capt_history$Species))
+ , n_sex             = length(unique(capt_history$Sex))
   
   ## short vector indexes (length of n_ind)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -20,6 +21,8 @@ stan_data     <- list(
  , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index  
  , ind_in_pop        = ind_in_pop
+ , ind_sex           = ind.sex$Sex %>% factor(levels = c("F", "M", "U")) %>% as.numeric()
+ , ind_spec          = ind.len.spec
   
   ## short vector indexes (length of n_pop)
  , spec_pop          = (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
@@ -79,9 +82,6 @@ stan_data     <- list(
  , ind_mehg_pop       = ind.hg.pop[hg.have]
  , ind_mehg_spec      = ind.hg.spec[hg.have]
   
-  ## ind sex
- , ind_sex           = ind.sex$Sex
-  
   ## site-level covariates, forced categorical
   , pop_sub          = site_covar.cat$SUB
   , pop_region       = site_covar.cat$region
@@ -113,7 +113,9 @@ stan_data     <- list(
 
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations_full.stan"
-  file    = "stan_current/CMR_multiple_populations_reduced.stan"
+# file    = "stan_current/CMR_multiple_populations_reduced.stan"
+# file    = "stan_current/CMR_multiple_populations_reduced_expanding_gl.stan"
+  file    = "stan_current/length_test.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -122,7 +124,7 @@ stan.fit  <- stan(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.85, max_treedepth = 10) ## 96 and 13
+, control = list(adapt_delta = 0.94, max_treedepth = 13) ## 96 and 13
 #, include = FALSE
 #, pars    = c("phi", "p", "chi")
   )

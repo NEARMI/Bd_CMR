@@ -2,20 +2,32 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes to myself for April 8 ----
+#### Notes April 8 ----
 
 ## Next stuff to do on this project
 
-## 1) Start by continuing to debug the use of sex in length imputation 
- ## -- Check if any datasets will be a problem
- ## -- Fit both models in the data sets with the most missing length data
- ## -- If ok write this version in all models
+## 1) Length imputation seems to be working correctly, but still needs some debugging to check if it is
+ ## working in all populations 
+ ## [ ] To do so, collapse to just a length imputation model and check it
 
-## 2) Fit old and new ind MeHg model with interaction term and without in the most sampled population
- ## -- Save an output for the Overleaf
+## 2) Created a spreadsheet to house a list of complications presented by each population. Working on expanding this
 
-## 3) Make sure Sex in survival is returning sensible results
- ## ^^ Bigger question that needs to be revisited is if the way I am handling categorial covariates is sensible
+## 3) After some thought I actually think "population" instead of "site" is going to be the sensible way to go 
+ ## because of species-specific responses to unmeasured site-specific stuff
+
+## 4) Time to run some models:
+ ## A [ ] Blackrock complex with the single population model
+ ## B [ ] All populations (with NOVI) with 200 individuals saving all indexes to check nothing is screwed up
+ ## C [ ] All populations (without NOVI) dropping the long indexes for memory reasons
+
+
+#### Next stuff to do on this project ----
+
+## 1) Fit old and new ind MeHg model with interaction term and without in the most sampled population
+ ##   Save an output for the Overleaf
+
+## 2) Do some debugging on method of specifying unique intercepts by population for all categorical variables and not
+ ##   one intercept with differences for other groups (via the use of a dummy) 
 
 ## 4) Make the changes for the random effect for pop-spec to site
  ## -- Run a small multi-pop model to check for sensible indexing
@@ -30,37 +42,20 @@
 ## 8) Compile all results, update methods, and send overleaf out to PIs
 
 
-#### Notes as of April 7 ----
+#### Next modeling steps and progress on them ----
 
-## 1) Finished writing methods today. It actually was pretty hard to write the text given all of the difficulties with
- ## indices and such (especially what entries for each individual inform which processes etc and the fact that phi is one
-  ## shorter than p even though both have their limitations (p cant be informed on the first occasion and phi on the last)
- ## -- **After doing some double checking, *I THINK* that all of my writing matches my indices and that all of my indices are still
-  ## correct, though it may be worth a triple check.
- ## -- Also, may need to write a little bit about the length of phi being T - 1? Or maybe that can be explained away in the model and
-  ## doesn't have to enter the main paper...
+## 1) Modifications and Additions
+ ## A) [x] Length imputation expanded, [ ] still needs a bit of debugging
+ ## B) [X] Interaction term for Bd and MeHg added, [ ] still needs a bit of debugging
+ ## C) [X] Sex in survival added, [ ] still needs a bit of debugging 
+ ## D) [ ] Effect of "injury" on survival not yet added
+ ## E) [ ] If sticking with this fixed effects specification, convert from using pop_spec for the random effect to site
 
-## 2) The next modeling steps include:
- ##  [Multi] [Single no MeHg] [Single MeHg]
- ## B) [x]     [X]                [X] Length to predicted Bd at the individual level
-   ## ---- [ ] Most likely worth adding. Compiles, but need to test still
- ## C) [-]     [-]                [X] Interaction term for Bd and MeHg
-   ## ---- [ ] Most likely only worth adding for the few populations where individual-MeHg values can be imputed. Compiles, but need to test still
- ## D) [X]     [X]                [X] Sex in survival
-   ## ---- [ ] Probably worth adding, but unclear how much it gains us. Compiles but need to test still
- ## E) [ ]     [ ]                [ ] Effect of "injury" on survival
-   ## ---- [ ] Still to do. Few actual individuals fall into this category so probably a small effect...
- ## F) [ ]     [X]                [ ] Sex in length imputation
-   ## ---- [ ] Looks needed given U for sex often is a stand-in for juveniles which are smaller
-    ##         Will work basically in all cases apart from a case where all of one sex wasn't measured for length, but I think this shouldn't exist...
- ## G) [ ]     [ ]                [ ] If sticking with this fixed effects specification, convert from using pop_spec for the random effect to site
-   ## ---- [ ] Still to do, just code, no model changes I don't think
+## 2) Data checks and potential larger modifications
+ ## A) [ ] Florida sampling scheme being fundamentally different to the other populations
+ ## B) [ ] What individuals were actually marked for NOVI for the Wisconsin populations
 
-## 3) Data checks and potential larger modifications
- ## A) Florida sampling scheme being fundamentally different to the other populations
- ## B) What individuals were actually marked for NOVI for the Wisconsin populations
-
-## 4) Longer term strategy:
+## 3) Longer term strategy:
  ## A) Big model
  ## B) Bd-MeHg interaction model for the best sampled populations
  ## C) Seasonal variation model for the newts
@@ -123,7 +118,7 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- TRUE
+some_pops  <- FALSE
 
 if (some_pops) {
 # which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
