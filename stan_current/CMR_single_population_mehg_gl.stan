@@ -86,6 +86,13 @@ data {
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
 
+  // covariates (MeHg)
+	int<lower=0> n_ind_mehg_have;			      // Number of individuals that we have mehg data	  
+	int<lower=0> n_ind_mehg_mis;			      // Number of individuals with missing mehg data
+	int<lower=0> ind_mehg_which_have[n_ind_mehg_have];    // Index of individuals that we have mehg data
+	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];      // Index of individuals with missing mehg data
+	vector[n_ind_mehg_have] ind_mehg_have;		      // The actual mehg values that we have
+	
   // covariates (sex)
 	int n_sex;					    // Number of sex entries (M, F, but possibly U)
 	int<lower=0> ind_sex[n_ind];			    // Sex of each individual
@@ -109,6 +116,7 @@ parameters {
 // ----- 
 
 	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
+
 	real beta_bd_len;				 // individual-specific length effect on bd levels
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
@@ -121,7 +129,7 @@ parameters {
 // -----
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
-	vector[3] beta_offseason;  			 // survival as a function of bd stress
+	vector[5] beta_offseason;  			 // survival as a function of bd stress
 	real beta_offseason_sex[n_sex];			 // sex effect on survival
 
 // -----
@@ -139,7 +147,16 @@ parameters {
 
 	real<lower=0> inverse_phi_len;		         // variance parameter for gamma regression
 	vector[n_sex] beta_len_have;			 // regression coefficient len as a function of sex
-	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of mehg
+	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
+
+// -----
+// imputed covariates: MeHg
+// -----
+
+	real<lower=0> inverse_phi_mehg;		         // variance parameter for gamma regression
+	vector[2] beta_mehg_have;			 // regression coefficient for mehg ~ length
+	vector[n_ind_mehg_mis] ind_mehg_mis;		 // the imputed values of mehg
+	
 
 }
 
@@ -159,6 +176,21 @@ transformed parameters {
 	real ind_len_mean;				 // mean of ind_len
 	real ind_len_sd;				 // sd of ind_len	
 
+
+	// Individual MeHg
+
+  	vector[n_ind_mehg_have] mu_mehg_have; 		 // the expected values for the gamma regression
+  	vector[n_ind_mehg_have] rate_mehg_have; 	 // rate parameter for the gamma distribution
+
+  	vector[n_ind_mehg_mis] mu_mehg_mis; 		 // the expected values (linear predictor) for the missing mehg values
+  	vector[n_ind_mehg_mis] rate_mehg_mis; 		 // rate parameter for the gamma distribution for the missing mehg values
+
+	vector[n_ind] ind_mehg;				 // all individual mehg (combining data and imputed values)
+	vector[n_ind] ind_mehg_scaled;			 // all individual mehg scaled
+	real ind_mehg_mean;				 // mean of ind_mehg
+	real ind_mehg_sd;				 // sd of ind_mehg	
+
+
 	// bd
 
 	real bd_ind[n_ind];				 // individual random effect deviates
@@ -175,7 +207,6 @@ transformed parameters {
 
 	vector<lower=0,upper=1>[n_days] p_per_day;	 // average detection per day
 
-
 // -----
 // Imputed NA Data values
 // -----
@@ -188,13 +219,31 @@ transformed parameters {
   	mu_len_mis    = exp(beta_len_have[ind_sex[ind_len_which_mis]]);   // linear predictor for len regression	
   	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
 
-	ind_len[ind_len_which_have] = ind_len_have;	    // filling in the complete vector of ind_mehg with the data
+	ind_len[ind_len_which_have] = ind_len_have;	 // filling in the complete vector of ind_mehg with the data
 	ind_len[ind_len_which_mis]  = ind_len_mis;       // filling in the complete vector of ind_mehg with the imputed values
 
 	ind_len_mean = mean(ind_len);			
 	ind_len_sd   = sd(ind_len);
 
 	ind_len_scaled = (ind_len - ind_len_mean)/ind_len_sd;
+
+
+	// Individual MeHg
+  	
+  	mu_mehg_have   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_have]);  // linear predictor for mehg regression	
+  	rate_mehg_have = rep_vector(inverse_phi_mehg, n_ind_mehg_have) ./ mu_mehg_have;
+
+  	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_mis]);    // linear predictor for mehg regression	
+  	rate_mehg_mis = rep_vector(inverse_phi_mehg, n_ind_mehg_mis) ./ mu_mehg_mis;
+
+	ind_mehg[ind_mehg_which_have] = ind_mehg_have;	    // filling in the complete vector of ind_mehg with the data
+	ind_mehg[ind_mehg_which_mis]  = ind_mehg_mis;       // filling in the complete vector of ind_mehg with the imputed values
+
+	ind_mehg_mean = mean(ind_mehg);			
+	ind_mehg_sd   = sd(ind_mehg);
+
+	ind_mehg_scaled = (ind_mehg - ind_mehg_mean)/ind_mehg_sd;
+
 
 // -----
 // bd submodel, contained to estimating within-season bd
@@ -215,7 +264,6 @@ transformed parameters {
 	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
 
         }
-
 
 // -----
 // Survival probability over the whole period
@@ -242,6 +290,8 @@ transformed parameters {
 beta_offseason[1] + 
 beta_offseason[2] * X[phi_bd_index[t]] + 
 beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]] +
+beta_offseason[4] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
+beta_offseason[5] * ind_len_scaled[ind_occ_min1_rep[t]] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
 beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
 );
 
@@ -251,7 +301,6 @@ beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
 	  }  
 
 	 }
-
 
 // -----
 // Detection probability over the whole period
@@ -309,10 +358,12 @@ model {
 
 	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.45);
-	beta_offseason[1]   ~ normal(0, 1.00);
-	beta_offseason[2]   ~ normal(0, 1.00);
-	beta_offseason[3]   ~ normal(0, 1.00);
-	beta_offseason_sex  ~ normal(0, 1.00);
+	beta_offseason[1]   ~ normal(0, 0.60);
+	beta_offseason[2]   ~ normal(0, 0.60);
+	beta_offseason[3]   ~ normal(0, 0.60);
+	beta_offseason[4]   ~ normal(0, 0.60);
+	beta_offseason[5]   ~ normal(0, 0.60);
+	beta_offseason_sex  ~ normal(0, 0.60);
 
 // Detection Priors
 
@@ -323,11 +374,17 @@ model {
 	  p_day_delta_eps[i] ~ normal(0, 1.15);
 	}
 
-// Imputed Covariates Priors: len
+// Imputed Covariates Priors: length
 
 	inverse_phi_len  ~ inv_gamma(8, 15);	
 	beta_len_have    ~ normal(0, 3);
 
+
+// Imputed Covariates Priors: MeHg
+
+	inverse_phi_mehg  ~ inv_gamma(8, 15);	
+	beta_mehg_have[1] ~ normal(0, 3);
+	beta_mehg_have[2] ~ normal(0, 3);
 
 // -----
 // Imputed NA Data values
@@ -335,6 +392,13 @@ model {
 
 	ind_len_have ~ gamma(inverse_phi_len, rate_len_have);
 	ind_len_mis  ~ gamma(inverse_phi_len, rate_len_mis);
+
+// -----
+// MeHg regression imputation
+// -----
+
+	ind_mehg_have ~ gamma(inverse_phi_mehg, rate_mehg_have);
+	ind_mehg_mis  ~ gamma(inverse_phi_mehg, rate_mehg_mis);
 
 // -----
 // Bd Process and Data Model

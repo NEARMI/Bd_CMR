@@ -5,21 +5,26 @@ Current working stan models
 SINGLE POPULATIONS
 ------------------
 
-CMR_single_population_ind_rand_no_mehg
-	-- Single population fit with length imputation and daily random effects for detection
-CMR_single_population_ind_rand_mehg
-	-- The above but also with MeHg imputation 
+CMR_single_population.stan
+	-- Older models (see dev_stan) now with things like sex in survival
+
+CMR_single_population_gl.stan
+	-- ^^ with expanded gamma regression for imputed lengths. 
+	-- Leaving this and the above in stan dev for now because the length model hasn't been adequately debugged yet
+
+CMR_single_population_mehg_gl.stan
+	-- Single population with individual-level MeHg imputation and expanded Gamma length imputation
+	-- Still need to debug the length imputation aspect
 
 
 
 MULTIPLE POPULATIONS
 --------------------
 
-CMR_multiple_populations_full
-	-- Model fitting to multiple species and populations
-	-- As complicated as is probably sensible
-	-- Uses categorical levels for a number of predictors
+CMR_multiple_populations.stan
+	-- Older models (see dev_stan) now with things like sex in survival
 
-CMR_multiple_populations_reduced
-	-- Reduces the number of predictors from ^^
-	-- Converts the categorical factors to continuous (though a better strategy may be to use ordered factors)
+CMR_multiple_populations_gl.stan
+	-- ^^ with expanded gamma regression for imputed lengths. 
+	-- Leaving this and the above in stan dev for now because the length model hasn't been adequately debugged yet
+
