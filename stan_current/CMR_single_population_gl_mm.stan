@@ -50,7 +50,7 @@ data {
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
-	int<lower=0> ind_sex[n_ind];			    // Sex of each individual
+	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -123,7 +123,7 @@ parameters {
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
 	vector[3] beta_offseason;  			 // survival as a function of bd stress
-	real beta_offseason_sex[n_sex];			 // sex effect on survival
+	vector[n_sex] beta_offseason_sex;		 // sex effect on survival
 
 // -----
 // detection
@@ -139,7 +139,7 @@ parameters {
 // -----
 
 	real<lower=0> inverse_phi_len;		         // variance parameter for gamma regression
-	vector[n_sex] beta_len_have;			 // regression coefficient len as a function of sex
+	vector[n_sex] beta_len_sex;			 // regression coefficient len as a function of sex
 	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
 
 }
@@ -243,7 +243,7 @@ transformed parameters {
 beta_offseason[1] + 
 beta_offseason[2] * X[phi_bd_index[t]] + 
 beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]] +
-beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
+ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex
 );
 
 	   }
@@ -296,10 +296,10 @@ model {
 
 // Bd Model Priors
 
-	bd_delta_sigma ~ inv_gamma(8, 15);
-	bd_obs         ~ inv_gamma(10, 4);
+	bd_delta_sigma    ~ inv_gamma(8, 15);
+	bd_obs            ~ inv_gamma(10, 4);
 
-	beta_bd_len    ~ normal(0, 3);
+	beta_bd_len       ~ normal(0, 3);
 
 	for (i in 1:n_ind) {
 	  bd_delta_eps[i] ~ normal(0, 3);

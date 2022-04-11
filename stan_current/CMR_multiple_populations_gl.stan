@@ -106,6 +106,11 @@ data {
  	int<lower=0> ind_len_spec_first_index[n_spec]; 	    // First size index associated with each unique species (for species-specific scaling of length values)
  	int<lower=0> ind_len_spec_size[n_spec];      	    // Number of individuals of each species with lengths (for species-specific scaling of length values)
 
+	matrix[n_ind_len_have, n_spec] ind_len_spec_have;   // The species of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_spec] ind_len_spec_mis;	    // The species of all individuals that we don't have lengths for, in model matrix form
+	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
+
   // covariates (MeHg)
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
@@ -228,10 +233,6 @@ parameters {
 	vector[n_sex] beta_len_sex;			 // regression coefficient for len as a function of sex
 	vector[n_spec] beta_len_spec;			 // regression coefficient for len as a function of species
 	
-
-	real<lower=0> len_pop_sigma;			 // variation in len by population
-	real len_pop_eps[n_pop];
-
 	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
 
 
@@ -262,8 +263,6 @@ transformed parameters {
 
   	vector[n_ind_len_mis] mu_len_mis; 		 // the expected values (linear predictor) for the missing len values
   	vector[n_ind_len_mis] rate_len_mis; 		 // rate parameter for the gamma distribution for the missing len values
-
-	vector[n_pop] pop_len_dev;			 // population specific length deviate
 
 	vector[n_ind] ind_len;				 // all individual len (combining data and imputed values)
 	vector[n_ind] ind_len_scaled;			 // all individual len scaled
@@ -305,31 +304,17 @@ transformed parameters {
 // Imputed NA Length values
 // -----
 
-  // Population-specific length deviates
-	for (pl in 1:n_pop) {
-	  pop_len_dev[pl] = len_pop_sigma * len_pop_eps[pl];
-	}
 
-  // linear predictor for len regression on measured lengths
-  	mu_len_have   = exp(
-beta_len_sex[ind_sex[ind_len_which_have]] + 
-beta_len_spec[ind_spec[ind_len_which_have]] +
-pop_len_dev[ind_in_pop[ind_len_which_have]]
-);  
-	
+  	mu_len_have   = exp(ind_len_spec_have * beta_len_spec + ind_len_sex_have * beta_len_sex);   // linear predictor for len regression on measured lengths
   	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
 
-  // linear predictor for len regression for imputing unknown lengths
-  	mu_len_mis    = exp(
-beta_len_sex[ind_sex[ind_len_which_mis]] + 
-beta_len_spec[ind_spec[ind_len_which_mis]] +
-pop_len_dev[ind_in_pop[ind_len_which_mis]]
-);   	
 
+  	mu_len_mis    = exp(ind_len_spec_mis * beta_len_spec + ind_len_sex_mis * beta_len_sex);     // linear predictor for len regression for imputing unknown lengths
   	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
 
-	ind_len[ind_len_which_have] = ind_len_have;	 // filling in the complete vector of ind_mehg with the data
-	ind_len[ind_len_which_mis]  = ind_len_mis;       // filling in the complete vector of ind_mehg with the imputed values
+	ind_len[ind_len_which_have] = ind_len_have;	 					    // filling in the complete vector of ind_mehg with the data
+	ind_len[ind_len_which_mis]  = ind_len_mis;       					    // filling in the complete vector of ind_mehg with the imputed values
+
 
   // Scaling the predicted lengths within-species
 	for (ns in 1:n_spec) {
@@ -591,12 +576,6 @@ model {
 	inverse_phi_len  ~ inv_gamma(8, 15);	
 	beta_len_sex     ~ normal(0, 3);
 	beta_len_spec    ~ normal(0, 3);
-
-	len_pop_sigma    ~ inv_gamma(8, 15);
-
-	for (i in 1:n_pop) {
-	  len_pop_eps[i] ~ normal(0, 3);
-	}
 
 
   // Imputed Covariates Priors: mehg

@@ -86,12 +86,15 @@ data {
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
 
+	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
+
   // covariates (MeHg)
-	int<lower=0> n_ind_mehg_have;			      // Number of individuals that we have mehg data	  
-	int<lower=0> n_ind_mehg_mis;			      // Number of individuals with missing mehg data
-	int<lower=0> ind_mehg_which_have[n_ind_mehg_have];    // Index of individuals that we have mehg data
-	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];      // Index of individuals with missing mehg data
-	vector[n_ind_mehg_have] ind_mehg_have;		      // The actual mehg values that we have
+	int<lower=0> n_ind_mehg_have;			    // Number of individuals that we have mehg data	  
+	int<lower=0> n_ind_mehg_mis;			    // Number of individuals with missing mehg data
+	int<lower=0> ind_mehg_which_have[n_ind_mehg_have];  // Index of individuals that we have mehg data
+	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];    // Index of individuals with missing mehg data
+	vector[n_ind_mehg_have] ind_mehg_have;		    // The actual mehg values that we have
 	
   // covariates (sex)
 	int n_sex;					    // Number of sex entries (M, F, but possibly U)
@@ -213,14 +216,14 @@ transformed parameters {
 
 	// Individual Length
 
-  	mu_len_have   = exp(beta_len_have[ind_sex[ind_len_which_have]]);  // linear predictor for len regression	
-  	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
+   	mu_len_have   = exp(ind_len_sex_have * beta_len_sex);  				// linear predictor for len regression 
+  	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;	// gamma parameter from mean
 
-  	mu_len_mis    = exp(beta_len_have[ind_sex[ind_len_which_mis]]);   // linear predictor for len regression	
-  	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
+  	mu_len_mis    = exp(ind_len_sex_mis * beta_len_sex);   				// predict for missing using estimated coefficients 	
+  	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;	// gamma parameter from mean
 
-	ind_len[ind_len_which_have] = ind_len_have;	 // filling in the complete vector of ind_mehg with the data
-	ind_len[ind_len_which_mis]  = ind_len_mis;       // filling in the complete vector of ind_mehg with the imputed values
+	ind_len[ind_len_which_have] = ind_len_have;	 				// filling in the complete vector of ind_mehg with the data
+	ind_len[ind_len_which_mis]  = ind_len_mis;       				// filling in the complete vector of ind_mehg with the imputed values
 
 	ind_len_mean = mean(ind_len);			
 	ind_len_sd   = sd(ind_len);
@@ -236,8 +239,8 @@ transformed parameters {
   	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_mis]);    // linear predictor for mehg regression	
   	rate_mehg_mis = rep_vector(inverse_phi_mehg, n_ind_mehg_mis) ./ mu_mehg_mis;
 
-	ind_mehg[ind_mehg_which_have] = ind_mehg_have;	    // filling in the complete vector of ind_mehg with the data
-	ind_mehg[ind_mehg_which_mis]  = ind_mehg_mis;       // filling in the complete vector of ind_mehg with the imputed values
+	ind_mehg[ind_mehg_which_have] = ind_mehg_have;	    						    // filling in the complete vector of ind_mehg with the data and imputed values
+	ind_mehg[ind_mehg_which_mis]  = ind_mehg_mis;
 
 	ind_mehg_mean = mean(ind_mehg);			
 	ind_mehg_sd   = sd(ind_mehg);
