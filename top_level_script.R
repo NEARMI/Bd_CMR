@@ -2,110 +2,56 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 8 ----
+#### Notes April 11 ---- 
+# (note: moving series of older notes potentially interesting for Methods or Results sections to note_dump.txt)
 
-## Next stuff to do on this project
+## 1) Length imputation as a gamma regression with sex indeed working better than the alternative -- adopting for all models that
+ ## can support it (not counting populations with no lengths for one sex)
 
-## 1) Length imputation seems to be working correctly, but still needs some debugging to check if it is working in all populations 
- ## [ ] To do so, collapse to just a length imputation model and check it
+## 2) Sex seems to help reasonably well for survival.
+ ## -- I do wonder though if it will be sensible to add sex to detection (seems bias possible with only in survival -- big effects
+  ## at present)
 
-## 2) Created a spreadsheet to house a list of complications presented by each population. Working on expanding this
+## 3) Testing with Blackrock complex, there seems to be essentially no difference in using an index-based or model-matrix based 
+ ## method for categorical variables. 
+  ## -- However, it seems that the correlation is lower between the levels, so probably will be helpful when there are many
+  ## -- Yet, it seems that the model-matrix version is substantially slower. Jury is still out on why.
 
-## 3) After some thought I actually think "population" instead of "site" is going to be the sensible way to go 
- ## because of species-specific responses to unmeasured site-specific stuff
+## 4) Running 200 individuals for each non-newt population on Yeti to make sure all of the indexing is still aligned with the
+ ## model matrix version 
+ ## ** [ ] Priority number one for tomorrow (April 12)
 
-## 4) Time to run some models:
- ## A [ ] Blackrock complex with the single population model (Mac)
- ## B [ ] All populations (with NOVI) with 200 individuals saving all indexes to check nothing is screwed up (PC)
- ## C [ ] All populations (without NOVI) dropping the long indexes for memory reasons (YETI)
-
+## 5) Running Jones Pond RALU with the model-matrix style MeHg-Bd interaction model 
+ 
 
 #### Next stuff to do on this project ----
 
-## 1) Fit old and new ind MeHg model with interaction term and without in the most sampled population
- ##   Save an output for the Overleaf
-
-## 2) Do some debugging on method of specifying unique intercepts by population for all categorical variables and not
- ##   one intercept with differences for other groups (via the use of a dummy) 
-
-## 4) Make the changes for the random effect for pop-spec to site
- ## -- Run a small multi-pop model to check for sensible indexing
-
-## 5) Build the script to run all populations individually
- ## -- And send jobs to Sherlock
-
-## 6) Send two big model fits -- sans newts and with newts
-
-## 7) Expand the current non MeHg individual model for Bd trajectories over time for PA newts
-
-## 8) Compile all results, update methods, and send overleaf out to PIs
+## 0) [ ] [Tuesday] code, model, and repo cleaning
+## 1) [ ] [Wednesday Hopefully] Work through debugging of the various model attempts
+## 2) [ ] [Wednesday Hopefully] Make some final decisions for model runs
+## 4) [ ] [By Wednesday Night] Send 5 individual model and two big model (sans newts and with newts) fits to Yeti
+## 5) [ ] [Friday] Debug some of the individual fits
+## 6) [ ] [Friday] Build the script to run all populations individually
+## 7) [ ] [Monday] Send the individual model script .sh to Yeti
+## 8) [ ] [Monday] Debug the long fits
+## 9) [ ] [Tuesday +] Start expanding the current non-MeHg individual model for Bd trajectories over time for PA newts
+## 10) [ ] [Tuesday +] Start cleaning Overleaf and creating some fitting figures in prep for sending to PIs
 
 
-#### Next modeling steps and progress on them ----
+#### Various other ToDos for later ----
 
-## 1) Modifications and Additions
- ## A) [x] Length imputation expanded, [ ] still needs a bit of debugging
- ## B) [X] Interaction term for Bd and MeHg added, [ ] still needs a bit of debugging
- ## C) [X] Sex in survival added, [ ] still needs a bit of debugging 
- ## D) [ ] Effect of "injury" on survival not yet added
- ## E) [ ] If sticking with this fixed effects specification, convert from using pop_spec for the random effect to site
+## 1) Model modifications / adjustments
+ ## A) [ ] Possible effect of "injury" on survival not yet added
+ ## B) [ ] Possible use of sex in detection
 
-## 2) Data checks and potential larger modifications
+## 2) Potential larger modifications
  ## A) [ ] Florida sampling scheme being fundamentally different to the other populations
+   ## -- Current plan to maybe fit a completely different model
  ## B) [ ] What individuals were actually marked for NOVI for the Wisconsin populations
+   ## -- Seems like all? But still need to email PI
 
-## 3) Longer term strategy:
- ## A) Big model
- ## B) Bd-MeHg interaction model for the best sampled populations
- ## C) Seasonal variation model for the newts
 
-##### Older notes from the fits run the week of March 31 ----
-
-## 1) The model run with all of the individuals from all populations apart from NOVI ran with no divergent transitions.
- ## A) though 400 warmup and 600 samples will be far too little for the full model. Probably something like 500 warmup and 2500
-  ##   samples could be enough
- ## B) Even with all of the individuals, the fixed effect coefficient estimates are still pretty garbage
-    ##   ^^ Most overlapping zero with wide CI
-    ##   ^^ RANA having a super strong length effect ** Need to add sex?
- ## C) The model has changed a lot so need to work back through all of the priors to make sure they are still sensible 
-
-##### Some older notes that are still relevant ----
-
-#### ---- Multi-pop model
- ## A) Because of difficulty with the overlap of species and location I am collapsing
-  ##   all of the Rana species, as this will allow for a fixed effect of species and a random effect of location 
- ## B) One species doesn't have any MeHg and the location isn't shared. Will have to try and use a fixed effect + pop_spec random effect?
-  ##   The hope here would be to use an intercept and a species and random location so at least the intercept can inform
-
-#### ---- Some things I learned from playing with the multi-pop model:
-  ## --- A) The small populations can teach us basically nothing. Because of this using single intercepts for "species" is likely
-  ##        going to be pretty dangerous. The strategy is likely going to have to be to have species as a random effect -- but then we
-  ##        are back to the original problem of how to specify these random effects (as location and species are super correlated)
-  ## --- B) ^^ Continuing this thought, having something like one effect of "size" gets washed out across populations when so many populations
-  ##        cant help resolve this relationship. Will want to have population-unique deviates for basically all covariates
-
-#### ---- Single-pop model
-
- ## A) Estimating the effect of Bd on survival is hard... Most estimates overlap 0
-
- ## B) Collapsing subsites to site and using a day-level detection random effect and periods of population closure
-  ##   seems to be the most viable strategy moving forward (See C and D below)
-
- ## C) It seems like estimating survival in very narrow time windows just isn't feasible
-  ##   ^^ Which means using periods of open vs closed populations is likely the way forward
-  ##   ^^ But what then is the threshold with so many different sampling schemes?
-
- ## D) Adding individual and day random effects for detection costs little
-  ##    (though individual random effect for within-season survival is unidentifiable)
-  ##   Mixing still fast, estimates very similar to them not included except for detection which improves
-
- ## E) With three processes (between season survival, within season survival, and detection) it is still an open
-  ##   question of what covariates to include in which processes
-
- ## F) I have indexing columns that modification of the model structure is now easy. There is probably less need
-  ##   to have so many .stan files in stan_current
-
-##### Code -----
+#### Code ----
 
 #### NOTE: In this file and all other files search *** for current choices that could potentially change
 
@@ -120,9 +66,7 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-# which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
 which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }

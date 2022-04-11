@@ -1,0 +1,49 @@
+-------------------------------------------------------------
+--------- Paste from April 11, but notes from older ---------
+-------------------------------------------------------------
+
+##### Older notes from the fits run the week of March 31 ----
+
+## 1) The model run with all of the individuals from all populations apart from NOVI ran with no divergent transitions.
+ ## A) though 400 warmup and 600 samples will be far too little for the full model. Probably something like 500 warmup and 2500
+  ##   samples could be enough
+ ## B) Even with all of the individuals, the fixed effect coefficient estimates are still pretty garbage
+    ##   ^^ Most overlapping zero with wide CI
+    ##   ^^ RANA having a super strong length effect ** Need to add sex?
+ ## C) The model has changed a lot so need to work back through all of the priors to make sure they are still sensible 
+
+##### Some older notes that are still relevant ----
+
+#### ---- Multi-pop model
+ ## A) Because of difficulty with the overlap of species and location I am collapsing
+  ##   all of the Rana species, as this will allow for a fixed effect of species and a random effect of location 
+ ## B) One species doesn't have any MeHg and the location isn't shared. Will have to try and use a fixed effect + pop_spec random effect?
+  ##   The hope here would be to use an intercept and a species and random location so at least the intercept can inform
+
+#### ---- Some things I learned from playing with the multi-pop model:
+  ## --- A) The small populations can teach us basically nothing. Because of this using single intercepts for "species" is likely
+  ##        going to be pretty dangerous. The strategy is likely going to have to be to have species as a random effect -- but then we
+  ##        are back to the original problem of how to specify these random effects (as location and species are super correlated)
+  ## --- B) ^^ Continuing this thought, having something like one effect of "size" gets washed out across populations when so many populations
+  ##        cant help resolve this relationship. Will want to have population-unique deviates for basically all covariates
+
+#### ---- Single-pop model
+
+ ## A) Estimating the effect of Bd on survival is hard... Most estimates overlap 0
+
+ ## B) Collapsing subsites to site and using a day-level detection random effect and periods of population closure
+  ##   seems to be the most viable strategy moving forward (See C and D below)
+
+ ## C) It seems like estimating survival in very narrow time windows just isn't feasible
+  ##   ^^ Which means using periods of open vs closed populations is likely the way forward
+  ##   ^^ But what then is the threshold with so many different sampling schemes?
+
+ ## D) Adding individual and day random effects for detection costs little
+  ##    (though individual random effect for within-season survival is unidentifiable)
+  ##   Mixing still fast, estimates very similar to them not included except for detection which improves
+
+ ## E) With three processes (between season survival, within season survival, and detection) it is still an open
+  ##   question of what covariates to include in which processes
+
+ ## F) I have indexing columns that modification of the model structure is now easy. There is probably less need
+  ##   to have so many .stan files in stan_current
