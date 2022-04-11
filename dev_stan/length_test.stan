@@ -1,4 +1,4 @@
-lfunctions {
+functions {
 // ------------------------------ functions ------------------------------
 
 }
@@ -75,6 +75,7 @@ transformed parameters {
 // ------------------------------ transformed parameters ------------------------------
 
   // Individual lengths 
+	
   	vector[n_ind_len_have] mu_len_have; 		 // the expected values for the gamma regression
   	vector[n_ind_len_have] rate_len_have; 	 	 // rate parameter for the gamma distribution
 
@@ -92,7 +93,8 @@ transformed parameters {
 // -----
 
   // linear predictor for len regression on measured lengths
-  	mu_len_have   = exp(ind_len_spec_have * beta_len_spec + ind_len_sex_have * beta_len_sex);  
+
+  	mu_len_have   = exp(ind_len_sex_have * beta_len_sex + ind_len_spec_have * beta_len_spec);  
   	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
 
   // linear predictor for len regression for imputing unknown lengths

@@ -58,7 +58,7 @@ data {
 	int<lower=0> ind_spec[n_ind];			    // The species of each individual
 
   // short vector indexes (length of n_pop)
-	int<lower=1> spec_pop[n_pop];			    // Which species is found in each pop_spec
+	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec
 
   // short vector indexes (length of n_days)
 	int<lower=1> day_which_pop[n_days];		    // Which pop is associated with each unique sampling day (for day-level detection deviates)
@@ -71,7 +71,8 @@ data {
 	int<lower=0> p_bd_index[ind_occ];		    // Which entries of latent bd correspond to each entry of p
 	int<lower=0> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=0> pop_p[ind_occ];			    // Population index for detection predictors
-	int<lower=0> spec_p[ind_occ];			    // Species identity of each individual
+
+	matrix[ind_occ, n_spec] spec_p;		   	    // Species identity of each individual for phi
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
@@ -81,7 +82,9 @@ data {
 	int<lower=0> phi_ones[ind_occ_min1];		    // Time periods where we force survival to be 1 (assuming a closed population)
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // Which entries of latent bd correspond to each entry of phi
 	int<lower=0> pop_phi[ind_occ_min1];		    // Population index for mortality predictors
-	int<lower=0> spec_phi[ind_occ_min1];		    // Species identity of each individual
+
+	matrix[ind_occ_min1, n_spec] spec_phi;		    // Species identity of each individual for phi
+	matrix[ind_occ_min1, n_sex] sex_phi;		    // Sex of each individual for phi
 	  
   // individual-level covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
@@ -94,8 +97,9 @@ data {
   // long vector indexes: bd stuff (bd)
 	int<lower=0> ind_bd_rep[ind_per_period_bd];	    // Index of individual for individual bd estimates (as each individual gets one estimate per year)    
 	int<lower=0> ind_in_pop_year[ind_per_period_bd];    // Index of pop*year for individual bd estimates
-	int<lower=0> spec_bd[ind_per_period_bd];	    // Index of species identity for individual bd estimates
-	int<lower=0> pop_bd[ind_per_period_bd];         // Index of population for individual bd estimates
+	int<lower=0> pop_bd[ind_per_period_bd];             // Index of population for individual bd estimates
+
+	matrix[ind_per_period_bd, n_spec] spec_bd;	    // Index of species identity for individual bd estimates	    
 
   // covariates (length)
 	int<lower=0> n_ind_len_have;			    // Number of individuals that we have length data	  
@@ -115,7 +119,8 @@ data {
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
  	int<lower=0> ind_mehg_pop[n_ind_mehg];	   	    // Populations associated with each measure of MeHg
- 	int<lower=0> ind_mehg_spec[n_ind_mehg];	   	    // Species associated with each measure of MeHg
+
+	matrix[n_ind_mehg, n_spec] ind_mehg_spec;	    // Species associated with each measure of MeHg 	    
 
   // site-level covariates, categorical but potentially continuous
 	real<lower=0> pop_drawdown[n_pop];		    // population specific covariate for proportion drawdown    
@@ -150,7 +155,7 @@ parameters {
 // -----
 
   // fixed
-	real beta_bd_spec[n_spec];			 // species-level average bd level
+	vector[n_spec] beta_bd_spec;			 // species-level average bd level
 	real beta_bd_temp;				 // population-level temperature effect on bd levels
 	real beta_bd_len;				 // individual-specific length effect on bd levels
 
@@ -171,11 +176,11 @@ parameters {
 // -----
 
   // fixed
-	real beta_offseason_int[n_spec];		 // Intercept for between season survival
-	real beta_offseason_bd[n_spec];			 // Bd effect on between season survival
-	real beta_offseason_len[n_spec];		 // Length effect on between season survival 
-	real beta_offseason_mehg[n_spec];		 // MeHg effect on between season survival
-	real beta_offseason_sex[3];			 // Sex effect on survival 
+	vector[n_spec] beta_offseason_int;		 // Intercept for between season survival
+	vector[n_spec] beta_offseason_bd;		 // Bd effect on between season survival
+	vector[n_spec] beta_offseason_len;		 // Length effect on between season survival 
+	vector[n_spec] beta_offseason_mehg;		 // MeHg effect on between season survival
+	vector[n_sex] beta_offseason_sex;		 // Sex effect on survival 
 
   // random: variance
 	real<lower=0> offseason_pop_sigma;		 // variation in offseason survival by population (intercept)
@@ -193,7 +198,7 @@ parameters {
 // -----
 
   // fixed
-	real beta_inseason[n_spec];			 // in season survival intercept
+	vector[n_spec] beta_inseason;			 // in season survival intercept
 
   // random: variance
 	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
@@ -207,7 +212,7 @@ parameters {
 // -----
 
   // fixed
-	real beta_p_spec[n_spec];			 // species-level average detection
+	vector[n_spec] beta_p_spec;			 // species-level average detection
 	real beta_p_drawdown;				 // daily detection probably as a function of drawdown amount
 	real beta_p_veg;			         // daily detection probably as a function of vegetation amount
 
@@ -237,7 +242,7 @@ parameters {
 
   // fixed
 	real<lower=0> inverse_phi_mehg;		         // variance parameter for gamma regression
-	real beta_mehg_spec[n_spec];			 // species-specific MeHg means 
+	vector[n_spec] beta_mehg_spec;			 // species-specific MeHg means 
 	real beta_mehg_drawdown;			 // effect of drawdown on MeHg
 
   // random: variance
@@ -299,10 +304,8 @@ transformed parameters {
 // Imputed NA Length values
 // -----
 
-
   	mu_len_have   = exp(ind_len_spec_have * beta_len_spec + ind_len_sex_have * beta_len_sex);   // linear predictor for len regression on measured lengths
   	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
-
 
   	mu_len_mis    = exp(ind_len_spec_mis * beta_len_spec + ind_len_sex_mis * beta_len_sex);     // linear predictor for len regression for imputing unknown lengths
   	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
@@ -317,8 +320,9 @@ transformed parameters {
   // Jump through a hoop to select out all of the length values for a given species 
 	  vector[ind_len_spec_size[ns]] temp_ind_len = segment(ind_len, ind_len_spec_first_index[ns], ind_len_spec_size[ns]);
 
-	  ind_len_mean[ns] = mean(temp_ind_len);	 // take the mean of the lengths of all individuals of species ns
-	  ind_len_sd[ns]   = sd(temp_ind_len);		 // take the sd of the lengths of all individuals of species ns
+  // take the mean and sd of the lengths of all individuals of species ns
+	  ind_len_mean[ns] = mean(temp_ind_len);	 
+	  ind_len_sd[ns]   = sd(temp_ind_len);	
 
   // Scale the lengths of species ns and stick them in the complete long-form container
 	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - ind_len_mean[ns])/ind_len_sd[ns];
@@ -330,57 +334,41 @@ transformed parameters {
 // Estimated population-level mean MeHg 
 // -----
 
+  // calculate the mean at the population level; species, drawdown, and pop deviates on MeHg
 	for (z in 1:n_pop) {
-	  mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z];				// individual population deviates
-
-  // calculate the mean at the population level	
-	  mehg_pop_est[z] = exp(
-beta_mehg_spec[spec_pop[z]]          + 							// species effect on MeHg			
-beta_mehg_drawdown * pop_drawdown[z] + 							// drawdown effect on MeHg
-mehg_pop[z]										// population deviate on MeHg
-);
+	  mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z];								
+	  mehg_pop_est[z] = exp(spec_pop[z, ] * beta_mehg_spec + beta_mehg_drawdown * pop_drawdown[z] + mehg_pop[z]); 
 	} 
 
-	mehg_pop_est_scaled = (mehg_pop_est - mean(mehg_pop_est))/sd(mehg_pop_est);     // scaled mehg population means
+  // scaled mehg population means
+	mehg_pop_est_scaled = (mehg_pop_est - mean(mehg_pop_est))/sd(mehg_pop_est);     
 
+  // mean estimate generated from each individuals measured bd; species, drawdown, and pop deviates on MeHg
 	for (i in 1:n_ind_mehg) {
-
-  // mean estimate generated from each individuals measured bd
-	  mu_mehg[i]  = exp(
-beta_mehg_spec[ind_mehg_spec[i]]                   + 					// species effect on MeHg
-beta_mehg_drawdown * pop_drawdown[ind_mehg_pop[i]] + 					// drawdown effect on MeHg
-mehg_pop[ind_mehg_pop[i]]								// population deviate on MeHg
-);
-
+	  mu_mehg[i]  = exp(ind_mehg_spec[i, ] * beta_mehg_spec + beta_mehg_drawdown * pop_drawdown[ind_mehg_pop[i]] + mehg_pop[ind_mehg_pop[i]]);	
 	}
 
-	rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;		// transformation to get one of the parameters for the gamma distribution
+  // transformation to get one of the parameters for the gamma distribution
+	rate_mehg   = rep_vector(inverse_phi_mehg, n_ind_mehg) ./ mu_mehg;		
 
 
 // -----
 // bd submodel, contained to estimating within-season bd
 // -----
 
+  // pop-spec deviates
 	for (pp in 1:n_pop_year) {
-	  bd_pop_year[pp] = bd_pop_sigma * bd_pop_eps[pp];				// pop-spec deviates
+	  bd_pop_year[pp] = bd_pop_sigma * bd_pop_eps[pp];
 	} 
 
-	for (i in 1:n_ind) {
-	    
   // linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
+	for (i in 1:n_ind) {
   	  bd_ind[i] = bd_ind_sigma[ind_in_pop[i]] * bd_ind_eps[i];  
-
 	}
 
-	for (t in 1:ind_per_period_bd) {
-
   // latent bd model before obs error (species effect + pop temp effect + ind deviate + pop*year deviate)
-	  X[t] = beta_bd_spec[spec_bd[t]] + 
-bd_ind[ind_bd_rep[t]] + 
-bd_pop_year[ind_in_pop_year[t]] +
-beta_bd_temp * pop_temp[pop_bd[t]] + 
-beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
-
+	for (t in 1:ind_per_period_bd) {
+	  X[t] = spec_bd[t, ] * beta_bd_spec + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd_temp * pop_temp[pop_bd[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
         }
 
 
@@ -409,7 +397,7 @@ beta_bd_len * ind_len_scaled[ind_bd_rep[t]];
            } else {
 
   // within-season survival given by a simple population-level intercept; could potentially consider increasing the complexity of this component eventually 
-             phi[t] = inv_logit(beta_inseason[spec_phi[t]] + inseason_pop[pop_phi[t]]);
+             phi[t] = inv_logit(spec_phi[t, ] * beta_inseason + inseason_pop[pop_phi[t]]);
 
 	   }
 
@@ -417,11 +405,11 @@ beta_bd_len * ind_len_scaled[ind_bd_rep[t]];
 
   // linear predictor for offseason survival -- given by a population-level intercept, a bd-effect, and a size effect 
 	     phi[t] = inv_logit(
-beta_offseason_int[spec_phi[t]]  + offseason_pop[pop_phi[t]]       + 
-(beta_offseason_bd[spec_phi[t]]  + offseason_pop_bd[pop_phi[t]])   * X[phi_bd_index[t]] + 
-(beta_offseason_len[spec_phi[t]] + offseason_pop_len[pop_phi[t]])  * ind_len_scaled[ind_occ_min1_rep[t]] +
-beta_offseason_mehg[spec_phi[t]] * mehg_pop_est_scaled[pop_phi[t]] +
-beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
+ spec_phi[t, ] * beta_offseason_int + offseason_pop[pop_phi[t]] + 
+((spec_phi[t, ] * beta_offseason_bd) + offseason_pop_bd[pop_phi[t]]) * X[phi_bd_index[t]] + 
+((spec_phi[t, ] * beta_offseason_len) + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]] +
+ (spec_phi[t, ] * beta_offseason_mehg) * mehg_pop_est_scaled[pop_phi[t]] +
+ sex_phi[t, ]  * beta_offseason_sex
 );
 
 	  }
@@ -451,25 +439,23 @@ beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
 	 if (p_zeros[t] == 0) {       
 	   p[t] = 0;
 	 } else {
+
   // linear predictor for detection -- given by pop and day level deviates, drawdown, veg, and a length effect broken up by species
            p[t] = inv_logit(
 p_pop[pop_p[t]]                        + 
 p_day_dev[p_day[t]]                    + 
 beta_p_drawdown * p_drawdown[p_day[t]] + 
 beta_p_veg * p_veg[p_day[t]]           + 
-beta_p_spec[spec_p[t]] * ind_len_scaled[ind_occ_rep[t]]
+(spec_p[t, ] * beta_p_spec) * ind_len_scaled[ind_occ_rep[t]]
 );
+
 	 }
+
 	}
 
-	for (t in 1:n_days) {
   // calculating a daily estimate of detection to obtain a population size estimate
-	  p_per_day[t] = inv_logit(
-p_pop[day_which_pop[t]]         + 
-p_day_dev[t]                    + 
-beta_p_drawdown * p_drawdown[t] + 
-beta_p_veg * p_veg[t]
-);
+	for (t in 1:n_days) {
+	  p_per_day[t] = inv_logit(p_pop[day_which_pop[t]] + p_day_dev[t] + beta_p_drawdown * p_drawdown[t] + beta_p_veg * p_veg[t]);
 	}	
 
 
