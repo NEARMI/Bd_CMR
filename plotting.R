@@ -2,7 +2,7 @@
 ## Plot diagnostics for each model fit individually ##
 ######################################################
 
-# stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
+# stan.fit <- readRDS(paste(paste("fits/stan_fit", paste(which.dataset, "2", sep = ""), sep = "_"), "Rds", sep = "."))
 
 print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")

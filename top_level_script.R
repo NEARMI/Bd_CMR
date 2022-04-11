@@ -129,7 +129,7 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- FALSE
+red_ind    <- TRUE
 if (red_ind) {
 num_ind    <- 200
 }

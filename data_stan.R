@@ -271,3 +271,12 @@ capt_history.p %<>%
   mutate(date_fac = as.character(date_fac)) %>% 
   mutate(date_fac = as.factor(date_fac)) %>% 
   mutate(date_fac = as.numeric(date_fac))
+
+
+####
+## And finally finally, create a few vectors for the stan model
+####
+
+spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+day_which_pop  <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
+spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()

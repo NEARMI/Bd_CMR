@@ -25,11 +25,12 @@ stan_data     <- list(
  , ind_spec          = ind.len.spec
   
   ## short vector indexes (length of n_pop)
- , spec_pop          = (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+#, spec_pop          = spec_pop
+, spec_pop           = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
   
   ## short vector indexes (length of n_days)
- , day_which_pop     = (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
- , spec_which_pop    = (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
+ , day_which_pop     = day_which_pop
+ , spec_which_pop    = spec_which_pop
  
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = capt_history.p$Mark
@@ -38,7 +39,9 @@ stan_data     <- list(
  , p_bd_index        = capt_history.p$X_stat_index
  , p_day             = capt_history.p$date_fac
  , pop_p             = as.numeric(capt_history.p$pop_spec)
- , spec_p            = as.numeric(capt_history.p$Species)
+  
+#, spec_p            = as.numeric(capt_history.p$Species)
+, spec_p             = model.matrix(~spec, data.frame(spec = capt_history.p$Species, value = 0))[, ] 
 
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -49,7 +52,11 @@ stan_data     <- list(
  , phi_bd_index      = capt_history.phi$X_stat_index
  , capt_gaps         = capt_history.phi$capture_gap
  , pop_phi           = as.numeric(capt_history.phi$pop_spec)
- , spec_phi          = as.numeric(capt_history.phi$Species)
+  
+#, spec_phi          = as.numeric(capt_history.phi$Species)
+, spec_phi           = model.matrix(~spec, data.frame(spec = capt_history.phi$Species, value = 0))[, ]
+#, sex_phi           = ind_sex[capt_history.phi$Mark]
+, sex_phi            = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[capt_history.phi$Mark]), value = 0))[, ]
 
   ## individual-level covariates, bd and others
  , N_bd              = nrow(capt_history.bd_load)
@@ -62,8 +69,10 @@ stan_data     <- list(
   ## long vector indexes: bd stuff (bd)
  , ind_bd_rep        = X_stat_index_covs$Mark  
  , ind_in_pop_year   = X_stat_index_covs$ind_in_pop_year ## basically bd_time in the single population model
- , spec_for_bd       = X_stat_index_covs$spec_for_bd
- , pop_for_bd        = X_stat_index_covs$pop_for_bd
+ , pop_bd            = X_stat_index_covs$pop_for_bd
+  
+#, spec_bd           = X_stat_index_covs$spec_for_bd
+, spec_bd            = model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
   
   ## individual length data
  , ind_len_which_have = len.have
@@ -71,59 +80,57 @@ stan_data     <- list(
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
- , ind_len_spec_have  = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.have]), value = 0))[, ]
- , ind_len_spec_mis   = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.mis]), value = 0))[, ]
- , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
- , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.mis]), value = 0))[, ]
-# , ind_len_spec_have  = ind.len.spec[len.have]
-# , ind_len_spec_mis   = ind.len.spec[len.mis]
-# , ind_len_sex_have   = ind_sex[len.have]
-# , ind_len_sex_mis    = ind_sex[len.mis]
+  
+, ind_len_spec_have  = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.have]), value = 0))[, ]
+#, ind_len_spec_have  = ind.len.spec[len.have]
+, ind_len_spec_mis   = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.mis]), value = 0))[, ]
+#, ind_len_spec_mis   = ind.len.spec[len.mis]
+, ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
+#, ind_len_sex_have   = ind_sex[len.have]
+, ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.mis]), value = 0))[, ]
+#, ind_len_sex_mis    = ind_sex[len.mis]
+  
  , ind_len_spec_first_index = ind_len_spec_first_index
  , ind_len_spec_size        = ind_len_spec_size
   
   ## individual MeHg data
- , n_ind_mehg         = length(ind.hg[hg.have])
- , ind_mehg           = ind.hg[hg.have]
- , ind_mehg_pop       = ind.hg.pop[hg.have]
- , ind_mehg_spec      = ind.hg.spec[hg.have]
+ , n_ind_mehg        = length(ind.hg[hg.have])
+ , ind_mehg          = ind.hg[hg.have]
+ , ind_mehg_pop      = ind.hg.pop[hg.have]
+  
+#, ind_mehg_spec     = ind.hg.spec[hg.have]
+, ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]
   
   ## site-level covariates, forced categorical
-  , pop_sub          = site_covar.cat$SUB
-  , pop_region       = site_covar.cat$region
-  , pop_hydro        = site_covar.cat$HYDRO
+#, pop_sub           = site_covar.cat$SUB
+#, pop_region        = site_covar.cat$region
+#, pop_hydro         = site_covar.cat$HYDRO
   
-  ## site-level covariates, categorical but potentially continuous
-# , pop_drawdown     = site_covar.cat$drawdown_cont
-  , pop_drawdown     = site_covar.cat$DRAWDOWN
-  
-  ## site-by-day level covariates, categorical but potentially continuous
-# , p_drawdown       = daily_hab_covar$drawdown_cont
-# , p_veg            = daily_hab_covar$veg_cont
-  
-  , p_drawdown       = daily_hab_covar$drawdown
-  , p_veg            = daily_hab_covar$veg
+  ## site-level covariates, stored categorical but converted back to continuous
+ , pop_drawdown      = site_covar.cat$drawdown_cont # site_covar.cat$DRAWDOWN
+
+  ## site-by-day level covariates, stored categorical but converted back to continuous
+ , p_drawdown        = daily_hab_covar$drawdown_cont 
+ , p_veg             = daily_hab_covar$veg_cont
   
   ## site-level covariates, continuous (long-form vector unlike the above)
- , pop_temp         = site_covar.con$Temp_Mean
+ , pop_temp          = site_covar.con$Temp_Mean
   
   ## Capture data
- , N_y             = nrow(capt_history)
- , y               = capt_history.p$captured
- , first           = capture_range$first
- , last            = capture_range$final
+ , N_y               = nrow(capt_history)
+ , y                 = capt_history.p$captured
+ , first             = capture_range$first
+ , last              = capture_range$final
   
   ## number of individuals captured each day
- , n_capt_per_day  = (capt_history.p %>% group_by(date_fac) %>% summarize(num_capt = sum(captured)))$num_capt
+ , n_capt_per_day    = (capt_history.p %>% group_by(date_fac) %>% summarize(num_capt = sum(captured)))$num_capt
   )
 
 stan.fit  <- stan(
-# file    = "stan_current/CMR_multiple_populations_full.stan"
-# file    = "stan_current/CMR_multiple_populations_reduced.stan"
-# file    = "stan_current/CMR_multiple_populations_reduced_expanding_gl.stan"
-# file    = "stan_current/length_test_B.stan"
-# file    = "stan_current/length_test_C.stan"
- file    = "stan_current/length_test2.stan"
+  file    = "stan_current/CMR_multiple_populations_gl_mm.stan"
+# file    = "stan_current/CMR_multiple_populations_gl.stan"
+# file    = "stan_current/CMR_multiple_populations.stan"
+# file    = "dev_stan/length_test.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -137,7 +144,4 @@ stan.fit  <- stan(
 #, pars    = c("phi", "p", "chi")
   )
 
-shinystan::launch_shinystan(stan.fit)
-
 saveRDS(stan.fit, paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = "."))
-
