@@ -13,7 +13,7 @@ stan_data     <- list(
  , ind_occ_min1      = nrow(capt_history.phi)
  , n_days            = (capt_history.p %>% group_by(pop_spec) %>% summarize(days_in_pop = n_distinct(date_fac)))$days_in_pop %>% sum()
  , n_spec            = length(unique(capt_history$Species))
- , n_sex             = length(unique(capt_history$Sex))
+ , n_sex             = n_sex
   
   ## short vector indexes (length of n_ind)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -21,7 +21,7 @@ stan_data     <- list(
  , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index  
  , ind_in_pop        = ind_in_pop
- , ind_sex           = ind.sex$Sex %>% factor(levels = c("F", "M", "U")) %>% as.numeric()
+ , ind_sex           = ind_sex
  , ind_spec          = ind.len.spec
   
   ## short vector indexes (length of n_pop)
@@ -71,8 +71,14 @@ stan_data     <- list(
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
- , ind_len_spec_have  = ind.len.spec[len.have]
- , ind_len_spec_mis   = ind.len.spec[len.mis]
+ , ind_len_spec_have  = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.have]), value = 0))[, ]
+ , ind_len_spec_mis   = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.mis]), value = 0))[, ]
+ , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
+ , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.mis]), value = 0))[, ]
+# , ind_len_spec_have  = ind.len.spec[len.have]
+# , ind_len_spec_mis   = ind.len.spec[len.mis]
+# , ind_len_sex_have   = ind_sex[len.have]
+# , ind_len_sex_mis    = ind_sex[len.mis]
  , ind_len_spec_first_index = ind_len_spec_first_index
  , ind_len_spec_size        = ind_len_spec_size
   
@@ -115,7 +121,9 @@ stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations_full.stan"
 # file    = "stan_current/CMR_multiple_populations_reduced.stan"
 # file    = "stan_current/CMR_multiple_populations_reduced_expanding_gl.stan"
-  file    = "stan_current/length_test.stan"
+# file    = "stan_current/length_test_B.stan"
+# file    = "stan_current/length_test_C.stan"
+ file    = "stan_current/length_test2.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -124,9 +132,12 @@ stan.fit  <- stan(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.94, max_treedepth = 13) ## 96 and 13
+, control = list(adapt_delta = 0.92, max_treedepth = 15) ## 96 and 13
 #, include = FALSE
 #, pars    = c("phi", "p", "chi")
   )
 
+shinystan::launch_shinystan(stan.fit)
+
 saveRDS(stan.fit, paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = "."))
+

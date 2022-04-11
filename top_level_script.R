@@ -6,8 +6,7 @@
 
 ## Next stuff to do on this project
 
-## 1) Length imputation seems to be working correctly, but still needs some debugging to check if it is
- ## working in all populations 
+## 1) Length imputation seems to be working correctly, but still needs some debugging to check if it is working in all populations 
  ## [ ] To do so, collapse to just a length imputation model and check it
 
 ## 2) Created a spreadsheet to house a list of complications presented by each population. Working on expanding this
@@ -16,9 +15,9 @@
  ## because of species-specific responses to unmeasured site-specific stuff
 
 ## 4) Time to run some models:
- ## A [ ] Blackrock complex with the single population model
- ## B [ ] All populations (with NOVI) with 200 individuals saving all indexes to check nothing is screwed up
- ## C [ ] All populations (without NOVI) dropping the long indexes for memory reasons
+ ## A [ ] Blackrock complex with the single population model (Mac)
+ ## B [ ] All populations (with NOVI) with 200 individuals saving all indexes to check nothing is screwed up (PC)
+ ## C [ ] All populations (without NOVI) dropping the long indexes for memory reasons (YETI)
 
 
 #### Next stuff to do on this project ----
@@ -118,12 +117,12 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- FALSE
+some_pops  <- TRUE
 
 if (some_pops) {
 # which.dataset <- unique(data.all$pop_spec)[c(3:7, 17, 18)] %>% droplevels()
 which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[20] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }

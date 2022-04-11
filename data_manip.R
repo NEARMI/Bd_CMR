@@ -47,8 +47,10 @@ sampled_periods.i <- sampled_periods %>% filter(pop_spec == u_sites[i])
 
 capt_history.t <- 
 expand.grid(
-  CaptureDate = unique(data.i$CaptureDate)
-, Mark        = unique(data.i$Mark)) %>% 
+  Month    = seq(from = period_range.i$min_period, to = period_range.i$max_period, by = 1)
+, Year     = unique(sampled_periods.i$Year)
+, pop_spec = u_sites[i]
+, Mark     = unique(data.i$Mark)) %>%
   ## Add species to not screw up multi-species sites
   left_join(., data.i %>% dplyr::select(Mark, Species) %>% distinct()) %>%
   ## Add in which periods were sampled and which individuals were sampled

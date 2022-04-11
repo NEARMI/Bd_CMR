@@ -63,6 +63,10 @@ ind.sex <- capt_history %>%
   , Sex2      = as.factor(Sex)) %>%
   mutate(Sex2 = as.numeric(Sex2))
 
+ind_sex <- ind.sex$Sex %>% factor(levels = c("F", "M", "U")) %>% as.numeric()
+
+n_sex <- length(unique(ind.sex$Sex))
+
 ## -- Site level covariates -- ##
 
 ## Data frame of the sites in the order that they appear in the overall data (note, have to

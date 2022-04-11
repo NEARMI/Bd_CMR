@@ -67,6 +67,8 @@ stan_data     <- list(
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
+ , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
+ , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ]
 
   ## individual mehg data
  , ind_mehg_which_have = hg.have
@@ -76,8 +78,9 @@ stan_data     <- list(
  , ind_mehg_have       = ind.hg[hg.have]
 
   ## ind sex
- , n_sex             = length(unique(ind.sex$Sex))
- , ind_sex           = ind.sex$Sex
+ , n_sex             = n_sex
+#, ind_sex           = ind.sex$Sex
+ , ind_sex           = model.matrix(~sex, data.frame(sex = as.factor(ind.sex$Sex), value = 0))[, ]
   
   ## site-level covariates, categorical 
    ## rely on the indexes pop_p (p), pop_phi (phi), and ind_in_pop (bd) for retrieving the correct covariate value
@@ -102,12 +105,8 @@ stan_data     <- list(
 stan.fit  <- try(
   {
  stan(
-# file    = "stan_current/CMR_single_population_ind_rand.stan"
-# file    = "stan_current/CMR_single_population_ind_rand_mehg.stan" 
-# file    = "stan_current/CMR_single_population_ind_rand_no_mehg.stan" 
-# file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand.stan" 
-  file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand_expanding.stan" 
-# file    = "stan_current/CMR_single_population_ind_rand_no_mehg_no_p_rand_expanding_gl.stan" 
+# file    = "stan_current/CMR_single_population.stan"
+  file    = "stan_current/CMR_single_population_gl_mm.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
