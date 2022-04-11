@@ -98,7 +98,7 @@ data {
 	
   // covariates (sex)
 	int n_sex;					    // Number of sex entries (M, F, but possibly U)
-	int<lower=0> ind_sex[n_ind];			    // Sex of each individual
+	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -295,7 +295,7 @@ beta_offseason[2] * X[phi_bd_index[t]] +
 beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]] +
 beta_offseason[4] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
 beta_offseason[5] * ind_len_scaled[ind_occ_min1_rep[t]] * ind_mehg_scaled[ind_occ_min1_rep[t]] +
-beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
+ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex
 );
 
 
