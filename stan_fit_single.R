@@ -68,7 +68,8 @@ stan_data     <- list(
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
  , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
- , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ]
+ , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ] %>%
+    as.matrix() %>% t()
 
   ## individual mehg data
  , ind_mehg_which_have = hg.have
@@ -106,7 +107,8 @@ stan.fit  <- try(
   {
  stan(
 # file    = "stan_current/CMR_single_population.stan"
-  file    = "stan_current/CMR_single_population_gl_mm.stan"
+# file    = "stan_current/CMR_single_population_gl_mm.stan"
+  file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -114,7 +116,7 @@ stan.fit  <- try(
 , init    = list(
   list(
      ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
- # , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
+   , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
   )
 )
 , iter    = stan.iter            

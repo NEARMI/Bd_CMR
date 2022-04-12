@@ -2,7 +2,7 @@
 ## Plot diagnostics for each model fit individually ##
 ######################################################
 
-# stan.fit <- readRDS(paste(paste("fits/stan_fit", paste(which.dataset, "2", sep = ""), sep = "_"), "Rds", sep = "."))
+# stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 
 print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
@@ -66,7 +66,9 @@ for (j in 1:ncol(out.pred)) {
     stan.fit.samples$beta_offseason[, 1] +
     stan.fit.samples$beta_offseason[, 2] * outval[j] +
     stan.fit.samples$beta_offseason[, 3] * 0 +
-    stan.fit.samples$beta_offseason[, 4] * 0
+    stan.fit.samples$beta_offseason[, 4] * 0 +
+    stan.fit.samples$beta_offseason[, 5] * 0 +
+    stan.fit.samples$beta_offseason_sex[, 1]
     )
 }
 
@@ -95,9 +97,11 @@ out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 for (j in 1:ncol(out.pred)) {
    out.pred[, j] <- plogis(
     stan.fit.samples$beta_offseason[, 1] +
-    stan.fit.samples$beta_offseason[, 2] * 5 +
+    stan.fit.samples$beta_offseason[, 2] * 7 +
     stan.fit.samples$beta_offseason[, 3] * 0 +
-    stan.fit.samples$beta_offseason[, 4] * outval[j]
+    stan.fit.samples$beta_offseason[, 4] * outval[j] +
+    stan.fit.samples$beta_offseason[, 5] * outval[j] * 7 +
+    stan.fit.samples$beta_offseason_sex[, 1]
     )
 }
 
@@ -259,18 +263,18 @@ pop_size_est <- stan.fit.samples$pop_size %>%
     , to   = as.character(unique(capt_history$capture_date)))) %>%
       mutate(sdate = seq(1, n())) %>% filter(sdate > 1)
 
-ind_p_est <- stan.fit.samples$p_ind_dev %>% reshape2::melt() %>%
-  group_by(Var2) %>%
-  summarize(
-    lwr_p = quantile(value, 0.025)
-  , mid_p = quantile(value, 0.500)
-  , upr_p = quantile(value, 0.975)
-  ) %>% 
-  rename(ind = Var2) %>%
-  mutate(ind = factor(ind, levels = ind)) %>% 
-  arrange(mid_p) %>% mutate(
-   ord_p  = seq(n())
-  )
+#ind_p_est <- stan.fit.samples$p_ind_dev %>% reshape2::melt() %>%
+#  group_by(Var2) %>%
+#  summarize(
+#    lwr_p = quantile(value, 0.025)
+#  , mid_p = quantile(value, 0.500)
+#  , upr_p = quantile(value, 0.975)
+#  ) %>% 
+#  rename(ind = Var2) %>%
+#  mutate(ind = factor(ind, levels = ind)) %>% 
+#  arrange(mid_p) %>% mutate(
+#   ord_p  = seq(n())
+#  )
 
 ind_bd_est <- stan.fit.samples$bd_delta_eps %>% reshape2::melt() %>%
   group_by(Var2) %>%
@@ -302,7 +306,7 @@ beta_est %<>%
   relocate(param_lev, .after = params) %>%
   mutate(param_lev = as.character(param_lev))
 
-beta_est[beta_est$params == "beta_offseason", ]$param_lev <- c("Int", "Bd", "Size", "MeHg")
+beta_est[beta_est$params == "beta_offseason", ]$param_lev <- c("Int", "Bd", "Size", "MeHg", "Bd-MeHg")
 beta_est %<>% mutate(params = plyr::mapvalues(params, from = "beta_phi", to = "beta_inseason"))
 beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")
@@ -446,8 +450,12 @@ if (max(pop_size_est$upr, na.rm = T) > (max(n_cap$num_capt) * 100)) {
   gg.8 <- gg.8 + scale_y_log10()
 }
 
-gglist    <- c("gg.1", "gg.2", "gg.3", "gg.4", "gg.5", "gg.6", "gg.7", "gg.8")
-need_grob <- c(F, T, T, F, F, F, F, F)
+gglist    <- c("gg.1", "gg.2", "gg.3", "gg.4"
+ # , "gg.5"
+  , "gg.6", "gg.7", "gg.8")
+need_grob <- c(F, T, T, F
+#  , F
+  , F, F, F)
 
 pdf(paste("plots/", this_pop,".pdf", sep = ""), onefile = TRUE)
 for (i in seq(length(gglist))) {

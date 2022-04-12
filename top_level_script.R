@@ -66,14 +66,15 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- TRUE
+red_ind    <- FALSE
 if (red_ind) {
 num_ind    <- 200
 }

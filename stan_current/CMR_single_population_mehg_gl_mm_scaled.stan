@@ -197,7 +197,8 @@ transformed parameters {
 	// bd
 
 	real bd_ind[n_ind];				 // individual random effect deviates
-	real X[ind_per_period_bd];		         // each individual's estimated bd per year
+	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
+	vector[ind_per_period_bd] X_scaled;		 // scaled Bd loads
 
 
 	// Survival and detection processes
@@ -267,6 +268,8 @@ transformed parameters {
 	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
 
         }
+
+	X_scaled = (X - mean(X))/sd(X);
 
 // -----
 // Survival probability over the whole period
@@ -380,7 +383,7 @@ model {
 // Imputed Covariates Priors: length
 
 	inverse_phi_len  ~ inv_gamma(8, 15);	
-	beta_len_sex    ~ normal(0, 3);
+	beta_len_sex     ~ normal(0, 3);
 
 
 // Imputed Covariates Priors: MeHg
