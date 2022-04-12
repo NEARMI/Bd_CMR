@@ -73,7 +73,7 @@ expand.grid(
   )
 
 ## And calculate the duration between each sampling day for each individual
-capt_history.t %<>% group_by(Mark, Year) %>% 
+capt_history.t %<>% group_by(Mark) %>% 
   rename(capture_date = CaptureDate) %>%
     ## In reality the 0 should be an NA, but with the way the model is set up the 0 isn't used (and stan cant have NA)
   mutate(capture_gap = c(as.numeric((capture_date - lag(capture_date, 1))[-1]), 0)) 

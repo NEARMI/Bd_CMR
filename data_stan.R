@@ -89,7 +89,6 @@ capt_history.p$gamma_index  <- gamma_index
 capt_history.p$X_stat_index <- X_stat_index
 
 
-
 ####
 ## Data for survival ("XXXX.phi" for survival)
 ####
@@ -105,28 +104,25 @@ capt_history.phi <- capt_history %>%
   filter(SecNumConsec != last_period, sampled == 1) %>% 
   ungroup()
 
-## Find the transitions between primary periods within the same year. 
- ## This is the first of the survival processes.
-  ## Designated with "time_gaps" because in some populations the time period between primary periods may
-   ## be longer than in other populations. Want to control for this
-time_gaps <- (capt_history %>% 
-  filter(sampled == 1) %>%
-  group_by(pop_spec, Mark, Year) %>% 
-  mutate(time_gaps =  Month - lag(Month, 1)) %>% 
-  mutate(time_gaps = ifelse(is.na(time_gaps), 0, time_gaps)) %>%
-  ungroup(Year) %>%
-  mutate(time_gaps = c(time_gaps[-1], NA)) %>% filter(!is.na(time_gaps)) %>%
-  mutate(time_gaps = ifelse(time_gaps > 1, 1, time_gaps)))$time_gaps
- 
-capt_history.phi %<>% mutate(time_gaps = time_gaps)
-
 ## The second of the survival processes concerns survival between years. Designated with "offseason"
-capt_history.phi %<>% 
-  group_by(pop_spec, Mark) %>%
-  mutate(offseason = Year - lag(Year, 1)) %>% 
-  mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
-  mutate(offseason = c(offseason[-1], 0)) %>% 
-  ungroup()
+
+## Old version of "offseason" defined by the transition between calendar year. However, this doesn't
+ ## work for all populations, thus the new version is to pick a threshold length of time between
+  ## sampling occasions and use this for both offseason and inseason. 
+#capt_history.phi %<>% 
+#  group_by(pop_spec, Mark) %>%
+#  mutate(offseason = Year - lag(Year, 1)) %>% 
+#  mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
+#  mutate(offseason = c(offseason[-1], 0)) %>% 
+#  ungroup()
+
+## So, determine off and on season periods
+capt_history.phi %<>% mutate(
+  ## choices seem to be 82 or around 135 which result in somewhat different on and offseasons for FL but
+    ## for no other populations
+  offseason = ifelse(capture_gap >= 82, 1, 0) 
+, phi_ones  = ifelse(capture_gap >= 9, 0, 1)
+  )
   
 ## Which entries of phi correspond to a new individual (the first entry for each individual)
 phi_first_index <- (capt_history.phi %>% mutate(index = seq(n())) %>% 
@@ -150,7 +146,7 @@ X_stat_index     <- factor(capt_history.phi$X_stat_index, levels = uni_X_stat_in
 capt_history.phi$X_stat_index <- X_stat_index
 
 ## The third and last survival process being that we assume survival is guaranteed between secondary samples
-capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap > 6 | offseason == 1, 0, 1))
+# capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap >= 9  | offseason == 1, 0, 1))
 
 ####
 ## One final adjustment to capt.history
