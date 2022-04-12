@@ -1,3 +1,20 @@
+---------------------------------------
+--------- Notes from April 11 ---------
+---------------------------------------
+
+## 1) Length imputation as a gamma regression with sex indeed working better than the alternative -- adopting for all models that
+ ## can support it (not counting populations with no lengths for one sex)
+
+## 2) Sex seems to help reasonably well for survival.
+ ## -- I do wonder though if it will be sensible to add sex to detection (seems bias possible with only in survival -- big effects
+  ## at present)
+
+## 3) Testing with Blackrock complex, there seems to be essentially no difference in using an index-based or model-matrix based 
+ ## method for categorical variables. 
+  ## -- However, it seems that the correlation is lower between the levels, so probably will be helpful when there are many
+  ## -- Yet, it seems that the model-matrix version is substantially slower. Jury is still out on why.
+
+
 -------------------------------------------------------------
 --------- Paste from April 11, but notes from older ---------
 -------------------------------------------------------------

@@ -2,31 +2,31 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 11 ---- 
+#### Notes April 12 ---- 
 # (note: moving series of older notes potentially interesting for Methods or Results sections to note_dump.txt)
 
-## 1) Length imputation as a gamma regression with sex indeed working better than the alternative -- adopting for all models that
- ## can support it (not counting populations with no lengths for one sex)
+## 1) Yeti runs with model-matrix and index-version still going. Will debug when complete
+ ## ** [ ] Priority number one for tomorrow (April 13)
 
-## 2) Sex seems to help reasonably well for survival.
- ## -- I do wonder though if it will be sensible to add sex to detection (seems bias possible with only in survival -- big effects
-  ## at present)
+## 2) Jones Pond RALU with the model-matrix style MeHg-Bd interaction model pretty damn slow for a single population
+ ##    (just over three hours) and had two divergent transitions.
+ ##      -- 
 
-## 3) Testing with Blackrock complex, there seems to be essentially no difference in using an index-based or model-matrix based 
- ## method for categorical variables. 
-  ## -- However, it seems that the correlation is lower between the levels, so probably will be helpful when there are many
-  ## -- Yet, it seems that the model-matrix version is substantially slower. Jury is still out on why.
+## 3) Spent most of the day working on identifying inseason, offseason, and closed population in such a way to 
+ ##    incorporate FL
+ ##      -- Initial decision made and some figures added to overleaf
 
-## 4) Running 200 individuals for each non-newt population on Yeti to make sure all of the indexing is still aligned with the
- ## model matrix version 
- ## ** [ ] Priority number one for tomorrow (April 12)
-
-## 5) Running Jones Pond RALU with the model-matrix style MeHg-Bd interaction model 
- 
 
 #### Next stuff to do on this project ----
 
-## 0) [ ] [Tuesday] code, model, and repo cleaning
+# x = partial; X = done for now
+
+## 0) [x] [Tuesday] code, model, and repo cleaning
+  ##        -- got a reasonable start, some more will be needed when debugging continues
+  ##        -- [ ] A task for later will be to update the plotting script with expand.grid which is a little cleaner
+  ##                (plotting_multipop.R does this)
+## 1) [x] [Tuesday] Figure out what to do with FL and update the spreadsheet
+  ##        -- some solid progress here but need to check in with Evan and Dave to make sure
 ## 1) [ ] [Wednesday Hopefully] Work through debugging of the various model attempts
 ## 2) [ ] [Wednesday Hopefully] Make some final decisions for model runs
 ## 4) [ ] [By Wednesday Night] Send 5 individual model and two big model (sans newts and with newts) fits to Yeti
@@ -45,8 +45,8 @@
  ## B) [ ] Possible use of sex in detection
 
 ## 2) Potential larger modifications
- ## A) [ ] Florida sampling scheme being fundamentally different to the other populations
-   ## -- Current plan to maybe fit a completely different model
+ ## A) [x] Florida sampling scheme being fundamentally different to the other populations
+   ## -- Think this gets fixed with defining a reasonable gap between samples
  ## B) [ ] What individuals were actually marked for NOVI for the Wisconsin populations
    ## -- Seems like all? But still need to email PI
 
@@ -68,6 +68,7 @@ some_pops  <- TRUE
 if (some_pops) {
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
