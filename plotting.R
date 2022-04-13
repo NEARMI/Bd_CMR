@@ -18,7 +18,9 @@ this_spec <- capt_history$Species[1]  %>% as.character()
 
 nparms <- dim(stan.fit.samples$beta_offseason)[2]
 
-if (nparms == 3) {
+if (nparms == 2) {
+  this_params <- c("Int", "Bd")
+} else if (nparms == 3) {
   this_params <- c("Int", "Bd", "Size")
 } else if (nparms == 4) {
   this_params <- c("Int", "Bd", "Size", "MeHg")
@@ -80,8 +82,13 @@ pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples
 for (j in 1:nrow(pred.est)) {
    pred.est[j, ] <- plogis(
     stan.fit.samples$beta_offseason[, 1] +
-    stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$bd   +
-    stan.fit.samples$beta_offseason[, 3] * pred.vals[j, ]$len  + {
+    stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$bd + {
+      if (nparms > 2) {
+        stan.fit.samples$beta_offseason[, 3] * pred.vals[j, ]$len
+      } else {
+        0
+      }
+    } + {
       if (nparms > 3) {
         stan.fit.samples$beta_offseason[, 4] * pred.vals[j, ]$mehg
       } else {
@@ -93,8 +100,7 @@ for (j in 1:nrow(pred.est)) {
       } else {
         0
       }
-    } + 
-       stan.fit.samples$beta_offseason_sex[, 1]
+    } + stan.fit.samples$beta_offseason_sex[, 1]
    )
 }
 
@@ -117,10 +123,14 @@ pred.vals.gg <- pred.vals %>%
   , species    = this_spec  
   )
 
-if (nparms < 4) {
+if (nparms < 3) {
+  pred.vals.gg %<>% dplyr::select(-mehg, -len) %>% distinct()
+} else if (nparms < 4) {
   pred.vals.gg %<>% dplyr::select(-mehg) %>% distinct()
+} else {
+  print("Population fit with all parameters")  
 }
-  
+
 stan.ind_pred_var <- stan.fit.samples$X %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
   group_by(ind) %>%
