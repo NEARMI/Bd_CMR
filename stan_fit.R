@@ -25,8 +25,8 @@ stan_data     <- list(
  , ind_spec          = ind.len.spec
   
   ## short vector indexes (length of n_pop)
-#, spec_pop          = spec_pop
-, spec_pop           = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
+, spec_pop           = spec_pop
+#, spec_pop           = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
   
   ## short vector indexes (length of n_days)
  , day_which_pop     = day_which_pop
@@ -40,8 +40,8 @@ stan_data     <- list(
  , p_day             = capt_history.p$date_fac
  , pop_p             = as.numeric(capt_history.p$pop_spec)
   
-#, spec_p            = as.numeric(capt_history.p$Species)
-, spec_p             = model.matrix(~spec, data.frame(spec = capt_history.p$Species, value = 0))[, ] 
+, spec_p            = as.numeric(capt_history.p$Species)
+#, spec_p             = model.matrix(~spec, data.frame(spec = capt_history.p$Species, value = 0))[, ] 
 
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -53,10 +53,10 @@ stan_data     <- list(
  , capt_gaps         = capt_history.phi$capture_gap
  , pop_phi           = as.numeric(capt_history.phi$pop_spec)
   
-#, spec_phi          = as.numeric(capt_history.phi$Species)
-, spec_phi           = model.matrix(~spec, data.frame(spec = capt_history.phi$Species, value = 0))[, ]
-#, sex_phi           = ind_sex[capt_history.phi$Mark]
-, sex_phi            = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[capt_history.phi$Mark]), value = 0))[, ]
+, spec_phi          = as.numeric(capt_history.phi$Species)
+#, spec_phi           = model.matrix(~spec, data.frame(spec = capt_history.phi$Species, value = 0))[, ]
+, sex_phi           = ind_sex[capt_history.phi$Mark]
+#, sex_phi            = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[capt_history.phi$Mark]), value = 0))[, ]
 
   ## individual-level covariates, bd and others
  , N_bd              = nrow(capt_history.bd_load)
@@ -71,8 +71,8 @@ stan_data     <- list(
  , ind_in_pop_year   = X_stat_index_covs$ind_in_pop_year ## basically bd_time in the single population model
  , pop_bd            = X_stat_index_covs$pop_for_bd
   
-#, spec_bd           = X_stat_index_covs$spec_for_bd
-, spec_bd            = model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+, spec_bd           = X_stat_index_covs$spec_for_bd
+#, spec_bd            = model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
   
   ## individual length data
  , ind_len_which_have = len.have
@@ -98,8 +98,8 @@ stan_data     <- list(
  , ind_mehg          = ind.hg[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
   
-#, ind_mehg_spec     = ind.hg.spec[hg.have]
-, ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]
+, ind_mehg_spec     = ind.hg.spec[hg.have]
+#, ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]
   
   ## site-level covariates, forced categorical
 #, pop_sub           = site_covar.cat$SUB
@@ -127,8 +127,8 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = "stan_current/CMR_multiple_populations_gl_mm.stan"
-# file    = "stan_current/CMR_multiple_populations_gl.stan"
+# file    = "stan_current/CMR_multiple_populations_gl_mm.stan"
+  file    = "stan_current/CMR_multiple_populations_gl.stan"
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "dev_stan/length_test.stan"
 , data    = stan_data
@@ -139,7 +139,7 @@ stan.fit  <- stan(
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
-, control = list(adapt_delta = 0.92, max_treedepth = 15) ## 96 and 13
+, control = list(adapt_delta = 0.85, max_treedepth = 10) ## 96 and 13
 #, include = FALSE
 #, pars    = c("phi", "p", "chi")
   )

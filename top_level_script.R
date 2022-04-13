@@ -18,6 +18,9 @@
 
 ## 3) Given the glacial pace of the multi-population fits on Yeti, at least can check the indexing of both model versions running with
  ##   basically no individuals in each population
+ ##    -- All indications are that both work equivalently -- at the very least both have sensible indexes...
+
+## ^^ For this reason, moving ahead by cleaning the repo such that all non model matrix versions get put into dev
 
 
 #### Next stuff to do on this project ----
@@ -65,8 +68,8 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-#which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
@@ -74,9 +77,9 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- FALSE
+red_ind    <- TRUE
 if (red_ind) {
-num_ind    <- 200
+num_ind    <- 20
 }
 
 ## Create the capture history scaffold from the raw data
@@ -93,8 +96,8 @@ source("data_covariates.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 1000
-stan.burn     <- 400
+stan.iter     <- 200
+stan.burn     <- 100
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {

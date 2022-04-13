@@ -18,6 +18,7 @@ ind.len <- capt_history %>%
 ## A test to see if the length -by- species is working
 #ind.len[ind.len$Species == 2, ]$len <- ind.len[ind.len$Species == 2, ]$len / 2 
 #ind.len[ind.len$Species == 2, ]$len[20] <- NA
+#ind.len[c(1, 50, 150, 200, 250), ]$len <- NA
 
 ## *** Temporary placeholder because the stan model breaks if there are no NA values...
 if (all(!is.na(ind.len$len))) {
