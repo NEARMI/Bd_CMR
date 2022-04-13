@@ -16,6 +16,18 @@ this_pop  <- capt_history$pop_spec[1] %>% as.character()
 this_loc  <- capt_history$Site[1]     %>% as.character()
 this_spec <- capt_history$Species[1]  %>% as.character()
 
+nparms <- dim(stan.fit.samples$beta_offseason)[2]
+
+if (nparms == 3) {
+  this_params <- c("Int", "Bd", "Size")
+} else if (nparms == 4) {
+  this_params <- c("Int", "Bd", "Size", "MeHg")
+} else if (nparms == 5) {
+  this_params <- c("Int", "Bd", "Size", "MeHg", "Bd-MeHg")
+} else {
+  break; print("Unknown parameters, check model manually")
+}
+
 ####
 ## Plotting Setup
 ####
@@ -57,80 +69,58 @@ out.pred.in <- out.pred %>%
   , species    = this_spec  
   )
 
-outval   <- matrix(seq(1, 14, by = 1))
-out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
-
-# stan.fit.samples$beta_offseason <- cbind(stan.fit.samples$beta_offseason, rep(0, dim(stan.fit.samples$beta_offseason)[1]))
-
-for (j in 1:ncol(out.pred)) {
-   out.pred[, j] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] +
-    stan.fit.samples$beta_offseason[, 2] * outval[j] +
-    stan.fit.samples$beta_offseason[, 3] * 0 +
-    stan.fit.samples$beta_offseason[, 4] * 0 +
-    stan.fit.samples$beta_offseason[, 5] * 0 +
-    stan.fit.samples$beta_offseason_sex[, 1]
-    )
-}
-
-out.pred <- reshape2::melt(out.pred) %>% 
-  rename(iter = Var1, gap = Var2) %>% 
-  mutate(gap = plyr::mapvalues(gap
-    , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "Bd")
-
-out.pred.off <- out.pred %>%
-  group_by(gap, variable) %>%
-  summarize(
-    lwr = quantile(value, 0.1)
-  , mid = quantile(value, 0.5)
-  , upr = quantile(value, 0.9)
-  ) %>% mutate(
-    when       = "offseason"
-  , population = this_pop
-  , location   = this_loc
-  , species    = this_spec  
-  )
-
-outval   <- matrix(seq(-2, 2, by = .1))
-out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
-
-for (j in 1:ncol(out.pred)) {
-   out.pred[, j] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] +
-    stan.fit.samples$beta_offseason[, 2] * 7 +
-    stan.fit.samples$beta_offseason[, 3] * 0 +
-    stan.fit.samples$beta_offseason[, 4] * outval[j] +
-    stan.fit.samples$beta_offseason[, 5] * outval[j] * 7 +
-    stan.fit.samples$beta_offseason_sex[, 1]
-    )
-}
-
-out.pred <- reshape2::melt(out.pred) %>% 
-  rename(iter = Var1, gap = Var2) %>% 
-  mutate(gap = plyr::mapvalues(gap
-    , from = unique(gap), to = unique(outval))) %>%
-  mutate(variable = "MeHg")
-
-out.pred.off.2 <- out.pred %>%
-  group_by(gap, variable) %>%
-  summarize(
-    lwr = quantile(value, 0.1)
-  , mid = quantile(value, 0.5)
-  , upr = quantile(value, 0.9)
-  ) %>% mutate(
-    when       = "offseason"
-  , population = this_pop
-  , location   = this_loc
-  , species    = this_spec  
-  )
-
-out.pred.bd <- rbind(
-  out.pred.in
-, out.pred.off
-, out.pred.off.2
+pred.vals <- expand.grid(
+  bd   = seq(0, 14, by = 1)
+, len  = seq(-3, 3, by = 0.5)
+, mehg = seq(-3, 3, by = 0.5)
 )
 
+pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples[[1]])[1])
+
+for (j in 1:nrow(pred.est)) {
+   pred.est[j, ] <- plogis(
+    stan.fit.samples$beta_offseason[, 1] +
+    stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$bd   +
+    stan.fit.samples$beta_offseason[, 3] * pred.vals[j, ]$len  + {
+      if (nparms > 3) {
+        stan.fit.samples$beta_offseason[, 4] * pred.vals[j, ]$mehg
+      } else {
+        0
+      }
+    } + {
+      if (nparms > 4) {
+        stan.fit.samples$beta_offseason[, 5] * pred.vals[j, ]$mehg * pred.vals[j, ]$bd
+      } else {
+        0
+      }
+    } + 
+       stan.fit.samples$beta_offseason_sex[, 1]
+   )
+}
+
+pred.vals <- cbind(pred.vals, pred.est)
+
+pred.vals %<>% pivot_longer(., c(-bd, -len, -mehg), names_to = "iter", values_to = "est")
+
+pred.vals.gg <- pred.vals %>%
+  group_by(bd, len, mehg) %>%
+  summarize(
+    lwr   = quantile(est, 0.025)
+  , lwr_n = quantile(est, 0.200)
+  , mid   = quantile(est, 0.500)
+  , upr_n = quantile(est, 0.800)
+  , upr   = quantile(est, 0.975)
+  ) %>% mutate(
+    when       = "offseason"
+  , population = this_pop
+  , location   = this_loc
+  , species    = this_spec  
+  )
+
+if (nparms < 4) {
+  pred.vals.gg %<>% dplyr::select(-mehg) %>% distinct()
+}
+  
 stan.ind_pred_var <- stan.fit.samples$X %>%
   reshape2::melt(.) %>% rename(ind = Var2, eps = value) %>%
   group_by(ind) %>%
@@ -264,19 +254,6 @@ pop_size_est <- stan.fit.samples$pop_size %>%
     , to   = as.character(unique(capt_history$capture_date)))) %>%
       mutate(sdate = seq(1, n())) %>% filter(sdate > 1)
 
-#ind_p_est <- stan.fit.samples$p_ind_dev %>% reshape2::melt() %>%
-#  group_by(Var2) %>%
-#  summarize(
-#    lwr_p = quantile(value, 0.025)
-#  , mid_p = quantile(value, 0.500)
-#  , upr_p = quantile(value, 0.975)
-#  ) %>% 
-#  rename(ind = Var2) %>%
-#  mutate(ind = factor(ind, levels = ind)) %>% 
-#  arrange(mid_p) %>% mutate(
-#   ord_p  = seq(n())
-#  )
-
 ind_bd_est <- stan.fit.samples$bd_delta_eps %>% reshape2::melt() %>%
   group_by(Var2) %>%
   summarize(
@@ -307,7 +284,7 @@ beta_est %<>%
   relocate(param_lev, .after = params) %>%
   mutate(param_lev = as.character(param_lev))
 
-beta_est[beta_est$params == "beta_offseason", ]$param_lev <- c("Int", "Bd", "Size", "MeHg", "Bd-MeHg")
+beta_est[beta_est$params == "beta_offseason", ]$param_lev <- this_params
 beta_est %<>% mutate(params = plyr::mapvalues(params, from = "beta_phi", to = "beta_inseason"))
 beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")
@@ -321,7 +298,6 @@ beta_est %<>% mutate(param = interaction(params, param_lev))
 
 gg.1 <- beta_est %>% 
     filter(params != "beta_bd_year", params != "beta_mehg_have", params != "ind_len_beta") %>% {
- #  filter(params == "beta_p") %>% {
     ggplot(., aes(param, mid)) +
       geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.3) +
       geom_point() +
@@ -333,17 +309,28 @@ gg.1 <- beta_est %>%
       )
     }
 
-gg.2a <- out.pred.bd %>% filter(when == "offseason", variable == "Bd") %>% {
-  ggplot(., aes(gap, mid)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_line(size = 1) +
-    xlab("") +
+if (nparms < 4) {
+gg.2a <- pred.vals.gg %>% filter(len == 0) %>% {
+  ggplot(., aes(bd, mid)) + 
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.3) +
+    geom_line(size = 1) + 
+    xlab("Bd Load") + 
     ylab("Apparent Survival Between Seasons") +
-    theme(
-      axis.text.x = element_blank()
-    , axis.ticks.x = element_blank()
-    , plot.margin = unit(c(.2,.2,0,.2), "cm")
-      )
+    ggtitle(this_pop)
+}
+  } else {
+gg.2a <- pred.vals.gg %>% filter(len == 0, mehg %in% c(-2, -1, 0, 1, 2)) %>%
+  mutate(mehg = as.factor(mehg)) %>% {
+  ggplot(., aes(bd, mid)) + 
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = mehg), alpha = 0.3) +
+    geom_line(aes(colour = mehg), size = 1) + 
+    scale_colour_discrete(name = "MeHg") +
+    scale_fill_discrete(name = "MeHg") +
+    facet_wrap(~mehg) +
+    xlab("Bd Load") +
+    ylab("Apparent Survival Between Seasons") +
+    ggtitle(this_pop)
+  }
 }
 
 gg.2b <- capt_history.bd_load %>% {
@@ -360,18 +347,21 @@ gg.2 <- gridExtra::arrangeGrob(gg.2a, gg.2b, layout_matrix = rbind(c(1, 1), c(1,
 
 scaled_hg <- data.frame(ind_hg = scale(ind.hg)[, 1])
 
-gg.3a <- out.pred.bd %>% filter(when == "offseason", variable == "MeHg") %>% {
-  ggplot(., aes(gap, mid)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_line(size = 1) +
-    xlab("") +
+if (nparms > 3) {
+  
+gg.3a <- pred.vals.gg %>% filter(len == 0, bd == 7) %>% {
+  ggplot(., aes(mehg, mid)) + 
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.3) +
+    geom_line(size = 1) + 
+    xlab("MeHg concentration (scaled)") + 
     ylab("Apparent Survival Between Seasons") +
     scale_x_continuous(lim = c(min(scaled_hg, na.rm = T), max(scaled_hg, na.rm = T))) +
     theme(
       axis.text.x = element_blank()
     , axis.ticks.x = element_blank()
     , plot.margin = unit(c(.2,.2,0,.2), "cm")
-      )
+      ) +
+    ggtitle(this_pop)
 }
 
 gg.3b <- scaled_hg %>% {
@@ -385,6 +375,8 @@ gg.3b <- scaled_hg %>% {
 }
 
 gg.3 <- gridExtra::arrangeGrob(gg.3a, gg.3b, layout_matrix = rbind(c(1, 1), c(1, 1), c(2, 2)))
+  
+}
 
 gg.4 <- stan.p_pred_var %>% 
     group_by(population) %>%
@@ -397,18 +389,7 @@ gg.4 <- stan.p_pred_var %>%
     ylab("Capture outing") 
 }
 
-gg.5 <- ind_p_est %>% mutate(ind = factor(ind, levels = ind)) %>%
-    filter(ind %in% sample(seq(1, n_distinct(ind)), min(250, n_distinct(ind)))) %>% {
-  ggplot(., aes(mid_p, ind)) + 
-    geom_errorbarh(aes(xmin = lwr_p, xmax = upr_p), height = 0.3) + 
-        geom_point() +
-        theme(axis.text.y = element_text(size = 8)) +
-        xlab("") +
-        ylab("Individual") +
-        xlab("Individual detection deviate")
-    }
-
-gg.6 <- ind_bd_est %>% mutate(ind = factor(ind, levels = ind)) %>%
+gg.5 <- ind_bd_est %>% mutate(ind = factor(ind, levels = ind)) %>%
     filter(ind %in% sample(seq(1, n_distinct(ind)), min(250, n_distinct(ind)))) %>% {
   ggplot(., aes(mid_bd, ind)) + 
     geom_errorbarh(aes(xmin = lwr_bd, xmax = upr_bd), height = 0.3) + 
@@ -419,7 +400,7 @@ gg.6 <- ind_bd_est %>% mutate(ind = factor(ind, levels = ind)) %>%
         xlab("Individual bd deviate")
     }
 
-gg.7 <- ind_order %>% {
+gg.6 <- ind_order %>% {
   ggplot(., aes(order_real, order_pred)) +
     geom_point(aes(size = n_swabs)) +
     geom_abline(intercept = 0, slope = 1) +
@@ -431,7 +412,7 @@ n_cap <- capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(ca
   mutate(capture_date = as.factor(capture_date)) %>% mutate(capture_date = as.numeric(capture_date))
 n_cap <- n_cap[-1, ]
 
-gg.8 <- pop_size_est %>% {
+gg.7 <- pop_size_est %>% {
     ggplot(., aes(sdate, mid)) + 
       geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
       geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.2) +
@@ -448,15 +429,16 @@ gg.8 <- pop_size_est %>% {
 }
 
 if (max(pop_size_est$upr, na.rm = T) > (max(n_cap$num_capt) * 100)) {
-  gg.8 <- gg.8 + scale_y_log10()
+  gg.7 <- gg.7 + scale_y_log10()
 }
 
-gglist    <- c("gg.1", "gg.2", "gg.3", "gg.4"
- # , "gg.5"
-  , "gg.6", "gg.7", "gg.8")
-need_grob <- c(F, T, T, F
-#  , F
-  , F, F, F)
+gglist    <- c("gg.1", "gg.2", "gg.3", "gg.4", "gg.5", "gg.6", "gg.7")
+need_grob <- c(F, T, T, F, F, F, F)
+
+if (nparms < 4) {
+  gglist    <- gglist[-3]
+  need_grob <- need_grob[-3]
+}
 
 pdf(paste("plots/", this_pop,".pdf", sep = ""), onefile = TRUE)
 for (i in seq(length(gglist))) {
@@ -467,4 +449,3 @@ for (i in seq(length(gglist))) {
   }
 }
 dev.off()
-

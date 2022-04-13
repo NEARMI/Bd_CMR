@@ -2,7 +2,7 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 12 ---- 
+#### Notes April 13 ---- 
 # (note: moving series of older notes potentially interesting for Methods or Results sections to note_dump.txt)
 
 ## 1) Yeti runs with model-matrix and index-version still going. Will debug when complete
