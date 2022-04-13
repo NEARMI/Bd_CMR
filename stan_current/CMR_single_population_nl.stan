@@ -49,6 +49,7 @@ data {
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
+	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -82,7 +83,6 @@ data {
 
   // covariates (sex)
 	int n_sex;					    // Number of sex entries (M, F, but possibly U)
-	int<lower=0> ind_sex[n_ind];			    // Sex of each individual
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -115,7 +115,7 @@ parameters {
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
 	vector[2] beta_offseason;  			 // survival as a function of bd stress
-	real beta_offseason_sex[n_sex];			 // sex effect on survival
+	vector[n_sex] beta_offseason_sex;		 // sex effect on survival
 
 // -----
 // detection
@@ -192,7 +192,7 @@ transformed parameters {
 	     phi[t] = inv_logit(
 beta_offseason[1] + 
 beta_offseason[2] * X[phi_bd_index[t]] + 
-beta_offseason_sex[ind_sex[ind_occ_min1_rep[t]]]
+ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex
 );
 
 
