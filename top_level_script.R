@@ -5,16 +5,19 @@
 #### Notes April 13 ---- 
 # (note: moving series of older notes potentially interesting for Methods or Results sections to note_dump.txt)
 
-## 1) Yeti runs with model-matrix and index-version still going. Will debug when complete
- ## ** [ ] Priority number one for tomorrow (April 13)
+## 1) Few coding and organization updates:
+ ## A) Plotting script updated for various models that will be fit in individual populations
+ ## B) Spreadsheet updated to list the individual models to fit by individual population
+ ## C) Script for running all populations individually on Yeti complete, but waiting to test because of low
+  ##   priority running the other jobs
+ ## D) In the end, the model-matrix and index-version for the MeHg-Bd interaction model took an identical amount of time to run
+  ##   both fit identically and all indexing checked out
 
-## 2) Jones Pond RALU with the model-matrix style MeHg-Bd interaction model pretty damn slow for a single population
- ##    (just over three hours) and had two divergent transitions.
- ##      -- 
+## 2) Yeti runs with model-matrix and index-version moving glacially slow. May not even finish in the 
+ ##   requested time of three days. Will debug when complete, but may need to resend
 
-## 3) Spent most of the day working on identifying inseason, offseason, and closed population in such a way to 
- ##    incorporate FL
- ##      -- Initial decision made and some figures added to overleaf
+## 3) Given the glacial pace of the multi-population fits on Yeti, at least can check the indexing of both model versions running with
+ ##   basically no individuals in each population
 
 
 #### Next stuff to do on this project ----
@@ -23,19 +26,15 @@
 
 ## 0) [x] [Tuesday] code, model, and repo cleaning
   ##        -- got a reasonable start, some more will be needed when debugging continues
-  ##        -- [ ] A task for later will be to update the plotting script with expand.grid which is a little cleaner
-  ##                (plotting_multipop.R does this)
 ## 1) [x] [Tuesday] Figure out what to do with FL and update the spreadsheet
   ##        -- some solid progress here but need to check in with Evan and Dave to make sure
-## 1) [ ] [Wednesday Hopefully] Work through debugging of the various model attempts
-## 2) [ ] [Wednesday Hopefully] Make some final decisions for model runs
-## 4) [ ] [By Wednesday Night] Send 5 individual model and two big model (sans newts and with newts) fits to Yeti
-## 5) [ ] [Friday] Debug some of the individual fits
-## 6) [ ] [Friday] Build the script to run all populations individually
-## 7) [ ] [Monday] Send the individual model script .sh to Yeti
-## 8) [ ] [Monday] Debug the long fits
-## 9) [ ] [Tuesday +] Start expanding the current non-MeHg individual model for Bd trajectories over time for PA newts
-## 10) [ ] [Tuesday +] Start cleaning Overleaf and creating some fitting figures in prep for sending to PIs
+## 1) [ ] [Later] Work through debugging of the various model attempts
+  ##        -- would have liked to on Wednesday, but the models are still running, and it looks like they may time out
+## 2) [ ] [After debugging (1 above)] Make some final decisions for model runs
+## 3) [ ] [After final decisions on model structure (2 above)] Send individual (with .sh file) and multi-pop jobs
+## 4) [ ] [Eventually] Debug the long fits
+## 5) [ ] [Eventually] Start expanding the current non-MeHg individual model for Bd trajectories over time for PA newts
+## 6) [ ] [Eventually] Start cleaning Overleaf and creating some fitting figures in prep for sending to PIs
 
 
 #### Various other ToDos for later ----

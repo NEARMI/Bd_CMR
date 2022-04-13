@@ -3,7 +3,7 @@
  ## !!!! This will be an important debugging script to show in the final repo so dont delete
 
 ## Mark
-mark_check <- 2
+mark_check <- 201
 
 capt_history %>% 
   filter(Mark == mark_check) %>% 

@@ -2,6 +2,15 @@
 ## Run the stan model for a single population ##
 ################################################
 
+## Some covaraites need small adjustments depending on their dimensions because of R auto-collapsing single
+ ## row entries to non-matrices, which Stan then interprets as not having the correct dimensions. So...
+  ## construct these here
+
+ind_len_sex_mis <- model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ] %>% as.matrix() 
+if (dim(ind_len_sex_mis)[2] == 1) {
+  ind_len_sex_mis <- t(ind_len_sex_mis)
+}
+
 stan_data     <- list(
   
   ## dimensional indexes 
@@ -68,8 +77,7 @@ stan_data     <- list(
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
  , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
- , ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ] %>%
-    as.matrix() %>% t()
+ , ind_len_sex_mis    = ind_len_sex_mis
 
   ## individual mehg data
  , ind_mehg_which_have = hg.have
@@ -80,7 +88,6 @@ stan_data     <- list(
 
   ## ind sex
  , n_sex             = n_sex
-#, ind_sex           = ind.sex$Sex
  , ind_sex           = model.matrix(~sex, data.frame(sex = as.factor(ind.sex$Sex), value = 0))[, ]
   
   ## site-level covariates, categorical 
@@ -106,9 +113,8 @@ stan_data     <- list(
 stan.fit  <- try(
   {
  stan(
-# file    = "stan_current/CMR_single_population.stan"
-# file    = "stan_current/CMR_single_population_gl_mm.stan"
-  file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
+# file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
+  file    = this_model_fit
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -123,10 +129,12 @@ stan.fit  <- try(
 , warmup  = stan.burn
 , thin    = stan.thin
 , control = list(adapt_delta = 0.94, max_treedepth = 13)
-#, include = FALSE
-#, pars    = c(
-#  "chi", "phi", "p", "X", "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
-#, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
+   ## drop a few parameters to reduce the size of the saved ston object
+, include = FALSE
+, pars    = c(
+#  "chi", "phi", "p", "X",
+  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
+, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
   )
   }
 , silent = TRUE
@@ -134,7 +142,5 @@ stan.fit  <- try(
 
 saveRDS(stan.fit, paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 #stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
-
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)
-

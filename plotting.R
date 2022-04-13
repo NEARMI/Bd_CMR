@@ -3,7 +3,7 @@
 ######################################################
 
 # stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
-# stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_adj.Rds")
+# stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_mm.Rds")
 
 print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
