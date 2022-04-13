@@ -127,10 +127,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-# file    = "stan_current/CMR_multiple_populations_gl_mm.stan"
-  file    = "stan_current/CMR_multiple_populations_gl.stan"
-# file    = "stan_current/CMR_multiple_populations.stan"
-# file    = "dev_stan/length_test.stan"
+  file    = "stan_current/CMR_multiple_populations.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
