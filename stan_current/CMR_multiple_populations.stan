@@ -514,7 +514,7 @@ model {
 	beta_offseason_sex  ~ normal(0, 0.65);
 
 	for (i in 1:n_spec) {
-	  beta_inseason[i]  ~ normal(0, 1.45);
+	  beta_inseason[i]  ~ normal(0, 1.75);
 	}
 
   // variances
@@ -525,7 +525,7 @@ model {
 
   // deviates
 	for (i in 1:n_pop) {
-	  inseason_pop_eps[i]      ~ normal(0, 1.45);
+	  inseason_pop_eps[i]      ~ normal(0, 1.75);
 	  offseason_pop_eps[i]     ~ normal(0, 0.85);
 	  offseason_pop_bd_eps[i]  ~ normal(0, 0.85);
 	  offseason_pop_len_eps[i] ~ normal(0, 0.85);

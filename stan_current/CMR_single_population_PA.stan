@@ -52,11 +52,14 @@ data {
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
 	
-  // long vector indices for observation model (p)
+  // long vector indices for observation model (p) and continuous time Bd model
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> p_month[ind_occ];		            // Vector designating shorter periods (here month) for observational model (all occasions)
+	int<lower=0> p_year[ind_occ];			    // Vector designating the year associated with every entry of capt_history_p
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
+
+	vector[ind_occ] temp_dd;			    // Scaled cumulative temperature
 
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
   
@@ -164,6 +167,7 @@ transformed parameters {
 
 	real bd_ind[n_ind];				 // individual random effect deviates
 	real X[ind_per_period_bd];		         // each individual's estimated bd per year
+	real X_max[ind_per_period_bd];			 // estimated max bd experienced by an individual in a given year
 
 
 	// Survival and detection processes
@@ -201,21 +205,20 @@ transformed parameters {
 // bd submodel, contained to estimating within-season bd
 // -----
 
+  // linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 	for (i in 1:n_ind) {
-	    
-		// linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
-
   	  bd_ind[i]  = bd_delta_sigma * bd_delta_eps[i];  
-
 	}
 
-	for (t in 1:ind_per_period_bd) {
-
-		// latent bd model before obs error
-
-	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
-
+  // latent bd model before obs error
+	for (t in 1:ind_occ) {
+	  X[t] = beta_bd_year[p_year[t]] + bd_ind[ind_occ_rep[t]] + beta_bd_len * ind_len_scaled[ind_occ_rep[t]] + ;      
         }
+
+  // maximum estimated bd load experienced by an individual between offseasons
+	for (t in 1:ind_per_period_bd) {
+	  X_max[t] = max();
+	} 
 
 
 // -----

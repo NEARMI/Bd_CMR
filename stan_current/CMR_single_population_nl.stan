@@ -114,7 +114,7 @@ parameters {
 // -----
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
-	vector[2] beta_offseason;  			 // survival as a function of bd stress
+	real beta_offseason;  				 // survival as a function of bd stress
 	vector[n_sex] beta_offseason_sex;		 // sex effect on survival
 
 // -----
@@ -190,9 +190,8 @@ transformed parameters {
 	  } else {			 // off season survival process
 	     
 	     phi[t] = inv_logit(
-beta_offseason[1] + 
-beta_offseason[2] * X[phi_bd_index[t]] + 
-ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex
+ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex +
+beta_offseason * X[phi_bd_index[t]]
 );
 
 
@@ -256,11 +255,9 @@ model {
 // Survival Priors
 
 	beta_bd_year        ~ normal(0, 3);
-	beta_phi            ~ normal(0, 1.45);
-	beta_offseason[1]   ~ normal(0, 1.00);
-	beta_offseason[2]   ~ normal(0, 1.00);
-	beta_offseason[3]   ~ normal(0, 1.00);
-	beta_offseason_sex  ~ normal(0, 1.00);
+	beta_phi            ~ normal(0, 1.95);
+	beta_offseason[1]   ~ normal(0, 1.75);
+	beta_offseason_sex  ~ normal(0, 1.75);
 
 // Detection Priors
 
