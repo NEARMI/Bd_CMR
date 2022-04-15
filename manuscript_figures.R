@@ -295,3 +295,33 @@ samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
     ) 
 }
 
+
+#### Bd over time and temperature ----
+
+capt_history.p %>% filter(swabbed == 1) %>% {
+  ggplot(., aes(cumtemp_s, log_bd_load)) +
+    geom_point(aes(colour = as.factor(Year))) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_wrap(~Site)
+}
+
+capt_history.p %>% filter(swabbed == 1) %>% {
+  ggplot(., aes(yday, log_bd_load)) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_wrap(~Site) +
+    theme(
+      axis.text.x = element_text(size = 10)
+    , axis.text.y = element_text(size = 10)
+      ) +
+    xlab("Julian Day") +
+    ylab("Log Bd Load")
+}
+
+temp_data.all %>% {
+  ggplot(., aes(yday, cumtemp_s)) +
+    geom_line(aes(colour = as.factor(Year))) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_wrap(~Site)
+}
+

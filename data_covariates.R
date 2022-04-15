@@ -161,3 +161,13 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
     drawdown = as.factor(drawdown) %>% as.numeric()
   , veg      = as.factor(veg) %>% as.numeric()
   )
+
+####
+## Finally, continuous temperature instead of binned temp by year
+####
+
+source("data_temp.R")
+
+capt_history.p %<>% left_join(.
+  , temp_data.all %>% rename(capture_date = Date) %>%
+    dplyr::select(Site, yday, capture_date, cumtemp_s)) 

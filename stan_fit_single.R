@@ -35,9 +35,12 @@ stan_data     <- list(
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = capt_history.p$Mark
  , p_month           = as.numeric(as.factor(capt_history.p$Month))
+ , p_year            = as.numeric(as.factor(capt_history.p$Year))
  , p_zeros           = capt_history.p$p_zeros
  , p_bd_index        = capt_history.p$X_stat_index
  , p_day             = capt_history.p$date_fac
+  
+ , temp_dd           = 
 
    ## pop_p placeholder to compare to stan_fit.R
    ## spec_p placeholder to compare to stan_fit.R

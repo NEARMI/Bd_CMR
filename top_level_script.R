@@ -2,25 +2,40 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 13 ---- 
-# (note: moving series of older notes potentially interesting for Methods or Results sections to note_dump.txt)
+#### Notes April 15 ---- 
 
-## 1) Few coding and organization updates:
- ## A) Plotting script updated for various models that will be fit in individual populations
- ## B) Spreadsheet updated to list the individual models to fit by individual population
- ## C) Script for running all populations individually on Yeti complete, but waiting to test because of low
-  ##   priority running the other jobs
- ## D) In the end, the model-matrix and index-version for the MeHg-Bd interaction model took an identical amount of time to run
-  ##   both fit identically and all indexing checked out
+## IMPORTANT: Before continuing too far with modeling, need to:
+ ## A) make a graph of different ways of looking at days, cumulative temperatures, and degree days
+  ## in thermal optima against Bd. 
+   ## -- Upload these to Overleaf to show the huge amount of noise present across space, time, and
+    ## among individuals that seems unexplained by covariates.
+ ## B) Clean up the Overleaf text to refer to these figures and essentially say this noise and sparse
+  ## sampling over days makes it difficult to do better than average Bd in a year...
+ ## C) YET, we really do need to control for when a swab was taken to be able to estimate an individuals
+  ## load experienced in that year, so we have to do SOMETHING to control for time in the season
 
-## 2) Yeti runs with model-matrix and index-version moving glacially slow. May not even finish in the 
- ##   requested time of three days. Will debug when complete, but may need to resend
+## 1) Unfortunately fits timed out after three days... With only 200 individuals per population.
+ ## This is not a good sign. Resent with lower adapt delta and lower tree depth. Hopefully will fit this time
+  ## Very likely I will need to reduce the size of the model, potential candidates include:
+   ## A) some of the categorical variables in between season survival
 
-## 3) Given the glacial pace of the multi-population fits on Yeti, at least can check the indexing of both model versions running with
- ##   basically no individuals in each population
- ##    -- All indications are that both work equivalently -- at the very least both have sensible indexes...
+## 2) With finer-grained temperature data it is potentially conceivable to be able to "control"
+ ## for when each individual was swabbed and trapped to get a better estimate of individual
+  ## bd loads -- this could _maybe_ lead to continuous variation in Bd loads over time
+## A) There are a lot of ifs here, but it could possibly work out.
+## B) Today I pulled together the temperature data and put together the desired Bd model. 
+ ## [ ] The first step is to run this on the PA population and go from there -> but the real
+  ## strength is to use the shared temperature data across populations to help inform bd (i.e, if there
+   ## were far more favorable days in PA than WY, this scaled temperature covariate could help to inform
+    ## the Bd levels seen in WY whenever that population was sampled)
+ ## C) And finally, this finer-grained temp could maybe allow for a temp*bd interaction in survival
+  ## as was found in past research, but I am still somewhat unclear on that
 
-## ^^ For this reason, moving ahead by cleaning the repo such that all non model matrix versions get put into dev
+## ^^ Continuing the above thought, an individual's Bd on Day X in Pop Y now becomes a scaled
+ ## value of degree days until Day X, as well as species and population deviates. 
+  ## ^^ From there, survival becomes either a function of cumulative load throughout the season
+   ## or just max Bd in the season (wouldn't have to scale if max, would have to scale if cumulative)
+
 
 
 #### Next stuff to do on this project ----
@@ -45,6 +60,7 @@
 ## 1) Model modifications / adjustments
  ## A) [ ] Possible effect of "injury" on survival not yet added
  ## B) [ ] Possible use of sex in detection
+ ## C) [ ] Finer grained temperature data
 
 ## 2) Potential larger modifications
  ## A) [x] Florida sampling scheme being fundamentally different to the other populations
@@ -65,11 +81,11 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- TRUE
+some_pops  <- FALSE
 
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
@@ -77,9 +93,9 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- TRUE
+red_ind    <- FALSE
 if (red_ind) {
-num_ind    <- 20
+num_ind    <- 200
 }
 
 ## Create the capture history scaffold from the raw data
@@ -96,8 +112,8 @@ source("data_covariates.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 200
-stan.burn     <- 100
+stan.iter     <- 1000
+stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {
