@@ -22,8 +22,8 @@ parameters {
 	real beta_bd_day;				 // linear term for Bd over time
 	real beta_bd_day_sq;				 // quadratic term for Bd over time
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
-	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
+	real bd_ind[n_ind];				 // individual random effect deviates
 
 }
 
@@ -32,14 +32,8 @@ transformed parameters {
 
 	// bd
 
-	real bd_ind[n_ind];				 // individual random effect deviates
 	real X[ind_occ];		    	         // each individual's estimated bd per year
 	real X_max[ind_per_period_bd];			 // estimated max bd experienced by an individual in a given year
-
-  // linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
-	for (i in 1:n_ind) {
-  	  bd_ind[i]  = bd_delta_sigma * bd_delta_eps[i] + beta_bd;  
-	}
 
   // latent bd model before obs error
 	for (t in 1:ind_occ) {
@@ -57,16 +51,14 @@ model {
 
 // Bd Model Priors
 
+  	bd_ind            ~ normal(beta_bd, bd_delta_sigma);  
+
 	bd_delta_sigma    ~ inv_gamma(8, 15);
 	bd_obs            ~ inv_gamma(10, 4);
 
 	beta_bd		  ~ normal(0, 5);
 	beta_bd_day	  ~ normal(0, 3);
 	beta_bd_day_sq    ~ normal(0, 3);
-
-	for (i in 1:n_ind) {
-	  bd_delta_eps[i] ~ normal(0, 3);
-	}
 
 // observed bd is the linear predictor + some observation noise
 
