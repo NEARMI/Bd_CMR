@@ -405,11 +405,12 @@ transformed parameters {
 
   // linear predictor for offseason survival -- given by a population-level intercept, a bd-effect, and a size effect 
 	     phi[t] = inv_logit(
- spec_phi[t, ] * beta_offseason_int + offseason_pop[pop_phi[t]] + 
+ spec_phi[t, ] * beta_offseason_int + 
+ sex_phi[t, ]  * beta_offseason_sex +
+ offseason_pop[pop_phi[t]] + 
 ((spec_phi[t, ] * beta_offseason_bd) + offseason_pop_bd[pop_phi[t]]) * X[phi_bd_index[t]] + 
 ((spec_phi[t, ] * beta_offseason_len) + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]] +
- (spec_phi[t, ] * beta_offseason_mehg) * mehg_pop_est_scaled[pop_phi[t]] +
- sex_phi[t, ]  * beta_offseason_sex
+ (spec_phi[t, ] * beta_offseason_mehg) * mehg_pop_est_scaled[pop_phi[t]]
 );
 
 	  }

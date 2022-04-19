@@ -2,21 +2,26 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 18 ---- 
+#### Notes April 19 ---- 
 
-## 1) After substantial exploration of Bd across Julian dates and temperatures, it seems pretty clear that any control
- ## for temporal variation in sampling to model Bd over time isn't going to happen. This is ok for the main analysis generally,
-  ## but does raise a few potential issues:
- ## A) If Scotia Barrens (and to a lesser extent SPR) gets collapsed (time), there is a chance for bias in individual predictions.
-  ##   not exactly sure what to do about this...
-   ##   -- The model is already too complicated so wanting to drop covariates and populations anyway...
+## 1) A little work with the PA population sugests[?] that it may be sensible to try and pursue a hurdle model
+ ##     i.e., is an animal infected, if so, what is its bd load?
+  
+ ## A) There is a higher chance that this is needed when modeling Bd over time given that a Normal distribution will split the middle of the 0s and non-0s
+  ##   and have an inflated error variance
 
-## 1) Unfortunately fits timed out after three days... With only 200 individuals per population and no Eastern Newts...
- ## Looks like with 0.92 adapt delta and 13 treedepth will take about 3.5 days to fit.
-  ## Which makes a full model close to impossible with current computational resources. Will need to make some sacrifices
-   ## in terms of model complications (probably in terms of random effects)
+ ## B) I am a little less clear if this will be necessary for the model that estimates only a mean per year, as the individual deviate
+  ## seems to be doing a pretty good job, but it probably would be better...
 
-## 2) Next step (Tuesday April 19 will be to insure that the model with 200 individuals "worked") and then figure out
+ ## C) This does raise a larger point though: that collapsing the Newt populations to fit in with the other populations and
+  ## estimating only a mean will _likely_ lead to some problems / potential bias given the large time span over which individuals were sampled
+   ## And trying to estimate this time period by population is not possible, and using the same time period for all populations is also
+    ## not a good idea. Makes it hard to think how to include all populations at once...
+
+ ## D) Finally, with already a very slow running model, the hope is to simplify the model anyway
+  ##   -- given that the model is taking like 4 days with only 200 individuals per population...
+
+## 2) Next step (today hopefully? will be to insure that the model with 200 individuals "worked") and then figure out
  ## how to simplify the model to make it tractable
 
 ## 3) While that model is running need to progress with the individual variation over time model (PA) by adjusting the indices

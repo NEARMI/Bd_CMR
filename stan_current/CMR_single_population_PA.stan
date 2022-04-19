@@ -58,9 +58,6 @@ data {
 	int<lower=0> p_year[ind_occ];			    // Vector designating the year associated with every entry of capt_history_p
 	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
 	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
-
-	vector[ind_occ] temp_dd;			    // Scaled cumulative temperature
-
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
   
   // long vector indices for survival model (phi)
@@ -80,10 +77,16 @@ data {
  	real X_bd[N_bd];			   	    // The bd values 
 	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
+	int<lower=0> x_bd_index_full[N_bd];
 
 	int<lower=0> bd_first_index[ind_per_period_bd];	    // First entry of latent bd associated with each individual 'by' period
 	int<lower=0> bd_last_index[ind_per_period_bd];	    // Last entry of latent bd associated with each individual 'by' period
 
+	vector[ind_occ] yday;			   	    // Scaled Julian day (for now a placeholder, will want to get to a meaningful measure of temp soon)
+	vector[ind_occ] yday_sq;			    // Square of scaled Julian Day
+	int<lower=0> X_first_index[ind_per_period_bd];	    // First index for each section of Bd values (occasions in a year)
+	int<lower=0> X_gap[ind_per_period_bd];		    // Number of entries in X for each section of Bd values (occasions in a year)
+	
   // covariates (length)
 	int<lower=0> n_ind_len_have;			    // Number of individuals that we have length data	  
 	int<lower=0> n_ind_len_mis;			    // Number of individuals with missing length data
@@ -114,6 +117,8 @@ parameters {
 
 	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
 	real beta_bd_len;				 // individual-specific length effect on bd levels
+	real beta_bd_day;				 // linear term for Bd over time
+	real beta_bd_day_sq;				 // quadratic term for Bd over time
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
 	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
@@ -166,7 +171,7 @@ transformed parameters {
 	// bd
 
 	real bd_ind[n_ind];				 // individual random effect deviates
-	real X[ind_per_period_bd];		         // each individual's estimated bd per year
+	real X[ind_occ];		    	         // each individual's estimated bd per year
 	real X_max[ind_per_period_bd];			 // estimated max bd experienced by an individual in a given year
 
 
@@ -212,12 +217,12 @@ transformed parameters {
 
   // latent bd model before obs error
 	for (t in 1:ind_occ) {
-	  X[t] = beta_bd_year[p_year[t]] + bd_ind[ind_occ_rep[t]] + beta_bd_len * ind_len_scaled[ind_occ_rep[t]] + ;      
+	  X[t] = beta_bd_year[p_year[t]] + bd_ind[ind_occ_rep[t]] + beta_bd_day * yday[t] + beta_bd_day_sq * yday_sq[t] + beta_bd_len * ind_len_scaled[ind_occ_rep[t]];      
         }
 
   // maximum estimated bd load experienced by an individual between offseasons
 	for (t in 1:ind_per_period_bd) {
-	  X_max[t] = max();
+	  X_max[t] = max(segment(X, X_first_index[t], X_gap[t]));
 	} 
 
 
@@ -244,8 +249,8 @@ transformed parameters {
 	     
 	     phi[t] = inv_logit(
 ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex +
-beta_offseason[2] * X[phi_bd_index[t]] + 
-beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]]
+beta_offseason[1] * X_max[phi_bd_index[t]] + 
+beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
 );
 
 	   }
@@ -302,6 +307,8 @@ model {
 	bd_obs            ~ inv_gamma(10, 4);
 
 	beta_bd_len       ~ normal(0, 3);
+	beta_bd_day	  ~ normal(0, 3);
+	beta_bd_day_sq    ~ normal(0, 3);
 
 	for (i in 1:n_ind) {
 	  bd_delta_eps[i] ~ normal(0, 3);
@@ -311,8 +318,8 @@ model {
 
 	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.95);
+	beta_offseason[1]   ~ normal(0, 1.45);
 	beta_offseason[2]   ~ normal(0, 1.45);
-	beta_offseason[3]   ~ normal(0, 1.45);
 	beta_offseason_sex  ~ normal(0, 1.45);
 
 // Detection Priors
@@ -344,7 +351,7 @@ model {
 // observed bd is the linear predictor + some observation noise
 
 	for (t in 1:N_bd) {
-          X_bd[t] ~ normal(X[x_bd_index[t]], bd_obs); 
+          X_bd[t] ~ normal(X[x_bd_index_full[t]], bd_obs); 
 	} 
     
 // -----

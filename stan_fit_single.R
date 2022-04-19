@@ -18,6 +18,7 @@ stan_data     <- list(
  , yday_sq           = capt_history.p$yday_s^2
  , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
  , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
+ , x_bd_index_full   = which(capt_history.p$swabbed == 1)
   
   ## dimensional indexes 
  , n_pop             = n_sites
