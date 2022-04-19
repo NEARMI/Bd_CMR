@@ -241,8 +241,8 @@ transformed parameters {
 	     
 	     phi[t] = inv_logit(
 ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex +
-beta_offseason[2] * X[phi_bd_index[t]] + 
-beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]]
+beta_offseason[1] * X[phi_bd_index[t]] + 
+beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
 );
 
 	   }
@@ -257,19 +257,19 @@ beta_offseason[3] * ind_len_scaled[ind_occ_min1_rep[t]]
 // -----
 
 	for (i in 1:n_days) {
-  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
+  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i] + beta_p;  
 	}
 
 	for (t in 1:ind_occ) {   
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(beta_p + p_day_dev[p_day[t]]);
+           p[t] = inv_logit(p_day_dev[p_day[t]]);
 	 }
 	}
 
 	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(beta_p + p_day_dev[t]);
+	  p_per_day[t] = inv_logit(p_day_dev[t]);
 	}
 	 
 	
@@ -308,8 +308,8 @@ model {
 
 	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.95);
+	beta_offseason[1]   ~ normal(0, 1.45);
 	beta_offseason[2]   ~ normal(0, 1.45);
-	beta_offseason[3]   ~ normal(0, 1.45);
 	beta_offseason_sex  ~ normal(0, 1.45);
 
 // Detection Priors

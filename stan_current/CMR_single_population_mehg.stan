@@ -309,19 +309,19 @@ beta_offseason[4] * X[phi_bd_index[t]] * ind_mehg_scaled[ind_occ_min1_rep[t]]
 // -----
 
 	for (i in 1:n_days) {
-  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
+  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i] + beta_p;  
 	}
 
 	for (t in 1:ind_occ) {   
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(beta_p + p_day_dev[p_day[t]]);
+           p[t] = inv_logit(p_day_dev[p_day[t]]);
 	 }
 	}
 
 	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(beta_p + p_day_dev[t]);
+	  p_per_day[t] = inv_logit(p_day_dev[t]);
 	}
 	 
 	
