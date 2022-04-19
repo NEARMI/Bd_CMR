@@ -13,8 +13,14 @@ if (dim(ind_len_sex_mis)[2] == 1) {
 
 stan_data     <- list(
   
+ ## Stuff for PA model, putting up here for ease of commenting out, will integrate later after the debugging phase
+   yday              = capt_history.p$yday_s
+ , yday_sq           = capt_history.p$yday_s^2
+ , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
+ , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
+  
   ## dimensional indexes 
-   n_pop             = n_sites
+ , n_pop             = n_sites
  , n_pop_year        = nrow(sampled_years)
  , n_ind             = n_ind
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
@@ -40,8 +46,6 @@ stan_data     <- list(
  , p_bd_index        = capt_history.p$X_stat_index
  , p_day             = capt_history.p$date_fac
   
- , temp_dd           = 
-
    ## pop_p placeholder to compare to stan_fit.R
    ## spec_p placeholder to compare to stan_fit.R
   
@@ -117,7 +121,9 @@ stan.fit  <- try(
   {
  stan(
 # file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
-  file    = this_model_fit
+# file    = this_model_fit
+# file    = "stan_current/CMR_single_population_PA.stan
+  file    = "stan_current/CMR_single_population_PA_bd_only.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

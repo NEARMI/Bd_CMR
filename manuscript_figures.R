@@ -2,10 +2,6 @@
 ## A place to store code for all manuscript figures ##
 ######################################################
 
-## April 5:
- ## For now just a place to drop some initial supp stuff while working on some writing
-
-
 #### Supplemental Newt Quadratic Figure ----
 
 Bd_Newts_AllSites   <- read.csv("data/cleaned_cmr_csv/SB_NOVI.csv")
@@ -298,30 +294,187 @@ samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
 
 #### Bd over time and temperature ----
 
+## Broadest view of Bd loads across temperatures
 capt_history.p %>% filter(swabbed == 1) %>% {
-  ggplot(., aes(cumtemp_s, log_bd_load)) +
+  ggplot(., aes(cumtemp, log_bd_load)) +
     geom_point(aes(colour = as.factor(Year))) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
-    facet_wrap(~Site)
-}
-
-capt_history.p %>% filter(swabbed == 1) %>% {
-  ggplot(., aes(yday, log_bd_load)) +
-    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
-    scale_colour_brewer(palette = "Dark2", name = "Year") +
-    facet_wrap(~Site) +
+    facet_wrap(~Site, scales = "free") +
     theme(
       axis.text.x = element_text(size = 10)
     , axis.text.y = element_text(size = 10)
+    ) 
+}
+
+## Broken down by a species and year
+capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Species == "RANA") %>% {
+  ggplot(., aes(cumtemp, log_bd_load)) +
+    geom_point(aes(colour = as.factor(Year))) +
+    geom_line(aes(group = Mark), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(
+        size = 10
+      , angle = 300, hjust = 0)
+    , axis.text.y = element_text(size = 10)
+    ) +
+    facet_grid(Year~Site, scales = "free") +
+    xlab("Cumulative temperature") +
+    ylab("Log Bd Load") +
+  ggtitle("Rana Species")
+  }
+
+## Checking Rana loads vs dates and temps
+RANAgg1 <- capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Species == "NOVI") %>% {
+  ggplot(., aes(yday, log_bd_load)) +
+    geom_point(aes(colour = as.factor(Year))) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.y = element_text(size = 12)
+    , axis.text.x = element_blank()
+    , axis.title.x = element_blank()
+    ) +
+    scale_x_continuous(lim = c(0, 365)) +
+    facet_wrap(~Site, nrow = 1) +
+    xlab("Julian Day") +
+    ylab("Log Bd Load") +
+  ggtitle("Eastern Newt")
+  }
+
+## and temperature of each of these populations 
+RANAgg2 <- temp_data.all %>%
+  filter(Site %in% 
+#  c(
+#    "DilmanMeadows", "FoxCreek", "JonesPond"
+#  , "LostHorse", "SanFrancisquito", "SummitMeadow"
+#  , "ThreeCreeks"
+#  )
+#  c(
+#    "Blackrock-C", "Blackrock-H", "JonesPond"
+#  , "SonomaMountain", "TwoMedicine"
+#  )
+  c(
+    "EmmaCarlin", "MudLake", "ScotiaBarrens"
+  , "SMNWR_W", "SPR"
+  )
+    ) %>% filter(Year != 2017) %>% {
+  ggplot(., aes(yday, tmean)) +
+    geom_line(aes(colour = as.factor(Year)), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(size = 10)
+    , axis.text.y = element_text(size = 10)
+    , strip.text.x = element_blank()
+    ) +
+    facet_wrap(~Site, nrow = 1) +
+    geom_hline(yintercept = 17, linetype = "dashed", colour = "firebrick3") +
+    geom_hline(yintercept = 25, linetype = "dashed", colour = "firebrick3") +
+    xlab("Julian Day") +
+    ylab("Mean Daily Temperature") 
+}
+
+RANAgg3 <- capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Species == "RANA") %>% {
+  ggplot(., aes(yday, cumtemp)) +
+    geom_point(aes(colour = as.factor(Year))) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+    ) +
+    facet_wrap(~Site, nrow = 1, scales = "free") +
+    xlab("Julian Day") +
+    ylab("Log Bd Load") +
+  ggtitle("Rana Species")
+  }
+
+gridExtra::grid.arrange(RANAgg1, RANAgg2, ncol = 1)
+
+
+## All pops over time
+capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Year != 2017) %>% {
+  ggplot(., aes(yday_s, log_bd_load)) +
+    geom_line(aes(group = Mark), alpha = 0.5) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_grid(Year~Site) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
       ) +
     xlab("Julian Day") +
     ylab("Log Bd Load")
 }
 
-temp_data.all %>% {
-  ggplot(., aes(yday, cumtemp_s)) +
-    geom_line(aes(colour = as.factor(Year))) +
+## Focusing just on Scotia Barrens for temp
+SBgg.1 <- capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Year != 2017) %>%
+  filter(Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(cumtemp, log_bd_load)) +
+    geom_line(aes(group = Mark), alpha = 0.5) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
-    facet_wrap(~Site)
+    facet_grid(~Year) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    xlab("Cumulative Temperature") +
+    ylab("Log Bd Load") +
+    ggtitle("Scotia Barrens")
 }
 
+SBgg.2 <- capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Year != 2017) %>%
+  filter(Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(yday, log_bd_load)) +
+    geom_line(aes(group = Mark), alpha = 0.5) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_grid(~Year) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    xlab("Julian Day") +
+    ylab("Log Bd Load") 
+  }
+
+SBgg.3 <- capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Year != 2017) %>%
+  filter(Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(days_in_opt, log_bd_load)) +
+    geom_line(aes(group = Mark), alpha = 0.5) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    facet_grid(~Year) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    xlab("Days within Bd's thermal optima (17-25)") +
+    ylab("Log Bd Load") 
+  }
+
+SBgg.4 <- temp_data.all %>% 
+  filter(
+    Year != 2017
+  , Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(yday, tmean)) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    geom_line() +
+    facet_grid(~Year) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    geom_hline(yintercept = 17, linetype = "dashed", colour = "firebrick3") +
+    geom_hline(yintercept = 25, linetype = "dashed", colour = "firebrick3") +
+    xlab("Julian Day") +
+    ylab("Daily average temperature") 
+}
+
+gridExtra::grid.arrange(SBgg.1, SBgg.2, ncol = 1)

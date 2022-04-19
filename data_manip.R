@@ -83,7 +83,11 @@ capt_history.t %<>% group_by(Mark) %>%
 capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
 
 ## If using less than the full population for debug purposes take those random individuals here
-if (red_ind) {
+if (red_ind_PA_debug) {
+  which_ind      <- (capt_history.t %>% group_by(Mark) %>% filter(swabbed == 1) %>% 
+      summarize(nswabs = n()) %>% arrange(desc(nswabs)) %>% slice(1:num_ind))$Mark
+  capt_history.t %<>% filter(Mark %in% which_ind) %>% droplevels()
+} else if (red_ind & !red_ind_PA_debug) {
   which_ind      <- sample(unique(capt_history.t$Mark), min(length(unique(capt_history.t$Mark)), num_ind))
   capt_history.t %<>% filter(Mark %in% which_ind) %>% droplevels()
 }

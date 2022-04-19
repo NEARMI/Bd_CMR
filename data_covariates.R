@@ -168,6 +168,19 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
 
 source("data_temp.R")
 
+# capt_history.p %<>% dplyr::select(-cumtemp_s, days_in_opt_s)
+
 capt_history.p %<>% left_join(.
   , temp_data.all %>% rename(capture_date = Date) %>%
-    dplyr::select(Site, yday, capture_date, cumtemp_s)) 
+    dplyr::select(Site, yday, capture_date
+      , cumtemp, days_in_opt
+      , cumtemp_s, days_in_opt_s
+      , tmean
+      )) 
+
+## Scale Julian date
+capt_history.p %<>% mutate(
+ yday_s = scale(yday)[, 1] 
+)
+  
+
