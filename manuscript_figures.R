@@ -306,6 +306,25 @@ capt_history.p %>% filter(swabbed == 1) %>% {
     ) 
 }
 
+## Broken down by a species
+capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Species == "RANA") %>% {
+  ggplot(., aes(cumtemp_m_s, log_bd_load)) +
+    geom_jitter(aes(colour = as.factor(Year))) +
+    geom_line(aes(group = Mark), alpha = 0.3) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(
+        size = 10
+      , angle = 300, hjust = 0)
+    , axis.text.y = element_text(size = 10)
+    ) +
+    facet_grid(~Site, scales = "free") +
+    xlab("Cumulative temperature") +
+    ylab("Log Bd Load") +
+  ggtitle("Rana Species")
+  }
+
 ## Broken down by a species and year
 capt_history.p %>% filter(swabbed == 1) %>%
   filter(Species == "RANA") %>% {
@@ -323,6 +342,47 @@ capt_history.p %>% filter(swabbed == 1) %>%
     xlab("Cumulative temperature") +
     ylab("Log Bd Load") +
   ggtitle("Rana Species")
+  }
+
+## and also load vs proportion infected
+capt_history.p %>% filter(swabbed == 1) %>%
+  mutate(infected = ifelse(log_bd_load > 0, 1, 0)) %>%
+  filter(Species == "RANA") %>% {
+  ggplot(., aes(yday, log_bd_load)) +
+    geom_jitter(aes(colour = as.factor(Year))) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(
+        size = 10
+      , angle = 300, hjust = 0)
+    , axis.text.y = element_text(size = 10)
+    ) +
+    facet_grid(Year~Site, scales = "free") +
+    xlab("Julian Day") +
+    ylab("Log Bd Load") +
+  ggtitle("Rana Species")
+  }
+
+## and also proportion infected 
+capt_history.p %>% filter(swabbed == 1) %>%
+  mutate(infected = ifelse(log_bd_load > 0, 1, 0)) %>%
+  group_by(pop_spec, capture_date
+    , Year, Site, Species, yday) %>%
+  summarize(prop_inf = sum(infected) / n()) %>%
+  filter(Species == "RANA") %>% {
+  ggplot(., aes(yday, prop_inf)) +
+    geom_point(aes(colour = as.factor(Year)), size = 3) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(
+        size = 10
+      , angle = 300, hjust = 0)
+    , axis.text.y = element_text(size = 10)
+    ) +
+    facet_grid(Year~Site) +
+    xlab("Julian Day") +
+    ylab("Proportion Infected") +
+  ggtitle("Rana species")
   }
 
 ## Checking Rana loads vs dates and temps
