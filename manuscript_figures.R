@@ -296,7 +296,7 @@ samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
 
 ## Broadest view of Bd loads across temperatures
 capt_history.p %>% filter(swabbed == 1) %>% {
-  ggplot(., aes(cumtemp, log_bd_load)) +
+  ggplot(., aes(cumtemp_m, log_bd_load)) +
     geom_point(aes(colour = as.factor(Year))) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
     facet_wrap(~Site, scales = "free") +
@@ -309,7 +309,7 @@ capt_history.p %>% filter(swabbed == 1) %>% {
 ## Broken down by a species and year
 capt_history.p %>% filter(swabbed == 1) %>%
   filter(Species == "RANA") %>% {
-  ggplot(., aes(cumtemp, log_bd_load)) +
+  ggplot(., aes(cumtemp_u_s, log_bd_load)) +
     geom_point(aes(colour = as.factor(Year))) +
     geom_line(aes(group = Mark), alpha = 0.5) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
@@ -326,10 +326,14 @@ capt_history.p %>% filter(swabbed == 1) %>%
   }
 
 ## Checking Rana loads vs dates and temps
-RANAgg1 <- capt_history.p %>% filter(swabbed == 1) %>%
-  filter(Species == "NOVI") %>% {
-  ggplot(., aes(yday, log_bd_load)) +
-    geom_point(aes(colour = as.factor(Year))) +
+RANAgg1 <- capt_history.p %>% 
+  filter(swabbed == 1) %>%
+ # filter(Species == "RANA") %>% 
+  filter(Site %in% c("SanFrancisquito", "ScotiaBarrens")) %>% {
+  ggplot(., aes(
+      yday
+    , log_bd_load)) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.4) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
     theme(
       axis.text.y = element_text(size = 12)
@@ -339,8 +343,7 @@ RANAgg1 <- capt_history.p %>% filter(swabbed == 1) %>%
     scale_x_continuous(lim = c(0, 365)) +
     facet_wrap(~Site, nrow = 1) +
     xlab("Julian Day") +
-    ylab("Log Bd Load") +
-  ggtitle("Eastern Newt")
+    ylab("Log Bd Load")# + ggtitle("Rana spp.")
   }
 
 ## and temperature of each of these populations 
@@ -355,12 +358,15 @@ RANAgg2 <- temp_data.all %>%
 #    "Blackrock-C", "Blackrock-H", "JonesPond"
 #  , "SonomaMountain", "TwoMedicine"
 #  )
+#  c(
+#    "EmmaCarlin", "MudLake", "ScotiaBarrens"
+#  , "SMNWR_W", "SPR"
+#  )
   c(
-    "EmmaCarlin", "MudLake", "ScotiaBarrens"
-  , "SMNWR_W", "SPR"
+    "SanFrancisquito", "ScotiaBarrens"
   )
     ) %>% filter(Year != 2017) %>% {
-  ggplot(., aes(yday, tmean)) +
+  ggplot(., aes(yday, tmax)) +
     geom_line(aes(colour = as.factor(Year)), alpha = 0.5) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
     theme(
@@ -375,23 +381,7 @@ RANAgg2 <- temp_data.all %>%
     ylab("Mean Daily Temperature") 
 }
 
-RANAgg3 <- capt_history.p %>% filter(swabbed == 1) %>%
-  filter(Species == "RANA") %>% {
-  ggplot(., aes(yday, cumtemp)) +
-    geom_point(aes(colour = as.factor(Year))) +
-    scale_colour_brewer(palette = "Dark2", name = "Year") +
-    theme(
-      axis.text.x = element_text(size = 12)
-    , axis.text.y = element_text(size = 12)
-    ) +
-    facet_wrap(~Site, nrow = 1, scales = "free") +
-    xlab("Julian Day") +
-    ylab("Log Bd Load") +
-  ggtitle("Rana Species")
-  }
-
 gridExtra::grid.arrange(RANAgg1, RANAgg2, ncol = 1)
-
 
 ## All pops over time
 capt_history.p %>% filter(swabbed == 1) %>%
@@ -446,7 +436,7 @@ SBgg.2 <- capt_history.p %>% filter(swabbed == 1) %>%
 SBgg.3 <- capt_history.p %>% filter(swabbed == 1) %>%
   filter(Year != 2017) %>%
   filter(Site == "ScotiaBarrens") %>% {
-  ggplot(., aes(days_in_opt, log_bd_load)) +
+  ggplot(., aes(days_in_opt_m, log_bd_load)) +
     geom_line(aes(group = Mark), alpha = 0.5) +
     geom_point(aes(colour = as.factor(Year)), alpha = 0.5) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
@@ -478,3 +468,42 @@ SBgg.4 <- temp_data.all %>%
 }
 
 gridExtra::grid.arrange(SBgg.1, SBgg.2, ncol = 1)
+
+
+####
+## Some temp exploration
+####
+
+temp_data.all %>% 
+  filter(
+    Year != 2017
+  , Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(yday, tmax)) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    geom_line() +
+    facet_grid(~Year) +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    geom_hline(yintercept = 17, linetype = "dashed", colour = "firebrick3") +
+    geom_hline(yintercept = 25, linetype = "dashed", colour = "firebrick3") +
+    xlab("Julian Day") +
+    ylab("Daily average temperature") 
+}
+
+capt_history.p %>% filter(swabbed == 1) %>%
+  filter(Year != 2017) %>%
+  filter(Site == "ScotiaBarrens") %>% {
+  ggplot(., aes(days_in_opt_u_s, log_bd_load)) +
+    geom_line(aes(group = Mark), alpha = 0.3) +
+    geom_point(aes(colour = as.factor(Year)), alpha = 0.8) +
+    scale_colour_brewer(palette = "Dark2", name = "Year") +
+    theme(
+      axis.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+      ) +
+    xlab("Days within Bd's thermal optima (17-25)") +
+    ylab("Log Bd Load") 
+  }
+

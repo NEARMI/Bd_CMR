@@ -21,28 +21,34 @@
  ## D) Finally, with already a very slow running model, the hope is to simplify the model anyway
   ##   -- given that the model is taking like 4 days with only 200 individuals per population...
 
-## 2) Next step (today hopefully? will be to insure that the model with 200 individuals "worked") and then figure out
+## 2) It is possible that I have some random effect specification problems in a few places:
+ ##    -- Definitely need an intercept for the non-centered parameterization
+ ##    -- [Simulations show that no intercept definitely behaves the worst]
+  ##     -- Which potentially raises some confusion when multiple random intercepts are used
+   ##      -- Which means I may be specifying the random effects a bit wrong in the presence of multiple categorical
+   ##         covariates, which _may_ explain why the multi pop model is so slow at present
+    ##          -- It is possible that I may need to rewrite the random effect specifications to multivariate normal?
+
+## 3) A few needed updates to the multi pop model
+ ## A) Can we do better than yearly average temp? How about average temperature from the start of the year through
+  ##   to when sampling started?
+ ## B) I still want to get Bd and maybe sex into detection
+
+## 4) Next step (today hopefully? will be to insure that the model with 200 individuals "worked") and then figure out
  ## how to simplify the model to make it tractable
 
-## 3) While that model is running need to progress with the individual variation over time model (PA) by adjusting the indices
- ## to model continuous Bd and summarize that Bd into max for estimates of between-season survival.
-  ## -- Initial model finished and compiles. Need to run and debug
+## 5) Initial PA model looking reasonable, but unclear until the full model is fit, which will take a very long time with
+ ## the current structure. Need to come back to this after deciding on some methods to speed up the model generally
 
 #### Next stuff to do on this project ----
 
 # x = partial; X = done for now
 
-## 0) [x] [Tuesday] code, model, and repo cleaning
-  ##        -- got a reasonable start, some more will be needed when debugging continues
-## 1) [x] [Tuesday] Figure out what to do with FL and update the spreadsheet
-  ##        -- some solid progress here but need to check in with Evan and Dave to make sure
-## 1) [ ] [Later] Work through debugging of the various model attempts
-  ##        -- would have liked to on Wednesday, but the models are still running, and it looks like they may time out
-## 2) [ ] [After debugging (1 above)] Make some final decisions for model runs
-## 3) [ ] [After final decisions on model structure (2 above)] Send individual (with .sh file) and multi-pop jobs
-## 4) [ ] [Eventually] Debug the long fits
-## 5) [ ] [Eventually] Start expanding the current non-MeHg individual model for Bd trajectories over time for PA newts
-## 6) [ ] [Eventually] Start cleaning Overleaf and creating some fitting figures in prep for sending to PIs
+## 2) [ ]  Make some final decisions for model runs
+## 3) [ ]  Send individual (with .sh file) and multi-pop jobs
+## 4) [ ]  Debug the long fits
+## 5) [ ]  Start expanding the current non-MeHg individual model for Bd trajectories over time for PA newts
+## 6) [ ]  Start cleaning Overleaf and creating some fitting figures in prep for sending to PIs
 
 
 #### Various other ToDos for later ----
@@ -71,23 +77,23 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- TRUE
+some_pops  <- FALSE
 
 if (some_pops) {
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[12] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind          <- TRUE
-red_ind_PA_debug <- TRUE ## Temp debug switch, will integrate if model works
+red_ind          <- FALSE
+# red_ind_PA_debug <- FALSE ## Temp debug switch, will integrate if model works
 if (red_ind) {
-num_ind    <- 250
+num_ind    <- 200
 }
 
 ## Create the capture history scaffold from the raw data
@@ -104,8 +110,8 @@ source("data_covariates.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 550
-stan.burn     <- 250
+stan.iter     <- 1000
+stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {

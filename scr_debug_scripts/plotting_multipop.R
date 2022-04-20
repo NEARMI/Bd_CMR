@@ -13,7 +13,7 @@ stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>%
   reshape2::melt() %>%
   filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
-  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%') %>% as.data.frame()
 
 stan.fit.summary[grep("inseason_pop", dimnames(stan.fit.summary)[[1]]), ] %>% 
   reshape2::melt() %>%
@@ -54,7 +54,9 @@ pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples
 
 for (j in 1:nrow(pred.est)) {
    pred.est[j, ] <- plogis(
-    stan.fit.samples$offseason_pop[, pred.vals$pop[j]] + stan.fit.samples$beta_offseason_int[, pred.vals$spec[j]] +
+    stan.fit.samples$beta_offseason_int[, pred.vals$spec[j]] +
+    stan.fit.samples$beta_offseason_sex[, 1] +
+    stan.fit.samples$offseason_pop[, pred.vals$pop[j]] + 
     (stan.fit.samples$beta_offseason_bd[, pred.vals$spec[j]] + stan.fit.samples$offseason_pop_bd[, pred.vals$pop[j]]) * pred.vals$bd[j] +
     (stan.fit.samples$beta_offseason_len[, pred.vals$spec[j]] + stan.fit.samples$offseason_pop_len[, pred.vals$pop[j]]) * pred.vals$len[j] +
     stan.fit.samples$beta_offseason_mehg[, pred.vals$spec[j]] * pred.vals$mehg[j]

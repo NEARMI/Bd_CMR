@@ -3,6 +3,7 @@
  ## !!!! This will be an important debugging script to show in the final repo so dont delete
 
 stan.fit <- readRDS(paste("fits/stan_fit_multipop_2022-03-26", "Rds", sep = "."))
+stan.fit <- readRDS(paste("fits/stan_fit_multipop_mm_r_2022-04-19", "Rds", sep = "."))
 
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
@@ -21,7 +22,7 @@ mark_check <- mark_check.all$n_mark[1] +
   mark_check.all$n_mark[3] +
   mark_check.all$n_mark[4] +
   mark_check.all$n_mark[5] +
-  mark_check.all$n_mark[6] + 
+  mark_check.all$n_mark[6] 
 
 mark_check <- sample(sum(mark_check.all$n_mark), 1)
 capt_history.phi %>% 

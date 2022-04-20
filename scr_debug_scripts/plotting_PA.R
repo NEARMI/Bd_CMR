@@ -51,9 +51,6 @@ stan.ind_pred_var %>% filter(Mark < 20) %>% {
     facet_wrap(~Mark)
 }
 
-
-
-
 ## Betas
 beta_est <- stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>% 
   reshape2::melt() %>%

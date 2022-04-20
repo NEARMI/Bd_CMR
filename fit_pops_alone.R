@@ -3,6 +3,7 @@
 #####################################
 
 source("packages_functions.R")
+source("../ggplot_theme.R")
 
 stan.iter     <- 1500
 stan.burn     <- 500
@@ -12,9 +13,10 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 red_ind    <- FALSE
 single_pop <- TRUE
 
-which_model_fit <- read.csv("stan_current/which_model_fit.csv")
+which_model_fit <- read.csv("which_model_fit.csv")
 
-for (this_pop_now in c(1:4, 7:14, 16:19, 21, 6, 5, 20, 15)) {
+# for (this_pop_now in c(1:4, 7:14, 16:19, 21, 6, 5, 20, 15)) {
+for (this_pop_now in 1:nrow(which_model_fit)) {
 
 source("data_load.R")
   

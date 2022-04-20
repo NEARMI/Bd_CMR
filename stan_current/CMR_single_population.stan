@@ -44,6 +44,7 @@ data {
 	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=0> n_days;				    // number of sampling occasions
 	int n_sex;					    // Number of sex entries (M, F, but possibly U)
+	int<lower=0> n_pop_year;			    // Number of years in which sampling occurred
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -109,7 +110,7 @@ parameters {
 // bd submodel
 // ----- 
 
-	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
+	vector[n_pop_year] beta_bd_year;		 // Each year gets a unique Bd intercept
 	real beta_bd_len;				 // individual-specific length effect on bd levels
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 

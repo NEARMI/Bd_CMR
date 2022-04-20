@@ -99,7 +99,7 @@ stan_data     <- list(
  , ind_mehg_pop      = ind.hg.pop[hg.have]
   
 , ind_mehg_spec     = ind.hg.spec[hg.have]
-#, ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]
+#, ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
   
   ## site-level covariates, forced categorical
 #, pop_sub           = site_covar.cat$SUB

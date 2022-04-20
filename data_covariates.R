@@ -15,16 +15,6 @@ ind.len <- capt_history %>%
   ungroup() %>%
   mutate(index = seq(n()))
 
-## A test to see if the length -by- species is working
-#ind.len[ind.len$Species == 2, ]$len <- ind.len[ind.len$Species == 2, ]$len / 2 
-#ind.len[ind.len$Species == 2, ]$len[20] <- NA
-#ind.len[c(1, 50, 150, 200, 250), ]$len <- NA
-
-## *** Temporary placeholder because the stan model breaks if there are no NA values...
-if (all(!is.na(ind.len$len))) {
-ind.len$len[sample(length(ind.len$len), 1)] <- NA
-}
-
 ## Store a bunch of covariates and indexing vectors that will be used in the model step to impute individual lengths
 ind_len_spec_first_index <- (ind.len %>% group_by(Species) %>% summarize(first_index = min(index)))$first_index
 ind_len_spec_size        <- (ind.len %>% group_by(Species) %>% count())$n
@@ -168,14 +158,13 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
 
 source("data_temp.R")
 
-# capt_history.p %<>% dplyr::select(-cumtemp_s, days_in_opt_s)
-
 capt_history.p %<>% left_join(.
   , temp_data.all %>% rename(capture_date = Date) %>%
     dplyr::select(Site, yday, capture_date
-      , cumtemp, days_in_opt
-      , cumtemp_s, days_in_opt_s
-      , tmean
+      , cumtemp_m, days_in_opt_m
+      , cumtemp_m_s, days_in_opt_m_s
+      , cumtemp_u_s, days_in_opt_u_s
+      , tmean, tmax
       )) 
 
 ## Scale Julian date
@@ -183,4 +172,3 @@ capt_history.p %<>% mutate(
  yday_s = scale(yday)[, 1] 
 )
   
-

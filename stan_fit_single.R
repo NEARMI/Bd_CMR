@@ -13,7 +13,7 @@ if (dim(ind_len_sex_mis)[2] == 1) {
 
 stan_data     <- list(
   
- ## Stuff for PA model, putting up here for ease of commenting out, will integrate later after the debugging phase
+ ## Stuff for continuous Bd model, only used in that model. Ignored in other models
    yday              = capt_history.p$yday_s
  , yday_sq           = capt_history.p$yday_s^2
  , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
@@ -83,8 +83,9 @@ stan_data     <- list(
  , ind_len_which_mis  = len.mis %>% as.array()
  , n_ind_len_have     = length(len.have)
  , n_ind_len_mis      = length(len.mis)
- , ind_len_have       = ind.len[len.have]
- , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
+ , ind_len_have       = `if`(length(len.mis) > 0, ind.len[len.have], scale(ind.len)[, 1])
+ , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.have])), value = 0))[-seq(n_sex), ]
+  
  , ind_len_sex_mis    = ind_len_sex_mis
 
   ## individual mehg data
@@ -122,9 +123,7 @@ stan.fit  <- try(
   {
  stan(
 # file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
-# file    = this_model_fit
-# file    = "stan_current/CMR_single_population_PA.stan
-  file    = "stan_current/CMR_single_population_PA_bd_only.stan"
+  file    = this_model_fit
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -140,11 +139,11 @@ stan.fit  <- try(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.94, max_treedepth = 13)
    ## drop a few parameters to reduce the size of the saved ston object
-, include = FALSE
-, pars    = c(
+#, include = FALSE
+#, pars    = c(
 #  "chi", "phi", "p", "X",
-  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
-, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
+#  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
+#, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
   )
   }
 , silent = TRUE

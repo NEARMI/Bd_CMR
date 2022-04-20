@@ -43,6 +43,8 @@ data {
 	int<lower=0> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
 	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=0> n_days;				    // number of sampling occasions
+	int<lower=0> n_pop_year;			    // Number of years in which sampling occurred
+	int n_sex;					    // Number of sex entries (M, F, but possibly U)
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -80,10 +82,6 @@ data {
 	int<lower=0> bd_first_index[ind_per_period_bd];	    // First entry of latent bd associated with each individual 'by' period
 	int<lower=0> bd_last_index[ind_per_period_bd];	    // Last entry of latent bd associated with each individual 'by' period
 
-
-  // covariates (sex)
-	int n_sex;					    // Number of sex entries (M, F, but possibly U)
-
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
@@ -102,7 +100,7 @@ parameters {
 // bd submodel
 // ----- 
 
-	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
+	vector[n_pop_year] beta_bd_year;		 // Each year gets a unique Bd intercept
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
 	real bd_delta_eps[n_ind];                        // the conditions modes of the random effect (each individual's intercept (for now))
@@ -256,7 +254,7 @@ model {
 
 	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.95);
-	beta_offseason[1]   ~ normal(0, 1.75);
+	beta_offseason      ~ normal(0, 1.75);
 	beta_offseason_sex  ~ normal(0, 1.75);
 
 // Detection Priors

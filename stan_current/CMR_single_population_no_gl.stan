@@ -43,6 +43,8 @@ data {
 	int<lower=0> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
 	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=0> n_days;				    // number of sampling occasions
+	int<lower=0> n_pop_year;			    // Number of years in which sampling occurred
+	int n_sex;					    // Number of sex entries (M, F, but possibly U)
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -87,9 +89,6 @@ data {
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
 
-  // covariates (sex)
-	int n_sex;					    // Number of sex entries (M, F, but possibly U)
-
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
@@ -108,7 +107,7 @@ parameters {
 // bd submodel
 // ----- 
 
-	vector[4] beta_bd_year;				 // Each year gets a unique Bd intercept
+	vector[n_pop_year] beta_bd_year;		 // Each year gets a unique Bd intercept
 	real beta_bd_len;				 // individual-specific length effect on bd levels
 	
 	real<lower=0> bd_delta_sigma;			 // change in Bd by individual (normal random effect variance)		 
@@ -122,7 +121,7 @@ parameters {
 
 	real beta_phi;                  		 // single background intercept for survival in the offseason
 	vector[2] beta_offseason;  			 // survival as a function of bd stress
-	real beta_offseason_sex[n_sex];			 // sex effect on survival
+	vector[n_sex] beta_offseason_sex;		 // sex effect on survival
 
 // -----
 // detection
