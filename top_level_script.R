@@ -4,6 +4,12 @@
 
 #### Notes April 20 ---- 
 
+## 0) While running individual models, it will be good to benchmark a few components that are slowing down the model, that is
+ ##   for the same data set (maybe Blackrock-H which runs in like 25 seconds):
+  ##    -- How different is it to use lengths as data vs having some missing lengths and imputing?
+  ##    -- What is the impact of addind another few categorical covaraites?
+  ##    -- Can segment() be used to vectorize calculations to not loop so much?
+
 ## 1) Model compiling for every population on its own. Next step is to clean up the Yeti batch script and send jobs
  ## A) A few covaraites possibly subject to change, inclduing:
   ##    -- Sex in detection
