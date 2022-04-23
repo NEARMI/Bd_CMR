@@ -5,6 +5,7 @@
 # stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 # stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_mm.Rds")
 # stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_scaled.Rds")
+stan.fit <- readRDS("fits/stan_fit_ANBO.Blackrock-C_p3.Rds")
 
 print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
@@ -17,7 +18,9 @@ this_pop  <- capt_history$pop_spec[1] %>% as.character()
 this_loc  <- capt_history$Site[1]     %>% as.character()
 this_spec <- capt_history$Species[1]  %>% as.character()
 
-nparms <- dim(stan.fit.samples$beta_offseason)[2]
+nparms <- dim(stan.fit.samples$beta_offseason)[2] + 1
+p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
+p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
 
 if (nparms == 2) {
   this_params <- c("Int", "Bd")
@@ -82,26 +85,26 @@ pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples
 
 for (j in 1:nrow(pred.est)) {
    pred.est[j, ] <- plogis(
-    stan.fit.samples$beta_offseason[, 1] +
-    stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$bd + {
+    stan.fit.samples$beta_offseason_sex[, 1] + stan.fit.samples$beta_offseason_sex[, 2] + ## Male
+    stan.fit.samples$beta_offseason[, 1] * pred.vals[j, ]$bd + {
       if (nparms > 2) {
-        stan.fit.samples$beta_offseason[, 3] * pred.vals[j, ]$len
+        stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$len
       } else {
         0
       }
     } + {
       if (nparms > 3) {
-        stan.fit.samples$beta_offseason[, 4] * pred.vals[j, ]$mehg
+        stan.fit.samples$beta_offseason[, 3] * pred.vals[j, ]$mehg
       } else {
         0
       }
     } + {
       if (nparms > 4) {
-        stan.fit.samples$beta_offseason[, 5] * pred.vals[j, ]$mehg * pred.vals[j, ]$bd
+        stan.fit.samples$beta_offseason[, 4] * pred.vals[j, ]$mehg * pred.vals[j, ]$bd
       } else {
         0
       }
-    } + stan.fit.samples$beta_offseason_sex[, 1]
+    }
    )
 }
 
@@ -217,7 +220,25 @@ capt_history.slice <- capt_history.temp %>%
   mutate(rough_real_order = seq(n())) %>% 
   arrange(capture_date)
 
-stan.p_pred_baseline <- stan.fit.samples$beta_p %>% reshape2::melt(.)
+if (p_sex & p_bd) {
+  stan.p_pred_baseline <- data.frame(
+  val1  = (stan.fit.samples$beta_p_sex[, 1] + stan.fit.samples$beta_p_sex[, 2])
+, iterations = seq(length(stan.fit.samples$beta_p_sex[, 2]))
+  ) %>% left_join(
+    .
+  , data.frame(
+    val2       = (stan.fit.samples$beta_p_bd * 5)
+  , iterations = seq(length(stan.fit.samples$beta_p_bd))
+    )
+  ) %>% mutate(value = val1 + val2)
+} else if (p_sex & !p_bd) {
+  stan.p_pred_baseline <- data.frame(
+  value      = (stan.fit.samples$beta_p_sex[, 1] + stan.fit.samples$beta_p_sex[, 2])
+, iterations = seq(length(stan.fit.samples$beta_p_sex[, 2]))
+  ) 
+} else {
+  stan.p_pred_baseline <- stan.fit.samples$beta_p %>% reshape2::melt(.)
+}
 
 stan.p_pred_var <- stan.fit.samples$p_day_dev %>%
   reshape2::melt(.) %>% 
@@ -295,7 +316,7 @@ beta_est %<>%
   relocate(param_lev, .after = params) %>%
   mutate(param_lev = as.character(param_lev))
 
-beta_est[beta_est$params == "beta_offseason", ]$param_lev <- this_params
+beta_est[beta_est$params == "beta_offseason", ]$param_lev <- this_params[-1]
 beta_est %<>% mutate(params = plyr::mapvalues(params, from = "beta_phi", to = "beta_inseason"))
 beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")

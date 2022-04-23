@@ -82,7 +82,7 @@ data {
 	int<lower=0> bd_last_index[ind_per_period_bd];	    // Last entry of latent bd associated with each individual 'by' period
 
   // covariates (length)
-	real ind_len_have[n_ind];			    // Individual lengths already scaled (named with "have" for convenience for correspondence with other model)
+	vector[n_ind] ind_len_have;			    // Individual lengths already scaled (named with "have" for convenience for correspondence with other model)
 
   // covariates (MeHg)
 	int<lower=0> n_ind_mehg_have;			    // Number of individuals that we have mehg data	  
@@ -188,10 +188,10 @@ transformed parameters {
 
 	// Individual MeHg
   	
-  	mu_mehg_have   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_have]);  // linear predictor for mehg regression	
+  	mu_mehg_have   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_have[ind_mehg_which_have]);  // linear predictor for mehg regression	
   	rate_mehg_have = rep_vector(inverse_phi_mehg, n_ind_mehg_have) ./ mu_mehg_have;
 
-  	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_mis]);    // linear predictor for mehg regression	
+  	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_have[ind_mehg_which_mis]);    // linear predictor for mehg regression	
   	rate_mehg_mis = rep_vector(inverse_phi_mehg, n_ind_mehg_mis) ./ mu_mehg_mis;
 
 	ind_mehg[ind_mehg_which_have] = ind_mehg_have;	    						    // filling in the complete vector of ind_mehg with the data and imputed values
@@ -264,19 +264,19 @@ beta_offseason[4] * X[phi_bd_index[t]] * ind_mehg_scaled[ind_occ_min1_rep[t]]
 // -----
 
 	for (i in 1:n_days) {
-  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i] + beta_p;  
+  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
 	}
 
 	for (t in 1:ind_occ) {   
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(p_day_dev[p_day[t]]);
+           p[t] = inv_logit(beta_p + p_day_dev[p_day[t]]);
 	 }
 	}
 
 	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(p_day_dev[t]);
+	  p_per_day[t] = inv_logit(beta_p + p_day_dev[t]);
 	}
 	 
 	
