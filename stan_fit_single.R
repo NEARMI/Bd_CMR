@@ -11,6 +11,39 @@ if (dim(ind_len_sex_mis)[2] == 1) {
   ind_len_sex_mis <- t(ind_len_sex_mis)
 }
 
+## some temp stuff for trying to speed up code:
+
+lik_n             <- which(capture_range$first != capture_range$final) %>% length()
+which_lik         <- which(capture_range$first != capture_range$final)
+ind_lik_gaps      <- numeric(0)
+ind_lik_which_phi <- numeric(0)
+ind_lik_gaps_p    <- numeric(0)
+ind_lik_which_p   <- numeric(0)
+
+for (i in 1:lik_n) {
+  
+  zz <- which_lik[i]
+  
+  these_phis        <- (phi_first_index[zz] + (capture_range$first[zz] + 1):capture_range$final[zz] - 2)
+  ind_lik_gaps      <- c(ind_lik_gaps, length(these_phis))
+  ind_lik_which_phi <- c(ind_lik_which_phi, min(these_phis))
+  
+  these_ps          <- (p_first_index[zz] - 1 + ((capture_range$first[zz] + 1):capture_range$final[zz]))
+  ind_lik_gaps_p    <- c(ind_lik_gaps_p, length(these_ps))
+  ind_lik_which_p   <- c(ind_lik_which_p, min(these_ps))
+
+}
+
+ind_lik_which_chi <- numeric(0)
+
+for (i in 1:n_ind) {
+  
+  these_chis        <- p_first_index[i] - 1 + capture_range$final[i]
+  ind_lik_which_chi <- c(ind_lik_which_chi, these_chis)
+}
+
+
+
 stan_data     <- list(
   
  ## Stuff for continuous Bd model, only used in that model. Ignored in other models
@@ -19,6 +52,39 @@ stan_data     <- list(
  , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
  , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
  , x_bd_index_full   = which(capt_history.p$swabbed == 1)
+  
+  ## tests for speed up ###########
+ , phi_zero_len      = which(capt_history.phi$phi_zeros == 1) %>% length()
+ , phi_one_len       = which(capt_history.phi$phi_ones == 1 & capt_history.phi$phi_zeros == 0) %>% length() 
+ , phi_in_len        = which(capt_history.phi$offseason == 0 & capt_history.phi$phi_ones == 0 & capt_history.phi$phi_zeros == 0) %>% length() 
+ , phi_off_len       = which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)  %>% length()
+ , phi_zero_index    = which(capt_history.phi$phi_zeros == 1) 
+ , phi_one_index     = which(capt_history.phi$phi_ones == 1 & capt_history.phi$phi_zeros == 0) 
+ , phi_in_index      = which(capt_history.phi$offseason == 0 & capt_history.phi$phi_ones == 0 & capt_history.phi$phi_zeros == 0)
+ , phi_off_index     = which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)  
+  
+ , p_zero_len        = which(capt_history.p$p_zeros == 0) %>% length()
+ , p_est_len         = which(capt_history.p$p_zeros != 0) %>% length()
+ , p_zero_index      = which(capt_history.p$p_zeros == 0)
+ , p_est_index       = which(capt_history.p$p_zeros != 0) 
+  
+ , lik_n             = which(capture_range$first != capture_range$final) %>% length()
+ , which_lik         = which(capture_range$first != capture_range$final)
+  
+ , ind_lik_gaps       = ind_lik_gaps
+ , ind_lik_which_phi  = ind_lik_which_phi
+  
+ , ind_lik_gaps_p     = ind_lik_gaps_p
+ , ind_lik_which_p    = ind_lik_which_p
+  
+ , ind_lik_which_chi  = ind_lik_which_chi
+  
+  ##########
+  
+ , X_first_index = (capt_history.phi %>% group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% group_by(Mark) %>%
+    mutate(index = seq(n())) %>% ungroup() %>% summarize(X_first_index = which(index == min(index))))$X_first_index
+ , X_gap         = (capt_history.phi %>% group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% group_by(Mark) %>%
+    summarize(len_bd = n()))$len_bd
   
   ## dimensional indexes 
  , n_pop             = n_sites
@@ -123,7 +189,8 @@ stan.fit  <- try(
   {
  stan(
 # file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
-  file    = this_model_fit
+# file    = this_model_fit
+  file    = "stan_current/CMR_single_population_nl_speedup2.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -153,3 +220,4 @@ saveRDS(stan.fit, paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds",
 #stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 #stan.fit.summary <- summary(stan.fit)[[1]]
 #stan.fit.samples <- extract(stan.fit)
+
