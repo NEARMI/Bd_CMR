@@ -5,8 +5,9 @@
 #### Notes April 25 ---- 
 
 ## 1) Day of working on speeding up code.
- ## -- Very successful in getting the model without lengths sped up with vectors. Now need to make changes to the rest of the models
- ## -- 
+ ## -- Very successful in getting the model without lengths sped up with vectors. 
+ ## -- Single population model done, but many remain unchecked
+ ## -- Multiple population model compiling, but not yet run, hard to debug because of how long it takes. Will attempt overnight
 
 
 ## 2) Moving forward to fill all models: I think the most viable strategy is going to be to fit a few different models that accommodate different populations.
@@ -35,17 +36,18 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
+which.dataset  <- unique(data.all$pop_spec)[c(1, 2, 4, 5, 8, 9, 15, 16)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- FALSE
+red_ind    <- TRUE
 # red_ind_PA_debug <- FALSE ## Temp debug switch, will integrate if model works
 if (red_ind) {
 num_ind    <- 200

@@ -9,7 +9,7 @@ functions {
  // is the probability of never recapturing an individual again after capturing them at time t
   // rewritten to run for an individual at a time given variable numbers of capture opportunities by individual (e.g. in different populations)
 	
-	real[] prob_uncaptured(int n_occ, vector p_sub, vector phi_sub) {
+	real[] prob_uncaptured(int n_occ, real[] p_sub, real[] phi_sub) {
 
 	real chi_sub[n_occ];          // chi for each capture date and individual 
 
@@ -54,8 +54,8 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	int<lower=1> ind_in_pop[n_ind];		   	    // Which population each individual belongs to
-	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual
+	int<lower=1> ind_sex[n_ind];			    // The sex of each individual
+	int<lower=1> ind_spec[n_ind];			    // The species of each individual
 
   // short vector indexes (length of n_pop)
 	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec
@@ -126,8 +126,8 @@ data {
 	real<lower=0, upper=1> pop_drawdown[n_pop];	    // population specific covariate for proportion drawdown    
   	
   // site-by-day covariates, converted continuous from cat
-	vector<lower=0, upper=1>[n_days] p_drawdown;   	    // average value of drawdown among all of the sampled SubSites on a given day (for daily detection) 
-  	vector<lower=0, upper=1>[n_days] p_veg;        	    // average value of vegetation among all of the sampled SubSites on a given day (for daily detection)
+	real<lower=0, upper=1> p_drawdown[n_days];   	    // average value of drawdown among all of the sampled SubSites on a given day (for daily detection) 
+  	real<lower=0, upper=1> p_veg[n_days];        	    // average value of vegetation among all of the sampled SubSites on a given day (for daily detection)
 
   // site-level covariates, taken continuous
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
@@ -138,28 +138,6 @@ data {
   	int<lower=1> first[n_ind];         		    // Capture event in which each individual was first captured
   	int<lower=1> last[n_ind];         		    // Capture event in which each individual was last captured
 	vector<lower=0>[n_days] n_capt_per_day;	   	    // Number of captures on each day 
-
-  // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
-  // set up in R to avoid looping over the full length of phi and p here. See R code for details
-	int<lower=1> n_phi_zero;  
-	int<lower=1> n_phi_one;      
-	int<lower=1> n_phi_in;      
-	int<lower=1> n_phi_off;    
-	int<lower=1> phi_zero_index[n_phi_zero];  
-	int<lower=1> phi_one_index[n_phi_one];
-	int<lower=1> phi_in_index[n_phi_in];
-	int<lower=1> phi_off_index[n_phi_off]; 
-
-	int<lower=1> n_p_zero;
-	int<lower=1> n_p_est;
-	int<lower=1> p_zero_index[n_p_zero];
-	int<lower=1> p_est_index[n_p_est];
-
-	int<lower=1> n_phi_ll;
-	int<lower=1> n_p_ll;
-	int<lower=1> which_phi_ll[n_phi_ll];
-	int<lower=1> which_p_ll[n_p_ll];
-	int<lower=1> which_chi_ll[n_ind];
 
 }
 
@@ -198,16 +176,15 @@ parameters {
 	vector[n_spec] beta_offseason_mehg;		 // MeHg effect on between season survival
 	vector[n_sex] beta_offseason_sex;		 // Sex effect on survival 
 
-
   // random: variance
 	real<lower=0> offseason_pop_sigma;		 // variation in offseason survival by population (intercept)
 	real<lower=0> offseason_pop_bd_sigma;		 // variation in offseason survival by population (slope over bd)
 	real<lower=0> offseason_pop_len_sigma;		 // variation in offseason survival by population (slope over animal length)
 
   // random: deviates
-	vector[n_pop] offseason_pop_eps;		 // pop intercept
-	vector[n_pop] offseason_pop_bd_eps;		 // pop bd effect
-	vector[n_pop] offseason_pop_len_eps;		 // pop len effect
+	real offseason_pop_eps[n_pop];			 // pop intercept
+	real offseason_pop_bd_eps[n_pop];		 // pop bd effect
+	real offseason_pop_len_eps[n_pop];		 // pop len effect
 
 
 // -----
@@ -230,7 +207,7 @@ parameters {
 
   // fixed
 	vector[n_spec] beta_p_spec;			 // species-level average detection
-	vector[n_sex] beta_p_sex;			 // sex specific detection
+	vector[n_spec] beta_p_len;			 // species-level length detection effect
 	real beta_p_drawdown;				 // daily detection probably as a function of drawdown amount
 	real beta_p_veg;			         // daily detection probably as a function of vegetation amount
 
@@ -240,7 +217,7 @@ parameters {
 
   // random: deviates
 	real p_day_delta_eps[n_days];			 // day to day variation
-	vector[n_pop] p_pop_eps;			 // pop differences 
+	real p_pop_eps[n_pop];				 // pop differences 
 
 
 // -----
@@ -296,25 +273,25 @@ transformed parameters {
 
   // bd
 	real bd_ind[n_ind];				 // individual random effect deviates
-	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
+	real X[ind_per_period_bd];		         // each individual's estimated bd per year 
 	
   // population:year random effect deviates
 	real bd_pop_year[n_pop_year];			 // pop-by-year variation in Bd level
 
   // Survival
-	vector[n_pop] inseason_pop;			 // population specific survival within season (intercept)
-	vector[n_pop] offseason_pop;			 // population specific survival between seasons (intercept)
-	vector[n_pop] offseason_pop_bd;			 // population specific survival between seasons (slope over bd)
-	vector[n_pop] offseason_pop_len;			 // population specific survival between seasons (slope over animal length)
+	real inseason_pop[n_pop];			 // population specific survival within season (intercept)
+	real offseason_pop[n_pop];			 // population specific survival between seasons (intercept)
+	real offseason_pop_bd[n_pop];			 // population specific survival between seasons (slope over bd)
+	real offseason_pop_len[n_pop];			 // population specific survival between seasons (slope over animal length)
 
   // Detection 
-	vector[n_pop] p_pop;   				 // population-level detection deviates
-	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
+	real p_pop[n_pop];   				 // population-level detection deviates
+	real p_day_dev[n_days];				 // day (nested in population) level detection deviates
 	vector<lower=0,upper=1>[n_days] p_per_day;	 // detection per day at the level of the population
 
   // Long-form containers for estimates from t to t+1
-	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
-	vector<lower=0,upper=1>[ind_occ] p;              // detection at time t
+	real<lower=0,upper=1> phi[ind_occ_min1];         // survival from t to t+1 for each individual (in long-form)
+	real<lower=0,upper=1> p[ind_occ];                // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];              // Chi estimator -- probability an individual will never be seen again if they are alive at time t
 
 
@@ -328,7 +305,7 @@ transformed parameters {
 
   // linear predictor for len regression for imputing unknown lengths
   	mu_len_mis    = exp(ind_len_spec_mis * beta_len_spec + ind_len_sex_mis * beta_len_sex);     
-  	rate_len_mis  = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
+  	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
 
   // filling in the complete vector of ind_mehg with the data and missing values
 	ind_len[ind_len_which_have] = ind_len_have;
@@ -404,20 +381,40 @@ transformed parameters {
 	 offseason_pop_len[pp]  = offseason_pop_len_sigma  * offseason_pop_len_eps[pp];
 	} 
 
+	for (t in 1:ind_occ_min1) {
 
-	phi[phi_zero_index] = rep_vector(0, n_phi_zero);
-	phi[phi_one_index]  = rep_vector(1, n_phi_one);
+	 if (phi_zeros[t] == 1) {			// phi_zeros is 1 before an individual is caught for the first time
+           phi[t] = 0;					// must be non-na values in stan, but the likelihood is only informed from first capture onward
+	 } else {
 
-	phi[phi_in_index]   = inv_logit(ind_spec[ind_occ_min1_rep[phi_in_index], ] * beta_inseason + inseason_pop[pop_phi[phi_in_index]]);
+	  if (offseason[t] == 0) {			// in season survival process
 
-	phi[phi_off_index]  = inv_logit(
-ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_int +
-ind_sex[ind_occ_min1_rep[phi_off_index], ]  * beta_offseason_sex +
-offseason_pop[pop_phi[phi_off_index]]                            +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_bd + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_len + offseason_pop_len[pop_phi[phi_off_index]]) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]] 
+	   if (phi_ones[t] == 1) { 
+	     phi[t] = 1;				// closed population assumption where survival is set to 1
+           } else {
+
+  // within-season survival given by a simple population-level intercept; could potentially consider increasing the complexity of this component eventually 
+             phi[t] = inv_logit(spec_phi[t, ] * beta_inseason + inseason_pop[pop_phi[t]]);
+
+	   }
+
+	  } else {
+
+  // linear predictor for offseason survival -- given by a population-level intercept, a bd-effect, and a size effect 
+	     phi[t] = inv_logit(
+ spec_phi[t, ] * beta_offseason_int + 
+ sex_phi[t, ]  * beta_offseason_sex +
+ offseason_pop[pop_phi[t]] + 
+((spec_phi[t, ] * beta_offseason_bd) + offseason_pop_bd[pop_phi[t]]) * X[phi_bd_index[t]] + 
+((spec_phi[t, ] * beta_offseason_len) + offseason_pop_len[pop_phi[t]]) * ind_len_scaled[ind_occ_min1_rep[t]] +
+ (spec_phi[t, ] * beta_offseason_mehg) * mehg_pop_est_scaled[pop_phi[t]]
 );
+
+	  }
+
+	 }  
+
+	}
 
 
 // -----
@@ -434,16 +431,26 @@ offseason_pop[pop_phi[phi_off_index]]                            +
   	  p_day_dev[i]  = p_day_delta_sigma[day_which_pop[i]] * p_day_delta_eps[i];  
 	}
 
-	p[p_zero_index] = rep_vector(0, n_p_zero);
+	for (t in 1:ind_occ) {
 
-	p[p_est_index]  = inv_logit(
-ind_spec[ind_occ_rep[p_est_index], ] * beta_p_spec +
-ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex +
-p_pop[pop_p[p_est_index]] + 
-p_day_dev[p_day[p_est_index]] + 
-beta_p_drawdown * p_drawdown[p_day[p_est_index]] + 
-beta_p_veg * p_veg[p_day[p_est_index]]
+  // just a placeholder because stan can't have NA -- these are periods before an animal was captured that doesn't impact the likelihood
+	 if (p_zeros[t] == 0) {       
+	   p[t] = 0;
+	 } else {
+
+  // linear predictor for detection -- given by pop and day level deviates, drawdown, veg, and a length effect broken up by species
+           p[t] = inv_logit(
+spec_p[t, ] * beta_p_spec              +
+p_pop[pop_p[t]]                        + 
+p_day_dev[p_day[t]]                    + 
+beta_p_drawdown * p_drawdown[p_day[t]] + 
+beta_p_veg * p_veg[p_day[t]]           + 
+(spec_p[t, ] * beta_p_len) * ind_len_scaled[ind_occ_rep[t]]
 );
+
+	 }
+
+	}
 
   // calculating a daily estimate of detection to obtain a population size estimate
 	for (t in 1:n_days) {
@@ -474,18 +481,27 @@ model {
   // Bd Model Priors
 
   // fixed
-	beta_bd_spec  ~ normal(0, 3);
-	beta_bd_temp  ~ normal(0, 3);
-	beta_bd_len   ~ normal(0, 3);
+	beta_bd_spec   ~ normal(0, 3);
+	beta_bd_temp   ~ normal(0, 3);
+	beta_bd_len    ~ normal(0, 3);
 
   // variances 
-	bd_pop_sigma  ~ inv_gamma(8, 15);
-	bd_ind_sigma  ~ inv_gamma(8, 15);
-	bd_obs        ~ inv_gamma(10, 4);
+	bd_pop_sigma      ~ inv_gamma(8, 15);
+	for (i in 1:n_pop) {
+	  bd_ind_sigma[i] ~ inv_gamma(8, 15);			// Each population has its own amount of individual variation in bd
+	}
+
+	bd_obs            ~ inv_gamma(10, 4);
 
   // deviates
-	bd_pop_eps ~ normal(0, 3);
-	bd_ind_eps ~ normal(0, 3);
+	for (i in 1:n_pop_year) {
+	  bd_pop_eps[i]   ~ normal(0, 3);
+	}
+
+	for (i in 1:n_ind) {
+	  bd_ind_eps[i] ~ normal(0, 3);
+	}
+
 
   // Survival Priors
 
@@ -495,8 +511,10 @@ model {
 	beta_offseason_len  ~ normal(0, 0.65);
 	beta_offseason_mehg ~ normal(0, 0.65);
 	beta_offseason_sex  ~ normal(0, 0.65);
-	beta_inseason       ~ normal(0, 1.75);
 
+	for (i in 1:n_spec) {
+	  beta_inseason[i]  ~ normal(0, 1.75);
+	}
 
   // variances
 	offseason_pop_sigma     ~ inv_gamma(8, 15);
@@ -505,24 +523,33 @@ model {
 	inseason_pop_sigma      ~ inv_gamma(8, 15);
 
   // deviates
-	inseason_pop_eps      ~ normal(0, 1.75);
-	offseason_pop_eps     ~ normal(0, 0.85);
-	offseason_pop_bd_eps  ~ normal(0, 0.85);
-	offseason_pop_len_eps ~ normal(0, 0.85);
+	for (i in 1:n_pop) {
+	  inseason_pop_eps[i]      ~ normal(0, 1.75);
+	  offseason_pop_eps[i]     ~ normal(0, 0.85);
+	  offseason_pop_bd_eps[i]  ~ normal(0, 0.85);
+	  offseason_pop_len_eps[i] ~ normal(0, 0.85);
+	}
+
 
   // Detection Priors
 
   // fixed
 	beta_p_spec     ~ normal(0, 0.65);
-	beta_p_sex      ~ normal(0, 0.65);
+	beta_p_len      ~ normal(0, 0.65);
 	beta_p_drawdown ~ normal(0, 0.65);
 	beta_p_veg      ~ normal(0, 0.65);
 
   // variances and deviates
-	p_pop_sigma       ~ inv_gamma(8, 15);
-	p_day_delta_sigma ~ inv_gamma(8, 15);
-	p_pop_eps         ~ normal(0, 1.15);
-	p_day_delta_eps   ~ normal(0, 0.65);
+	p_pop_sigma    ~ inv_gamma(8, 15);
+
+	for (i in 1:n_pop) {
+	  p_day_delta_sigma[i] ~ inv_gamma(8, 15);
+	  p_pop_eps[i]         ~ normal(0, 1.15);
+	}
+
+	for (i in 1:n_days) {
+	  p_day_delta_eps[i]   ~ normal(0, 0.65);
+	}
 
 
   // Imputed Covariates Priors: length
@@ -543,7 +570,9 @@ model {
 	mehg_pop_sigma    ~ inv_gamma(8, 15);
 
  // deviates
-	mehg_pop_eps ~ normal(0, 1);
+	for (i in 1:n_pop) {
+	  mehg_pop_eps[i] ~ normal(0, 1);		// Narrow to constrain populations with no measures at all
+	}
 
 
 // -----
@@ -565,16 +594,31 @@ model {
 // Bd Process and Data Model
 // -----
 
-	X_bd ~ normal(X[x_bd_index], bd_obs);
+  // observed bd is the linear predictor + some observation noise
+	for (t in 1:N_bd) {
+          X_bd[t] ~ normal(X[x_bd_index[t]], bd_obs); 
+	} 
     
 
 // -----
 // Capture model
 // -----
 
-	1 ~ bernoulli(phi[which_phi_ll]);
-	y[which_p_ll] ~ bernoulli(p[which_p_ll]);
-	1 ~ bernoulli(chi[which_chi_ll]);
+	 for (i in 1:n_ind) {
+
+  // for animals only captured once there are no periods where we know survival is one, so skip these calculations for these individuals
+	  if (first[i] != last[i]) {
+
+	   for (t in (first[i] + 1):last[i]) {			
+	    1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    		   // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
+	    y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);  // Capture given detection
+	   }
+
+          }
+
+	    1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
+
+	 }
 
 }
 

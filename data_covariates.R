@@ -180,4 +180,3 @@ capt_history.p %<>% left_join(.
 capt_history.p %<>% mutate(
  yday_s = scale(yday)[, 1] 
 )
-  
