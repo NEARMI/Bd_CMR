@@ -142,7 +142,7 @@ parameters {
 // detection
 // -----
 	
-	real beta_p;
+	vector[n_sex] beta_p_sex;
 	
 	real<lower=0> p_day_delta_sigma;
 	real p_day_delta_eps[n_days];
@@ -195,12 +195,12 @@ transformed parameters {
 // -----	
 
 	for (t in 1:n_days) {
-  	  p_day_dev[t]  = p_day_delta_sigma * p_day_delta_eps[t] + beta_p;  
+  	  p_day_dev[t]  = p_day_delta_sigma * p_day_delta_eps[t];  
 	  p_per_day[t] = inv_logit(p_day_dev[t]);
 	}
 
 	p[p_zero_index] = rep_vector(0, n_p_zero);
-	p[p_est_index]  = inv_logit(p_day_dev[p_day[p_est_index]]);
+	p[p_est_index]  = inv_logit(ind_sex[p_est_index, ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
 	 
 	
 // -----
@@ -238,9 +238,9 @@ model {
 
 // Detection Priors
 
-	beta_p            ~ normal(0, 1.15);
+	beta_p_sex        ~ normal(0, 1.45);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
-	p_day_delta_eps   ~ normal(0, 1.15);
+	p_day_delta_eps   ~ normal(0, 1.45);
 
 
 // -----

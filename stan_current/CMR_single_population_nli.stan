@@ -123,7 +123,7 @@ parameters {
 // detection
 // -----
 	
-	real beta_p;					 // detection intercept
+	vector[n_sex] beta_p_sex;
 	
 	real<lower=0> p_day_delta_sigma;		 // variation in detection probability by day
 	real p_day_delta_eps[n_days];			 // day detection deviates
@@ -217,7 +217,7 @@ beta_offseason[2] * ind_len_have[ind_occ_min1_rep[t]]
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(p_day_dev[p_day[t]]);
+           p[t] = inv_logit(ind_sex[ind_occ_rep[t], ] * beta_p_sex + p_day_dev[p_day[t]]);
 	 }
 	}
 
@@ -267,11 +267,11 @@ model {
 
 // Detection Priors
 
-	beta_p            ~ normal(0, 1.15);
+	beta_p_sex        ~ normal(0, 1.45);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
 
 	for (i in 1:n_days) {
-	  p_day_delta_eps[i] ~ normal(0, 1.15);
+	  p_day_delta_eps[i] ~ normal(0, 1.45);
 	}
 
 

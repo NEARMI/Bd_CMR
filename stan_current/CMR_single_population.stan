@@ -265,10 +265,7 @@ beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
 	 if (p_zeros[t] == 0) {
 	   p[t] = 0;
 	 } else {       
-           p[t] = inv_logit(
- ind_sex[ind_occ_rep[t], ] * beta_p_sex +
- p_day_dev[p_day[t]]
-);
+           p[t] = inv_logit(ind_sex[ind_occ_rep[t], ] * beta_p_sex + p_day_dev[p_day[t]]);
 	 }
 	}
 
