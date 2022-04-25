@@ -2,92 +2,10 @@
 ## Run the stan model for a single population ##
 ################################################
 
-## Some covaraites need small adjustments depending on their dimensions because of R auto-collapsing single
- ## row entries to non-matrices, which Stan then interprets as not having the correct dimensions. So...
-  ## construct these here
-
-ind_len_sex_mis <- model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ] %>% as.matrix() 
-if (dim(ind_len_sex_mis)[2] == 1) {
-  ind_len_sex_mis <- t(ind_len_sex_mis)
-}
-
-## some temp stuff for trying to speed up code:
-
-lik_n             <- which(capture_range$first != capture_range$final) %>% length()
-which_lik         <- which(capture_range$first != capture_range$final)
-ind_lik_gaps      <- numeric(0)
-ind_lik_which_phi <- numeric(0)
-ind_lik_gaps_p    <- numeric(0)
-ind_lik_which_p   <- numeric(0)
-
-for (i in 1:lik_n) {
-  
-  zz <- which_lik[i]
-  
-  these_phis        <- (phi_first_index[zz] + (capture_range$first[zz] + 1):capture_range$final[zz] - 2)
-  ind_lik_gaps      <- c(ind_lik_gaps, length(these_phis))
-  ind_lik_which_phi <- c(ind_lik_which_phi, min(these_phis))
-  
-  these_ps          <- (p_first_index[zz] - 1 + ((capture_range$first[zz] + 1):capture_range$final[zz]))
-  ind_lik_gaps_p    <- c(ind_lik_gaps_p, length(these_ps))
-  ind_lik_which_p   <- c(ind_lik_which_p, min(these_ps))
-
-}
-
-ind_lik_which_chi <- numeric(0)
-
-for (i in 1:n_ind) {
-  
-  these_chis        <- p_first_index[i] - 1 + capture_range$final[i]
-  ind_lik_which_chi <- c(ind_lik_which_chi, these_chis)
-}
-
-
-
 stan_data     <- list(
   
- ## Stuff for continuous Bd model, only used in that model. Ignored in other models
-   yday              = capt_history.p$yday_s
- , yday_sq           = capt_history.p$yday_s^2
- , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
- , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
- , x_bd_index_full   = which(capt_history.p$swabbed == 1)
-  
-  ## tests for speed up ###########
- , phi_zero_len      = which(capt_history.phi$phi_zeros == 1) %>% length()
- , phi_one_len       = which(capt_history.phi$phi_ones == 1 & capt_history.phi$phi_zeros == 0) %>% length() 
- , phi_in_len        = which(capt_history.phi$offseason == 0 & capt_history.phi$phi_ones == 0 & capt_history.phi$phi_zeros == 0) %>% length() 
- , phi_off_len       = which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)  %>% length()
- , phi_zero_index    = which(capt_history.phi$phi_zeros == 1) 
- , phi_one_index     = which(capt_history.phi$phi_ones == 1 & capt_history.phi$phi_zeros == 0) 
- , phi_in_index      = which(capt_history.phi$offseason == 0 & capt_history.phi$phi_ones == 0 & capt_history.phi$phi_zeros == 0)
- , phi_off_index     = which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)  
-  
- , p_zero_len        = which(capt_history.p$p_zeros == 0) %>% length()
- , p_est_len         = which(capt_history.p$p_zeros != 0) %>% length()
- , p_zero_index      = which(capt_history.p$p_zeros == 0)
- , p_est_index       = which(capt_history.p$p_zeros != 0) 
-  
- , lik_n             = which(capture_range$first != capture_range$final) %>% length()
- , which_lik         = which(capture_range$first != capture_range$final)
-  
- , ind_lik_gaps       = ind_lik_gaps
- , ind_lik_which_phi  = ind_lik_which_phi
-  
- , ind_lik_gaps_p     = ind_lik_gaps_p
- , ind_lik_which_p    = ind_lik_which_p
-  
- , ind_lik_which_chi  = ind_lik_which_chi
-  
-  ##########
-  
- , X_first_index = (capt_history.phi %>% group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% group_by(Mark) %>%
-    mutate(index = seq(n())) %>% ungroup() %>% summarize(X_first_index = which(index == min(index))))$X_first_index
- , X_gap         = (capt_history.phi %>% group_by(X_stat_index) %>% slice(1) %>% ungroup() %>% group_by(Mark) %>%
-    summarize(len_bd = n()))$len_bd
-  
   ## dimensional indexes 
- , n_pop             = n_sites
+   n_pop             = n_sites
  , n_pop_year        = nrow(sampled_years)
  , n_ind             = n_ind
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
@@ -182,6 +100,36 @@ stan_data     <- list(
  , last            = capture_range$final
   
  , n_capt_per_day  = (capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)))$num_capt
+  
+  ## indices of phi, p, and chi that are 1, 0, or estimated. Done to speed up code. See "stan_indices.R"
+ , phi_zero_index    = phi_zero_index
+ , phi_one_index     = phi_one_index
+ , phi_in_index      = phi_in_index
+ , phi_off_index     = phi_off_index 
+ , n_phi_zero        = phi_zero_index %>% length()
+ , n_phi_one         = phi_one_index  %>% length() 
+ , n_phi_in          = phi_in_index   %>% length() 
+ , n_phi_off         = phi_off_index  %>% length()
+ , p_zero_index      = p_zero_index
+ , p_est_index       = p_est_index 
+ , n_p_zero          = p_zero_index %>% length()
+ , n_p_est           = p_est_index %>% length()
+  
+  ## which entries of phi, p, and chi are used in the model definition (defining the likelihood)
+   ## see "stan_indices.R" for details
+ , which_phi_ll = which_phi_ll
+ , which_p_ll   = which_p_ll
+ , which_chi_ll = which_chi_ll
+ , n_phi_ll     = which_phi_ll %>% length()
+ , n_p_ll       = which_p_ll %>% length()
+ , n_chi_ll     = which_chi_ll %>% length()
+  
+ ## Stuff for continuous Bd model, only used in that model. Ignored in other models
+ , yday              = capt_history.p$yday_s
+ , yday_sq           = capt_history.p$yday_s^2
+ , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
+ , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
+ , x_bd_index_full   = which(capt_history.p$swabbed == 1)
 
   )
   
@@ -190,7 +138,8 @@ stan.fit  <- try(
  stan(
 # file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
 # file    = this_model_fit
-  file    = "stan_current/CMR_single_population_nl_speedup2.stan"
+ file    = "stan_current/CMR_single_population_nl_speedup2b.stan"
+# file    = "stan_current/CMR_single_population_nl.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1

@@ -2,7 +2,9 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 22 ---- 
+#### Notes April 25 ---- 
+
+## Day of working on speeding up code
 
 ## Monday morning continue with the speedups. See all of the untracked stan models with XXXX_speedup.stan and also
   ## continue with **** -->> listed below. First step will be to fully remove the segment() from the 1 ~ bernoulli statements
@@ -40,7 +42,6 @@
  ## D) The fourth, which could be a completely separate paper would be a better disease model
 
 
-
 #### Code ----
 
 #### NOTE: In this file and all other files search *** for current choices that could potentially change
@@ -59,7 +60,7 @@ if (some_pops) {
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[20] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -80,6 +81,9 @@ source("data_stan.R")
 
 ## Deal with all of the individual level and population level covariates 
 source("data_covariates.R")
+
+## Processing of indices for the stan model to reduce looping for increasing computational speeds
+source("stan_indices.R")
 
 ## Quick look at a given population
 #source("capt_plot.R")

@@ -31,6 +31,7 @@ if (single_pop) {
 source("data_manip.R")
 source("data_stan.R")
 source("data_covariates.R")
+source("stan_indices.R")
 source("dataset_notes.R")
 source("stan_fit_single.R")
 source("plotting.R")
