@@ -3,10 +3,10 @@
 ####################################################################################################
 
 ## which individuals contribute to phi and p directly (individuals that were captured 2 or more times)
-which_ind_ll      <- which(capture_range$first != capture_range$final)
+which_ind_ll <- which(capture_range$first != capture_range$final)
 
 ## number of individuals that contribute to phi and p directly (used in the stan model to give length of which_ind_ll)
-ind_ll_n <- which_ind_ll %>% length()
+ind_ll_n     <- which_ind_ll %>% length()
 
 ## which entries of the long-form phi and p are informed by these individuals? (these are the phi's and p's
  ## that will be used in the 1 ~ bernoulli() statements in the model block)

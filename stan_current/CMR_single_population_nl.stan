@@ -200,7 +200,7 @@ transformed parameters {
 	}
 
 	p[p_zero_index] = rep_vector(0, n_p_zero);
-	p[p_est_index]  = inv_logit(ind_sex[p_est_index, ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
+	p[p_est_index]  = inv_logit(ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
 	 
 	
 // -----

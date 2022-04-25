@@ -9,7 +9,7 @@ functions {
  // is the probability of never recapturing an individual again after capturing them at time t
   // rewritten to run for an individual at a time given variable numbers of capture opportunities by individual (e.g. in different populations)
 	
-	real[] prob_uncaptured(int n_occ, real[] p_sub, real[] phi_sub) {
+	real[] prob_uncaptured(int n_occ, vector p_sub, vector phi_sub) {
 
 	real chi_sub[n_occ];          // chi for each capture date and individual 
 
@@ -107,6 +107,28 @@ data {
 
 	vector<lower=0>[n_days] n_capt_per_day;
 
+  // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
+  // set up in R to avoid looping over the full length of phi and p here. See R code for details
+	int<lower=1> n_phi_zero;  
+	int<lower=1> n_phi_one;      
+	int<lower=1> n_phi_in;      
+	int<lower=1> n_phi_off;    
+	int<lower=1> phi_zero_index[n_phi_zero];  
+	int<lower=1> phi_one_index[n_phi_one];
+	int<lower=1> phi_in_index[n_phi_in];
+	int<lower=1> phi_off_index[n_phi_off]; 
+
+	int<lower=1> n_p_zero;
+	int<lower=1> n_p_est;
+	int<lower=1> p_zero_index[n_p_zero];
+	int<lower=1> p_est_index[n_p_est];
+
+	int<lower=1> n_phi_ll;
+	int<lower=1> n_p_ll;
+	int<lower=1> which_phi_ll[n_phi_ll];
+	int<lower=1> which_p_ll[n_p_ll];
+	int<lower=1> which_chi_ll[n_ind];
+
 }
 
 parameters {
@@ -172,14 +194,14 @@ transformed parameters {
 	// bd
 
 	real bd_ind[n_ind];				 // individual random effect deviates
-	real X[ind_occ];		    	         // each individual's estimated bd per year
-	real X_max[ind_per_period_bd];			 // estimated max bd experienced by an individual in a given year
+	vector[ind_occ] X;		        	 // each individual's estimated bd per year
+	vector[ind_per_period_bd] X_max;		 // estimated max bd experienced by an individual in a given year
 
 
 	// Survival and detection processes
 
-	real<lower=0,upper=1> phi[ind_occ_min1];         // survival from t to t+1, each individual repeated the number of times its population was measured
-	real<lower=0,upper=1> p[ind_occ];                // detection at time t
+	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
+	vector<lower=0,upper=1>[ind_occ] p;              // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
 
 	real p_day_dev[n_days];
@@ -231,56 +253,29 @@ transformed parameters {
 // Survival probability over the whole period
 // -----
 
+	phi[phi_zero_index] = rep_vector(0, n_phi_zero);
+	phi[phi_one_index]  = rep_vector(1, n_phi_one);
+	phi[phi_in_index]   = rep_vector(inv_logit(beta_phi), n_phi_in);
 
-	for (t in 1:ind_occ_min1) {
-
-	 if (phi_zeros[t] == 1) {	 // phi_zeros is 1 before an individual is caught for the first time
-           phi[t] = 0;			 // must be non-na values in stan, but the likelihood is only informed from first capture onward so the 0 here doesn't matter
-	 } else {
-
-	  if (offseason[t] == 0) {	 // in season survival process
-
-	   if (phi_ones[t] == 1) { 	 // closed population assumption where survival is set to 1
-	     phi[t] = 1;
-           } else {
-             phi[t] = inv_logit(beta_phi);
-	   }
-
-	  } else {			 // off season survival process
-	     
-	     phi[t] = inv_logit(
-ind_sex[ind_occ_min1_rep[t], ] * beta_offseason_sex +
-beta_offseason[1] * X_max[phi_bd_index[t]] + 
-beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[t]]
+	phi[phi_off_index]  = inv_logit(
+ind_sex[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_sex + 
+beta_offseason[1] * X_max[phi_bd_index[phi_off_index]] +
+beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
 );
-
-	   }
-
-	  }  
-
-	 }
 
 
 // -----
 // Detection probability over the whole period
 // -----
 
-	for (i in 1:n_days) {
-  	  p_day_dev[i]  = p_day_delta_sigma * p_day_delta_eps[i];  
-	}
-
-	for (t in 1:ind_occ) {   
-	 if (p_zeros[t] == 0) {
-	   p[t] = 0;
-	 } else {       
-           p[t] = inv_logit(ind_sex[ind_occ_rep[t], ] * beta_p_sex + p_day_dev[p_day[t]]);
-	 }
-	}
-
 	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(p_day_dev[t]);
+  	  p_day_dev[t]  = p_day_delta_sigma * p_day_delta_eps[t];
+	  p_per_day[t] = inv_logit(p_day_dev[t]);  
 	}
-	 
+
+	p[p_zero_index] = rep_vector(0, n_p_zero);
+	p[p_est_index]  = inv_logit(ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
+
 	
 // -----
 // Probability of never detecting an individual again after time t
@@ -306,14 +301,12 @@ model {
 
 	bd_delta_sigma    ~ inv_gamma(8, 15);
 	bd_obs            ~ inv_gamma(10, 4);
+	bd_delta_eps      ~ normal(0, 3);
 
 	beta_bd_len       ~ normal(0, 3);
 	beta_bd_day	  ~ normal(0, 3);
 	beta_bd_day_sq    ~ normal(0, 3);
-
-	for (i in 1:n_ind) {
-	  bd_delta_eps[i] ~ normal(0, 3);
-	}
+	 
 
 // Survival Priors
 
@@ -327,10 +320,8 @@ model {
 
 	beta_p_sex        ~ normal(0, 1.45);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
+	p_day_delta_eps   ~ normal(0, 1.45);
 
-	for (i in 1:n_days) {
-	  p_day_delta_eps[i] ~ normal(0, 1.45);
-	}
 
 // Imputed Covariates Priors: len
 
@@ -351,24 +342,15 @@ model {
 
 // observed bd is the linear predictor + some observation noise
 
-	for (t in 1:N_bd) {
-          X_bd[t] ~ normal(X[x_bd_index_full[t]], bd_obs); 
-	} 
+	X_bd ~ normal(X[x_bd_index_full], bd_obs);
     
 // -----
 // Capture model
 // -----
 
-	 for (i in 1:n_ind) {
-	
-	if (first[i] != last[i]) {
-	  for (t in (first[i] + 1):last[i]) {			
-	   1 ~ bernoulli(phi[phi_first_index[i] - 1 + t - 1]);    		   // Survival _to_ t (from phi[t - 1]) is 1 because we know the individual lived in that period 
-	   y[p_first_index[i] - 1 + t] ~ bernoulli(p[p_first_index[i] - 1 + t]);   // Capture given detection
-	  }
-	}
-	   1 ~ bernoulli(chi[p_first_index[i] - 1 + last[i]]);  		   // the probability of an animal never being seen again after the last time it was captured
-	 }
+	1 ~ bernoulli(phi[which_phi_ll]);
+	y[which_p_ll] ~ bernoulli(p[which_p_ll]);
+	1 ~ bernoulli(chi[which_chi_ll]);
 
 }
 
