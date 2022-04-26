@@ -192,10 +192,10 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_offseason_int;		 // Intercept for between season survival
-	vector[n_spec] beta_offseason_bd;		 // Bd effect on between season survival
-	vector[n_spec] beta_offseason_len;		 // Length effect on between season survival 
-	vector[n_spec] beta_offseason_mehg;		 // MeHg effect on between season survival
+	real beta_offseason_int;		 	 // Intercept for between season survival
+	real beta_offseason_bd;				 // Bd effect on between season survival
+	real beta_offseason_len;		 	 // Length effect on between season survival 
+	real beta_offseason_mehg;			 // MeHg effect on between season survival
 	vector[n_sex] beta_offseason_sex;		 // Sex effect on survival 
 
 
@@ -207,7 +207,6 @@ parameters {
   // random: deviates
 	vector[n_pop] offseason_pop_eps;		 // pop intercept
 	vector[n_pop] offseason_pop_bd_eps;		 // pop bd effect
-	vector[n_pop] offseason_pop_len_eps;		 // pop len effect
 
 
 // -----
@@ -215,7 +214,7 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_inseason;			 // in season survival intercept
+	real beta_inseason;				 // in season survival intercept
 
   // random: variance
 	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
@@ -229,7 +228,7 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_p_spec;			 // species-level average detection
+	real beta_p_int;				 // species-level average detection
 	vector[n_sex] beta_p_sex;			 // sex specific detection
 	real beta_p_drawdown;				 // daily detection probably as a function of drawdown amount
 	real beta_p_veg;			         // daily detection probably as a function of vegetation amount
@@ -305,7 +304,7 @@ transformed parameters {
 	vector[n_pop] inseason_pop;			 // population specific survival within season (intercept)
 	vector[n_pop] offseason_pop;			 // population specific survival between seasons (intercept)
 	vector[n_pop] offseason_pop_bd;			 // population specific survival between seasons (slope over bd)
-	vector[n_pop] offseason_pop_len;		 // population specific survival between seasons (slope over animal length)
+	vector[n_pop] offseason_pop_len;			 // population specific survival between seasons (slope over animal length)
 
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates

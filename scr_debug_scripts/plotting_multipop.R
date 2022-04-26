@@ -2,6 +2,7 @@
 ## Plot diagnostics for a joint population model ##
 ###################################################
 
+## stan.fit <- readRDS("fits/stan_fit_multipop_mm_r_2022-04-19.Rds")
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
@@ -295,4 +296,36 @@ ind_bd_est <- stan.fit.samples$bd_delta_eps %>% reshape2::melt() %>%
    ord_bd  = seq(n())
   )
 
+
+
+### Scratch exploration
+
+capt_history %>% group_by(pop_spec) %>% summarize(n_ind = n_distinct(Mark))
+
+capt_history %>% 
+  group_by(Mark, pop_spec, Species) %>% 
+  summarize(merc = mean(merc, na.rm = T)) %>%
+  mutate(
+    pop_spec = as.numeric(pop_spec)
+  , Species  = as.numeric(Species)) %>% 
+  ungroup() %>% group_by(pop_spec) %>% summarize(
+    n_ind_mehg = length(which(!is.na(merc)))
+  ) 
+
+stan.fit.samples %>% names()
+
+stan.fit.samples$beta_len_sex %>% reshape2::melt() %>% {
+  ggplot(., aes(x = value)) + geom_histogram(bins = 50) + facet_wrap(~Var2, ncol = 1, scales = "free")
+}
+  
+stan.fit.samples$mehg_pop_est %>% reshape2::melt() %>% {
+  ggplot(., aes(x = value)) + geom_histogram(bins = 50) + facet_wrap(~Var2, scales = "free")
+}
+
+stan.fit.samples$mehg_pop_est[, 3] %>% hist()
+stan.fit.samples$mu_mehg[, 3] %>% hist()
+
+capt_history %>% filter(!is.na(merc)) %>% group_by(Mark) %>% slice(1) %>% {
+  ggplot(., aes(len, merc)) + geom_point() + facet_wrap(~pop_spec)
+} 
 

@@ -9,3 +9,6 @@ MULTIPLE POPULATIONS STAN MODELS
 CMR_multiple_populations.stan
 	-- Current most up to date working model
 
+CMR_multiple_populations_nf.stan
+	-- ^^ but dropping the `by species' fixed effects to speed up computation
+

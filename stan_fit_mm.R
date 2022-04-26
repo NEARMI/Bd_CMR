@@ -22,15 +22,11 @@ stan_data     <- list(
  , p_first_index     = p_first_index  
  , ind_in_pop        = ind_in_pop
  
-# , ind_sex          = ind_sex
  , ind_sex           = model.matrix(~sex, data.frame(sex = as.factor(ind_sex), value = 0))[, ]
-  
-# , ind_spec         = ind.len.spec
-  , ind_spec         = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec), value = 0))[, ]
+ , ind_spec          = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec), value = 0))[, ]
   
   ## short vector indexes (length of n_pop)
-#, spec_pop           = spec_pop
- , spec_pop           = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
+ , spec_pop          = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
   
   ## short vector indexes (length of n_days)
  , day_which_pop     = day_which_pop
@@ -44,7 +40,6 @@ stan_data     <- list(
  , p_day             = capt_history.p$date_fac
  , pop_p             = as.numeric(capt_history.p$pop_spec)
   
-#, spec_p            = as.numeric(capt_history.p$Species)
  , spec_p             = model.matrix(~spec, data.frame(spec = capt_history.p$Species, value = 0))[, ] 
 
   ## long vector indexes: survival stuff (phi)
@@ -57,9 +52,7 @@ stan_data     <- list(
  , capt_gaps         = capt_history.phi$capture_gap
  , pop_phi           = as.numeric(capt_history.phi$pop_spec)
   
-#, spec_phi          = as.numeric(capt_history.phi$Species)
  , spec_phi          = model.matrix(~spec, data.frame(spec = capt_history.phi$Species, value = 0))[, ]
-#, sex_phi           = ind_sex[capt_history.phi$Mark]
  , sex_phi           = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[capt_history.phi$Mark]), value = 0))[, ]
 
   ## individual-level covariates, bd and others
@@ -85,15 +78,6 @@ stan_data     <- list(
  , n_ind_len_mis      = length(len.mis)
  , ind_len_have       = ind.len[len.have]
   
-, ind_len_spec_have  = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.have]), value = 0))[, ]
-#, ind_len_spec_have  = ind.len.spec[len.have]
-, ind_len_spec_mis   = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec[len.mis]), value = 0))[, ]
-#, ind_len_spec_mis   = ind.len.spec[len.mis]
-, ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.have]), value = 0))[, ]
-#, ind_len_sex_have   = ind_sex[len.have]
-, ind_len_sex_mis    = model.matrix(~sex, data.frame(sex = as.factor(ind_sex[len.mis]), value = 0))[, ]
-#, ind_len_sex_mis    = ind_sex[len.mis]
-  
  , ind_len_spec_first_index = ind_len_spec_first_index
  , ind_len_spec_size        = ind_len_spec_size
   
@@ -102,13 +86,7 @@ stan_data     <- list(
  , ind_mehg          = ind.hg[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
   
-#, ind_mehg_spec     = ind.hg.spec[hg.have]
  , ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
-  
-  ## site-level covariates, forced categorical
-#, pop_sub           = site_covar.cat$SUB
-#, pop_region        = site_covar.cat$region
-#, pop_hydro         = site_covar.cat$HYDRO
   
   ## site-level covariates, stored categorical but converted back to continuous
  , pop_drawdown      = site_covar.cat$drawdown_cont / 100 # site_covar.cat$DRAWDOWN
@@ -152,12 +130,28 @@ stan_data     <- list(
  , n_p_ll       = which_p_ll %>% length()
  , n_chi_ll     = which_chi_ll %>% length()
   
+  ## A bunch of model matrices
+ , n_col_mm_int = n_sex + length(unique(capt_history$Species)) - 1
+  
+ , fe_mm_phi_int    = fe_mm.int
+ , fe_mm_phi_bd     = fe_mm.bd
+ , fe_mm_phi_len    = fe_mm.len
+ , fe_mm_phi_merc   = fe_mm.merc
+  
+ , re_mm_phi_int    = re_mm.int
+ , re_mm_phi_bd     = re_mm.bd
+ , re_mm_phi_len    = re_mm.len
+  
+ , ind_mm_len       = model.matrix(~spec + sex
+   , data.frame(spec = as.factor(ind.len.spec), sex = as.factor(ind_sex), value = 0)
+   )[, ]
   )
 
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "stan_current/mehg_trial.stan"
-  file    = "stan_current/len_trial.stan"
+# file    = "stan_current/len_trial.stan"
+  file    = "stan_current/mult_pop_simplify/CMR_multiple_populations_mm.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
