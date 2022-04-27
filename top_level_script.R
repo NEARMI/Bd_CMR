@@ -2,15 +2,14 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-## Rest of the day today (April 27):
- ## 1) respond to the two emails
- ## 2) A-D below
+### To do rest of this week and next
 
 ## April 28 (Thursday)
- ## 1) E and F
+ ## 1) D, E, F below
 
 ## April 29 (Friday)
- ## 1) G and H
+ ## 1) G, H below
+ ## 2) Read through reviews
 
 ## Next week:
  ## 1) Update overleaf with some new model thoughts
@@ -26,11 +25,8 @@
 ## 2) Also made some decent progress on code and repo cleaning, but still have some to do
 
 ## 3) Moving forward that next critical steps are to:
- ## -- A) [ ] remove all unneeded data from the multi-pop model
- ## -- B) [ ] clean up all of the fit_pops_XXXX.R scripts 
- ## -- C) [ ] bit of tyding of top_level_script.R push and pull to PC
- ## -- D) [ ] run a model without the FL and NEWT populations with all individuals and save to compare to Blackrock C
 
+ ## -- D) [ ] clean up all of the fit_pops_XXXX.R scripts 
  ## -- E) [ ] add back in a daily average detection probability from which to calculate population size
  ## -- F) [ ] update all of the plotting scripts for the new model structure. Backup the old plotting scripts?
 
@@ -70,7 +66,7 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- TRUE
+some_pops  <- FALSE
 
 if (some_pops) {
 #which.dataset  <- unique(data.all$pop_spec)[c(4, 5, 8, 9, 11, 15, 16, 20)] %>% droplevels()
@@ -83,7 +79,7 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- TRUE
+red_ind    <- FALSE
 # red_ind_PA_debug <- FALSE ## Temp debug switch, will integrate if model works
 if (red_ind) {
 num_ind    <- 200

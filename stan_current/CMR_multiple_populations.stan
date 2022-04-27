@@ -46,7 +46,6 @@ data {
 	int<lower=1> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=1> n_days;				    // Number of sampling occasions
 	int<lower=1> n_spec;				    // Total number of species
-	int<lower=1> n_sex;				    // Total number of entries given for Sex (should be 3 if data cleaning worked [F, M, U]
 	
   // short vector indexes (length of n_ind)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -62,13 +61,10 @@ data {
 
   // short vector indexes (length of n_days)
 	int<lower=1> day_which_pop[n_days];		    // Which pop is associated with each unique sampling day (for day-level detection deviates)
-	int<lower=1> spec_which_pop[n_days];		    // Which species is associated with each sampling day
 		
   // long vector indices for observation model (p)
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
-
-	matrix[ind_occ, n_spec] spec_p;		   	    // Species identity of each individual for phi
   
   // long vector indices for survival model (phi)
 	int<lower=1> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
