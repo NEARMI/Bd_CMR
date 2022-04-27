@@ -2,9 +2,20 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-## Rest of the day today:
+## Rest of the day today (April 27):
  ## 1) respond to the two emails
  ## 2) A-D below
+
+## April 28 (Thursday)
+ ## 1) E and F
+
+## April 29 (Friday)
+ ## 1) G and H
+
+## Next week:
+ ## 1) Update overleaf with some new model thoughts
+ ## 2) By end of week get overleaf to a point for sharing
+ ## 3) Write clear steps for individual tasks for week in Point Pelee
 
 #### Notes April 27 ---- 
 
@@ -19,9 +30,12 @@
  ## -- B) [ ] clean up all of the fit_pops_XXXX.R scripts 
  ## -- C) [ ] bit of tyding of top_level_script.R push and pull to PC
  ## -- D) [ ] run a model without the FL and NEWT populations with all individuals and save to compare to Blackrock C
+
  ## -- E) [ ] add back in a daily average detection probability from which to calculate population size
- ## -- F) [ ] run the individual populations alone and update individual_model_runs and upload new scripts to overleaf
- ## -- G) [ ] start making the rest of the models (see 3 below)
+ ## -- F) [ ] update all of the plotting scripts for the new model structure. Backup the old plotting scripts?
+
+ ## -- G) [ ] run the individual populations alone and update individual_model_runs and upload new scripts to overleaf
+ ## -- H) [ ] start making the rest of the models (see 3 below)
 
 
 
