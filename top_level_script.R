@@ -2,16 +2,14 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
- ## B) Get the new version of the length imputation integrated into all models that do length imputation
- ## C) Code and repo cleaning for updated models (currently lots needed)
-
 #### Notes April 27 ---- 
 
 ## 1) Model matrix version at least compiles, and the 10 leapfrog steps per transition is about 1/4 what it was before which is a good sign
 
 ## 2) Still need to:
  ## -- [ ] make sure the length imputation is correct everywhere
- ## -- [ ] clean up repo
+ ## -- [ ] clean up code (primarily the various stan_fit.R scripts) 
+ ## -- [ ] make sure repo is up to date after code cleaning
  ## -- [ ] test the new mm model version (to do so add pop 20 and compare its estimates to just running that population on its own)
  ## -- [ ] start making the rest of the models (see 3 below)
  ## -- [ ] add back in a daily average detection probability from which to calculate population size
@@ -81,7 +79,7 @@ source("data_covariates.R")
 source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
-#source("establishing_mm.R")
+source("establishing_mm.R")
 
 ## Quick look at a given population
 #source("capt_plot.R")
@@ -95,7 +93,7 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {
 source("stan_fit_single.R")
 } else {
-source("stan_fit.R") 
+source("stan_fit_mm.R") 
 }
 
 ## And some diagnostics and such
