@@ -378,7 +378,7 @@ transformed parameters {
 	phi[phi_in_index]   = inv_logit(ind_spec[ind_occ_min1_rep[phi_in_index], ] * beta_inseason + inseason_pop[pop_phi[phi_in_index]]);
 
 	phi[phi_off_index]  = inv_logit(
-fe_mm_phi_int   * beta_offseason_int   +
+fe_mm_phi_int    * beta_offseason_int  +
 offseason_pop[pop_phi[phi_off_index]]  +
 (fe_mm_phi_slope * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]]                      + 
 (fe_mm_phi_slope * beta_offseason_bd   + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +

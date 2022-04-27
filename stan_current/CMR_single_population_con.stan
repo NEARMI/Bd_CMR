@@ -37,14 +37,13 @@ data {
 
 
   // dimensional and bookkeeping params (single vals)
-	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years and all populations)	
 	int<lower=1> ind_per_period_bd;			    // n_ind * year (the unique periods of time in which each individual's bd is estimated)
-	int<lower=0> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
-	int<lower=0> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
-	int<lower=0> n_days;				    // number of sampling occasions
-	int n_sex;					    // Number of sex entries (M, F, but possibly U)
-	int<lower=0> n_pop_year;			 // Number of years in which sampling occurred
+	int<lower=1> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
+	int<lower=1> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
+	int<lower=1> n_days;				    // number of sampling occasions
+	int<lower=1> n_sex;				    // Number of sex entries (M, F, but possibly U)
+	int<lower=1> n_pop_year;			    // Number of years in which sampling occurred
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -55,18 +54,10 @@ data {
 	
   // long vector indices for observation model (p) and continuous time Bd model
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
-	int<lower=0> p_month[ind_occ];		            // Vector designating shorter periods (here month) for observational model (all occasions)
-	int<lower=0> p_year[ind_occ];			    // Vector designating the year associated with every entry of capt_history_p
-	int<lower=0> p_zeros[ind_occ];			    // Observation times for each individual in which we do not know if that individual is present
-	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
-	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
-	int<lower=0> phi_year[ind_occ_min1];		    // Same as p_year but without last sampling event
-	int<lower=0> phi_zeros[ind_occ_min1];		    // Observation times for each individual in advance of first detecting that individual
-	int<lower=0> phi_ones[ind_occ_min1];	            // Time periods where we force survival to be 1 (assuming a closed population)
 	int<lower=0> phi_bd_index[ind_occ_min1];	    // which entries of latent bd correspond to each entry of phi
 
   // long vector indices for bd (bd)
@@ -76,12 +67,8 @@ data {
   // covariates (bd)
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
-	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 	int<lower=0> x_bd_index_full[N_bd];
-
-	int<lower=0> bd_first_index[ind_per_period_bd];	    // First entry of latent bd associated with each individual 'by' period
-	int<lower=0> bd_last_index[ind_per_period_bd];	    // Last entry of latent bd associated with each individual 'by' period
 
 	vector[ind_occ] yday;			   	    // Scaled Julian day (for now a placeholder, will want to get to a meaningful measure of temp soon)
 	vector[ind_occ] yday_sq;			    // Square of scaled Julian Day
@@ -95,16 +82,9 @@ data {
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
 
-	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
-	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
-
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
-
-  	int<lower=0> first[n_ind];         		    // Capture event in which each individual was first captured
-  	int<lower=0> last[n_ind];         		    // Capture event in which each individual was last captured
-
 	vector<lower=0>[n_days] n_capt_per_day;
 
   // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
@@ -187,9 +167,7 @@ transformed parameters {
   	vector[n_ind_len_mis] rate_len_mis; 		 // rate parameter for the gamma distribution for the missing len values
 
 	vector[n_ind] ind_len;				 // all individual len (combining data and imputed values)
-	vector[n_ind] ind_len_scaled;			 // all individual len scaled
-	real ind_len_mean;				 // mean of ind_len
-	real ind_len_sd;				 // sd of ind_len	
+	vector[n_ind] ind_len_scaled;			 // all individual len scaled	
 
 	// bd
 
@@ -224,10 +202,8 @@ transformed parameters {
 	ind_len[ind_len_which_have] = ind_len_have;				 	// filling in the complete vector of ind_mehg with the data
 	ind_len[ind_len_which_mis]  = ind_len_mis;       				// filling in the complete vector of ind_mehg with the imputed values
 
-	ind_len_mean = mean(ind_len);			
-	ind_len_sd   = sd(ind_len);
 
-	ind_len_scaled = (ind_len - ind_len_mean)/ind_len_sd;
+	ind_len_scaled = (ind_len - mean(ind_len))/sd(ind_len);
 
 // -----
 // bd submodel, contained to estimating within-season bd

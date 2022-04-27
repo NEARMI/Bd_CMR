@@ -2,17 +2,27 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
+## Rest of the day today:
+ ## 1) respond to the two emails
+ ## 2) A-D below
+
 #### Notes April 27 ---- 
 
-## 1) Model matrix version at least compiles, and the 10 leapfrog steps per transition is about 1/4 what it was before which is a good sign
+## 1) Model matrix and no-loop version of multi-pop model seems to be about 8x faster than the old version
+ ##    -- comparing the predictions from the individual model for RANA.SummitMeadow and the estimates from the 
+ ##    -- multi-population are extremely similar, suggesting that the multi-pop model is built correctly
 
-## 2) Still need to:
- ## -- [ ] make sure the length imputation is correct everywhere
- ## -- [ ] clean up code (primarily the various stan_fit.R scripts) 
- ## -- [ ] make sure repo is up to date after code cleaning
- ## -- [ ] test the new mm model version (to do so add pop 20 and compare its estimates to just running that population on its own)
- ## -- [ ] start making the rest of the models (see 3 below)
- ## -- [ ] add back in a daily average detection probability from which to calculate population size
+## 2) Also made some decent progress on code and repo cleaning, but still have some to do
+
+## 3) Moving forward that next critical steps are to:
+ ## -- A) [ ] remove all unneeded data from the multi-pop model
+ ## -- B) [ ] clean up all of the fit_pops_XXXX.R scripts 
+ ## -- C) [ ] bit of tyding of top_level_script.R push and pull to PC
+ ## -- D) [ ] run a model without the FL and NEWT populations with all individuals and save to compare to Blackrock C
+ ## -- E) [ ] add back in a daily average detection probability from which to calculate population size
+ ## -- F) [ ] run the individual populations alone and update individual_model_runs and upload new scripts to overleaf
+ ## -- G) [ ] start making the rest of the models (see 3 below)
+
 
 
 ## 3) **Older note because I am not sure what is going to happen once the model matrix form is written out much better** But leaving here for now
@@ -49,11 +59,10 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset  <- unique(data.all$pop_spec)[c(4, 5, 8, 9, 11, 15, 16)] %>% droplevels()
+#which.dataset  <- unique(data.all$pop_spec)[c(4, 5, 8, 9, 11, 15, 16, 20)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[20] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -79,7 +88,9 @@ source("data_covariates.R")
 source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
+if (length(which.dataset) == 1) {
 source("establishing_mm.R")
+}
 
 ## Quick look at a given population
 #source("capt_plot.R")
