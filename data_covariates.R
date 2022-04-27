@@ -161,6 +161,12 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
   , veg      = as.factor(veg) %>% as.numeric()
   )
 
+## Add covariates to p, where they are used
+capt_history.p %<>% left_join(., daily_hab_covar) %>% mutate(
+  drawdown_cont = drawdown_cont / 100
+, veg_cont      = veg_cont / 100
+)
+
 ####
 ## Finally, continuous temperature instead of binned temp by year
 ####

@@ -54,8 +54,8 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	int<lower=1> ind_in_pop[n_ind];		   	    // Which population each individual belongs to
-	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual
+
+	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual	
 
   // short vector indexes (length of n_pop)
 	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec
@@ -65,10 +65,6 @@ data {
 	int<lower=1> spec_which_pop[n_days];		    // Which species is associated with each sampling day
 		
   // long vector indices for observation model (p)
-	int<lower=1> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
-	int<lower=1> p_month[ind_occ];		            // Vector designating shorter periods (here month) for observational model (all occasions)
-	int<lower=0, upper=1> p_zeros[ind_occ];		    // Observation times for each individual in which we do not know if that individual is present
-	int<lower=1> p_bd_index[ind_occ];		    // Which entries of latent bd correspond to each entry of p
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
 
@@ -76,22 +72,12 @@ data {
   
   // long vector indices for survival model (phi)
 	int<lower=1> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
-	int<lower=0, upper=1> offseason[ind_occ_min1];	    // Vector indicating the last sampling periods of each season which gains offseason characteristics
-	int<lower=1> phi_year[ind_occ_min1];		    // Same as p_year but without last sampling event
-	int<lower=0, upper=1> phi_zeros[ind_occ_min1];	    // Observation times for each individual in advance of first detecting that individual
-	int<lower=0, upper=1> phi_ones[ind_occ_min1];	    // Time periods where we force survival to be 1 (assuming a closed population)
 	int<lower=1> phi_bd_index[ind_occ_min1];	    // Which entries of latent bd correspond to each entry of phi
 	int<lower=1> pop_phi[ind_occ_min1];		    // Population index for mortality predictors
-
-	matrix[ind_occ_min1, n_spec] spec_phi;		    // Species identity of each individual for phi
-	matrix[ind_occ_min1, n_sex] sex_phi;		    // Sex of each individual for phi
 	  
   // individual-level covariates
 	int<lower=1> N_bd;				    // Number of defined values for bd
  	real X_bd[N_bd];			   	    // The bd values 
-	int<lower=1> X_ind[N_bd];			    // Individual associated with each bd measure
-	int<lower=1> bd_first_index[ind_per_period_bd];	    // First entry of latent bd associated with each individual 'by' period
-	int<lower=1> bd_last_index[ind_per_period_bd];	    // Last entry of latent bd associated with each individual 'by' period
 	int<lower=1> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 
   // long vector indexes: bd stuff (bd)
@@ -110,11 +96,6 @@ data {
  	int<lower=1> ind_len_spec_first_index[n_spec]; 	    // First size index associated with each unique species (for species-specific scaling of length values)
  	int<lower=1> ind_len_spec_size[n_spec];      	    // Number of individuals of each species with lengths (for species-specific scaling of length values)
 
-	matrix[n_ind_len_have, n_spec] ind_len_spec_have;   // The species of all individuals that we have lengths for, in model matrix form
-	matrix[n_ind_len_mis, n_spec] ind_len_spec_mis;	    // The species of all individuals that we don't have lengths for, in model matrix form
-	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
-	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
-
   // covariates (MeHg)
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
@@ -124,10 +105,6 @@ data {
 
   // site-level covariates, converted continuous from cat
 	real<lower=0, upper=1> pop_drawdown[n_pop];	    // population specific covariate for proportion drawdown    
-  	
-  // site-by-day covariates, converted continuous from cat
-	vector<lower=0, upper=1>[n_days] p_drawdown;   	    // average value of drawdown among all of the sampled SubSites on a given day (for daily detection) 
-  	vector<lower=0, upper=1>[n_days] p_veg;        	    // average value of vegetation among all of the sampled SubSites on a given day (for daily detection)
 
   // site-level covariates, taken continuous
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
@@ -135,8 +112,6 @@ data {
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
-  	int<lower=1> first[n_ind];         		    // Capture event in which each individual was first captured
-  	int<lower=1> last[n_ind];         		    // Capture event in which each individual was last captured
 	vector<lower=0>[n_days] n_capt_per_day;	   	    // Number of captures on each day 
 
   // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
@@ -160,6 +135,16 @@ data {
 	int<lower=1> which_phi_ll[n_phi_ll];
 	int<lower=1> which_p_ll[n_p_ll];
 	int<lower=1> which_chi_ll[n_ind];
+
+  // various model matrices
+	int<lower=1> n_col_mm_int;
+	matrix[n_ind, n_col_mm_int] ind_mm_len;
+
+	matrix[n_phi_off, n_col_mm_int] fe_mm_phi_int;
+	matrix[n_phi_off, n_spec] fe_mm_phi_slope;
+
+	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;
+	matrix[n_p_est, 2] fe_mm_p_slope;
 
 }
 
@@ -192,11 +177,10 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_offseason_int;		 // Intercept for between season survival
+	vector[n_col_mm_int] beta_offseason_int;	 // Intercept for between season survival
 	vector[n_spec] beta_offseason_bd;		 // Bd effect on between season survival
 	vector[n_spec] beta_offseason_len;		 // Length effect on between season survival 
 	vector[n_spec] beta_offseason_mehg;		 // MeHg effect on between season survival
-	vector[n_sex] beta_offseason_sex;		 // Sex effect on survival 
 
 
   // random: variance
@@ -229,10 +213,8 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_p_spec;			 // species-level average detection
-	vector[n_sex] beta_p_sex;			 // sex specific detection
-	real beta_p_drawdown;				 // daily detection probably as a function of drawdown amount
-	real beta_p_veg;			         // daily detection probably as a function of vegetation amount
+	vector[n_col_mm_int] beta_p_int;		 // species-level average detection
+	vector[2] beta_p_slope; 			 // daily detection probably as a function of drawdown and vegetation
 
   // random: variance
 	real<lower=0> p_pop_sigma;			 // variation in detection by population
@@ -247,11 +229,9 @@ parameters {
 // imputed covariates: length
 // -----
 
-	real<lower=0> inverse_phi_len;		         // variance parameter for gamma regression
-	vector[n_sex] beta_len_sex;			 // regression coefficient for len as a function of sex
-	vector[n_spec] beta_len_spec;			 // regression coefficient for len as a function of species
-	
+	vector[n_col_mm_int] beta_len;
 	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
+  	real<lower=0> sd_len[n_pop]; 
 
 
 // -----
@@ -276,16 +256,10 @@ transformed parameters {
 // ------------------------------ transformed parameters ------------------------------
 
   // Individual lengths 
-  	vector[n_ind_len_have] mu_len_have; 		 // the expected values for the gamma regression
-  	vector[n_ind_len_have] rate_len_have; 	 	 // rate parameter for the gamma distribution
-
-  	vector[n_ind_len_mis] mu_len_mis; 		 // the expected values (linear predictor) for the missing len values
-  	vector[n_ind_len_mis] rate_len_mis; 		 // rate parameter for the gamma distribution for the missing len values
-
+  	vector[n_ind_len_have] mu_len_have; 		  	 
+  	vector[n_ind_len_mis] mu_len_mis; 
 	vector[n_ind] ind_len;				 // all individual len (combining data and imputed values)
 	vector[n_ind] ind_len_scaled;			 // all individual len scaled
-	vector[n_spec] ind_len_mean;			 // mean of ind_len
-	vector[n_spec] ind_len_sd;			 // sd of ind_len
 
   // MeHg
   	vector[n_ind_mehg] mu_mehg;	 		 // the expected values for the gamma regression
@@ -310,7 +284,6 @@ transformed parameters {
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates
 	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
-	vector<lower=0,upper=1>[n_days] p_per_day;	 // detection per day at the level of the population
 
   // Long-form containers for estimates from t to t+1
 	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
@@ -323,12 +296,10 @@ transformed parameters {
 // -----
 
   // linear predictor for len regression on measured lengths
-  	mu_len_have   = exp(ind_len_spec_have * beta_len_spec + ind_len_sex_have * beta_len_sex);   
-  	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
+	mu_len_have   = ind_mm_len[ind_len_which_have, ] * beta_len;  
 
   // linear predictor for len regression for imputing unknown lengths
-  	mu_len_mis    = exp(ind_len_spec_mis * beta_len_spec + ind_len_sex_mis * beta_len_sex);     
-  	rate_len_mis  = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
+  	mu_len_mis    = ind_mm_len[ind_len_which_mis, ] * beta_len;
 
   // filling in the complete vector of ind_mehg with the data and missing values
 	ind_len[ind_len_which_have] = ind_len_have;
@@ -340,12 +311,8 @@ transformed parameters {
   // Jump through a hoop to select out all of the length values for a given species 
 	  vector[ind_len_spec_size[ns]] temp_ind_len = segment(ind_len, ind_len_spec_first_index[ns], ind_len_spec_size[ns]);
 
-  // take the mean and sd of the lengths of all individuals of species ns
-	  ind_len_mean[ns] = mean(temp_ind_len);	 
-	  ind_len_sd[ns]   = sd(temp_ind_len);	
-
   // Scale the lengths of species ns and stick them in the complete long-form container
-	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - ind_len_mean[ns])/ind_len_sd[ns];
+	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - mean(temp_ind_len))/sd(temp_ind_len);
 
 	}
 
@@ -411,13 +378,15 @@ transformed parameters {
 	phi[phi_in_index]   = inv_logit(ind_spec[ind_occ_min1_rep[phi_in_index], ] * beta_inseason + inseason_pop[pop_phi[phi_in_index]]);
 
 	phi[phi_off_index]  = inv_logit(
-ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_int +
-ind_sex[ind_occ_min1_rep[phi_off_index], ]  * beta_offseason_sex +
-offseason_pop[pop_phi[phi_off_index]]                            +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_bd + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_len + offseason_pop_len[pop_phi[phi_off_index]]) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
-(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]] 
+fe_mm_phi_int   * beta_offseason_int   +
+offseason_pop[pop_phi[phi_off_index]]  +
+(fe_mm_phi_slope * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]]                      + 
+(fe_mm_phi_slope * beta_offseason_bd   + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +
+(fe_mm_phi_slope * beta_offseason_len  + offseason_pop_len[pop_phi[phi_off_index]]) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
 );
+
+// re_mm_phi_bd * offseason_pop_bd
+
 
 
 // -----
@@ -437,18 +406,11 @@ offseason_pop[pop_phi[phi_off_index]]                            +
 	p[p_zero_index] = rep_vector(0, n_p_zero);
 
 	p[p_est_index]  = inv_logit(
-ind_spec[ind_occ_rep[p_est_index], ] * beta_p_spec +
-ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex +
-p_pop[pop_p[p_est_index]] + 
-p_day_dev[p_day[p_est_index]] + 
-beta_p_drawdown * p_drawdown[p_day[p_est_index]] + 
-beta_p_veg * p_veg[p_day[p_est_index]]
+fe_mm_p_int * beta_p_int      + 
+p_pop[pop_p[p_est_index]]     + 
+p_day_dev[p_day[p_est_index]] +
+fe_mm_p_slope * beta_p_slope  
 );
-
-  // calculating a daily estimate of detection to obtain a population size estimate
-	for (t in 1:n_days) {
-	  p_per_day[t] = inv_logit(spec_p[spec_which_pop[t], ] * beta_p_spec + p_pop[day_which_pop[t]] + p_day_dev[t] + beta_p_drawdown * p_drawdown[t] + beta_p_veg * p_veg[t]);
-	}	
 
 
 // -----
@@ -494,7 +456,6 @@ model {
 	beta_offseason_bd   ~ normal(0, 0.65);
 	beta_offseason_len  ~ normal(0, 0.65);
 	beta_offseason_mehg ~ normal(0, 0.65);
-	beta_offseason_sex  ~ normal(0, 0.65);
 	beta_inseason       ~ normal(0, 1.75);
 
 
@@ -513,10 +474,8 @@ model {
   // Detection Priors
 
   // fixed
-	beta_p_spec     ~ normal(0, 0.65);
-	beta_p_sex      ~ normal(0, 0.65);
-	beta_p_drawdown ~ normal(0, 0.65);
-	beta_p_veg      ~ normal(0, 0.65);
+	beta_p_int   ~ normal(0, 0.85);
+	beta_p_slope ~ normal(0, 0.85);
 
   // variances and deviates
 	p_pop_sigma       ~ inv_gamma(8, 15);
@@ -527,9 +486,8 @@ model {
 
   // Imputed Covariates Priors: length
 
-	inverse_phi_len  ~ inv_gamma(8, 15);	
-	beta_len_sex     ~ normal(0, 3);
-	beta_len_spec    ~ normal(0, 3);
+	sd_len    ~ inv_gamma(8, 15);	
+	beta_len  ~ normal(0, 3);
 
 
   // Imputed Covariates Priors: mehg
@@ -550,8 +508,8 @@ model {
 // Imputed NA Lengths
 // -----
 
-	ind_len_have ~ gamma(inverse_phi_len, rate_len_have);
-	ind_len_mis  ~ gamma(inverse_phi_len, rate_len_mis);
+	ind_len_have ~ normal(mu_len_have, sd_len[ind_in_pop[ind_len_which_have]]);
+	ind_len_mis  ~ normal(mu_len_mis, sd_len[ind_in_pop[ind_len_which_mis]]);
 
 
 // -----
@@ -580,11 +538,7 @@ model {
 
 generated quantities {
 // ------------------------------ generated quantities ------------------------------
- 
-  // estimated population sizes based on daily detection and number of animals captured
-	vector<lower=0>[n_days] pop_size;
- 	pop_size = n_capt_per_day ./ p_per_day;
-          
+           
 }
 
 

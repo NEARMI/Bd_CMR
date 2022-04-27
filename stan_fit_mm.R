@@ -133,16 +133,13 @@ stan_data     <- list(
   ## A bunch of model matrices
  , n_col_mm_int = n_sex + length(unique(capt_history$Species)) - 1
   
- , fe_mm_phi_int    = fe_mm.int
- , fe_mm_phi_bd     = fe_mm.bd
- , fe_mm_phi_len    = fe_mm.len
- , fe_mm_phi_merc   = fe_mm.merc
+ , fe_mm_phi_int   = fe_mm_phi_int
+ , fe_mm_phi_slope = fe_mm_phi_slope
   
- , re_mm_phi_int    = re_mm.int
- , re_mm_phi_bd     = re_mm.bd
- , re_mm_phi_len    = re_mm.len
-  
- , ind_mm_len       = model.matrix(~spec + sex
+ , fe_mm_p_int     = fe_mm_p_int
+ , fe_mm_p_slope   = fe_mm_p_slope
+
+ , ind_mm_len        = model.matrix(~spec + sex
    , data.frame(spec = as.factor(ind.len.spec), sex = as.factor(ind_sex), value = 0)
    )[, ]
   )

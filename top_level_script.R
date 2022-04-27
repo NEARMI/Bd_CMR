@@ -2,25 +2,22 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-## ** Ended the day working on (C) figuring out model matrix strategy for the phi and p linear predictors
-## ** Next steps:
- ## A) Get this model matrix setup working and check output
  ## B) Get the new version of the length imputation integrated into all models that do length imputation
  ## C) Code and repo cleaning for updated models (currently lots needed)
 
-#### Notes April 26 ---- 
+#### Notes April 27 ---- 
 
-## 1) Another day of working on speeding up code. Mutli-population model is still really slow. 
- ##   Aim today is to figure out what the culprits are and fix them
- ## A) [x] MeHg part of the model is fine and runs very quickly
- ## B) [x] Length part of the model was not ok but is fine now after fixing model matrix issues. Best to just use normal model
- ##    [ ] Model updated (see len_trial_normal2.stan) but these update still need to be applied to all of the actual models
- ## C) [ ] Lots of problems remain with the specification of the phi and p linear predictors. 
- ##      -- Both need to be converted to model matrix form, which is difficult for the mix of categorical * continuous covaraites that have
- ##         both fixed and random effects. I think it will be possible to not use a _full_ (and thus completely opaque) random effect specification
- ##         but instead break this up by int, and each covaraite. Currently in progress
+## 1) Model matrix version at least compiles, and the 10 leapfrog steps per transition is about 1/4 what it was before which is a good sign
 
-## 2) **Older note because I am not sure what is going to happen once the model matrix form is written out much better** But leaving here for now
+## 2) Still need to:
+ ## -- [ ] make sure the length imputation is correct everywhere
+ ## -- [ ] clean up repo
+ ## -- [ ] test the new mm model version (to do so add pop 20 and compare its estimates to just running that population on its own)
+ ## -- [ ] start making the rest of the models (see 3 below)
+ ## -- [ ] add back in a daily average detection probability from which to calculate population size
+
+
+## 3) **Older note because I am not sure what is going to happen once the model matrix form is written out much better** But leaving here for now
  ##   Moving forward to fill all models: I think the most viable strategy is going to be to fit a few different models that accommodate different populations.
  ## A) The first of these models would utilize most of the multipop structure, but drop the
   ##    `by species' fixed effects, and just use random effects for variation among the populations, so
@@ -54,7 +51,7 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset  <- unique(data.all$pop_spec)[c(1, 2, 4, 5, 8, 9, 15, 16)] %>% droplevels()
+which.dataset  <- unique(data.all$pop_spec)[c(4, 5, 8, 9, 11, 15, 16)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[17] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()

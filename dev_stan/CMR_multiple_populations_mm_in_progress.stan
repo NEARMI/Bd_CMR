@@ -54,9 +54,8 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	int<lower=1> ind_in_pop[n_ind];		   	    // Which population each individual belongs to
-
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual	
+	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual
 
   // short vector indexes (length of n_pop)
 	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec
@@ -111,6 +110,11 @@ data {
  	int<lower=1> ind_len_spec_first_index[n_spec]; 	    // First size index associated with each unique species (for species-specific scaling of length values)
  	int<lower=1> ind_len_spec_size[n_spec];      	    // Number of individuals of each species with lengths (for species-specific scaling of length values)
 
+	matrix[n_ind_len_have, n_spec] ind_len_spec_have;   // The species of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_spec] ind_len_spec_mis;	    // The species of all individuals that we don't have lengths for, in model matrix form
+	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
+
   // covariates (MeHg)
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
@@ -157,19 +161,6 @@ data {
 	int<lower=1> which_p_ll[n_p_ll];
 	int<lower=1> which_chi_ll[n_ind];
 
-  // various model matrices
-	int<lower=1> n_col_mm_int;
-	matrix[n_ind, n_col_mm_int] ind_mm_len;
-
-	matrix[n_phi_off, n_col_mm_int] fe_mm_phi_int;
-	matrix[n_phi_off, n_spec] fe_mm_phi_bd;
-	matrix[n_phi_off, n_spec] fe_mm_phi_len;
-	matrix[n_phi_off, n_spec] fe_mm_phi_merc;
-
-	matrix[n_phi_off, n_pop] re_mm_phi_int;
-	matrix[n_phi_off, n_pop] re_mm_phi_bd;
-	matrix[n_phi_off, n_pop] re_mm_phi_len;
-
 }
 
 parameters {
@@ -201,10 +192,11 @@ parameters {
 // -----
 
   // fixed
-	vector[n_col_mm_int] beta_offseason_int;	 // Intercept for between season survival
+	vector[n_spec] beta_offseason_int;		 // Intercept for between season survival
 	vector[n_spec] beta_offseason_bd;		 // Bd effect on between season survival
 	vector[n_spec] beta_offseason_len;		 // Length effect on between season survival 
 	vector[n_spec] beta_offseason_mehg;		 // MeHg effect on between season survival
+	vector[n_sex] beta_offseason_sex;		 // Sex effect on survival 
 
 
   // random: variance
@@ -255,9 +247,11 @@ parameters {
 // imputed covariates: length
 // -----
 
-	vector[n_col_mm_int] beta_len;
+	real<lower=0> inverse_phi_len;		         // variance parameter for gamma regression
+	vector[n_sex] beta_len_sex;			 // regression coefficient for len as a function of sex
+	vector[n_spec] beta_len_spec;			 // regression coefficient for len as a function of species
+	
 	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
-  	real<lower=0> sd_len[n_pop]; 
 
 
 // -----
@@ -282,10 +276,16 @@ transformed parameters {
 // ------------------------------ transformed parameters ------------------------------
 
   // Individual lengths 
-  	vector[n_ind_len_have] mu_len_have; 		  	 
-  	vector[n_ind_len_mis] mu_len_mis; 
+  	vector[n_ind_len_have] mu_len_have; 		 // the expected values for the gamma regression
+  	vector[n_ind_len_have] rate_len_have; 	 	 // rate parameter for the gamma distribution
+
+  	vector[n_ind_len_mis] mu_len_mis; 		 // the expected values (linear predictor) for the missing len values
+  	vector[n_ind_len_mis] rate_len_mis; 		 // rate parameter for the gamma distribution for the missing len values
+
 	vector[n_ind] ind_len;				 // all individual len (combining data and imputed values)
 	vector[n_ind] ind_len_scaled;			 // all individual len scaled
+	vector[n_spec] ind_len_mean;			 // mean of ind_len
+	vector[n_spec] ind_len_sd;			 // sd of ind_len
 
   // MeHg
   	vector[n_ind_mehg] mu_mehg;	 		 // the expected values for the gamma regression
@@ -323,10 +323,12 @@ transformed parameters {
 // -----
 
   // linear predictor for len regression on measured lengths
-	mu_len_have   = ind_mm_len[ind_len_which_have, ] * beta_len;  
+  	mu_len_have   = exp(ind_len_spec_have * beta_len_spec + ind_len_sex_have * beta_len_sex);   
+  	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;
 
   // linear predictor for len regression for imputing unknown lengths
-  	mu_len_mis    = ind_mm_len[ind_len_which_mis, ] * beta_len;
+  	mu_len_mis    = exp(ind_len_spec_mis * beta_len_spec + ind_len_sex_mis * beta_len_sex);     
+  	rate_len_mis  = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;
 
   // filling in the complete vector of ind_mehg with the data and missing values
 	ind_len[ind_len_which_have] = ind_len_have;
@@ -338,8 +340,12 @@ transformed parameters {
   // Jump through a hoop to select out all of the length values for a given species 
 	  vector[ind_len_spec_size[ns]] temp_ind_len = segment(ind_len, ind_len_spec_first_index[ns], ind_len_spec_size[ns]);
 
+  // take the mean and sd of the lengths of all individuals of species ns
+	  ind_len_mean[ns] = mean(temp_ind_len);	 
+	  ind_len_sd[ns]   = sd(temp_ind_len);	
+
   // Scale the lengths of species ns and stick them in the complete long-form container
-	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - mean(temp_ind_len))/sd(temp_ind_len);
+	  ind_len_scaled[ind_len_spec_first_index[ns]:(ind_len_spec_first_index[ns] + ind_len_spec_size[ns] - 1)] = (temp_ind_len - ind_len_mean[ns])/ind_len_sd[ns];
 
 	}
 
@@ -405,10 +411,12 @@ transformed parameters {
 	phi[phi_in_index]   = inv_logit(ind_spec[ind_occ_min1_rep[phi_in_index], ] * beta_inseason + inseason_pop[pop_phi[phi_in_index]]);
 
 	phi[phi_off_index]  = inv_logit(
-fe_mm_phi_int   * beta_offseason_int   + re_mm_phi_int * offseason_pop +
-(fe_mm_phi_merc * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]]              + 
-(fe_mm_phi_bd   * beta_offseason_bd    + re_mm_phi_bd * offseason_pop_bd) .* X[phi_bd_index[phi_off_index]] +
-(fe_mm_phi_len  * beta_offseason_len   + re_mm_phi_len * offseason_pop_len) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
+ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_int +
+ind_sex[ind_occ_min1_rep[phi_off_index], ]  * beta_offseason_sex +
+offseason_pop[pop_phi[phi_off_index]]                            +
+(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_bd + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +
+(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_len + offseason_pop_len[pop_phi[phi_off_index]]) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
+(ind_spec[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]] 
 );
 
 
@@ -486,6 +494,7 @@ model {
 	beta_offseason_bd   ~ normal(0, 0.65);
 	beta_offseason_len  ~ normal(0, 0.65);
 	beta_offseason_mehg ~ normal(0, 0.65);
+	beta_offseason_sex  ~ normal(0, 0.65);
 	beta_inseason       ~ normal(0, 1.75);
 
 
@@ -518,8 +527,9 @@ model {
 
   // Imputed Covariates Priors: length
 
-	sd_len    ~ inv_gamma(8, 15);	
-	beta_len  ~ normal(0, 3);
+	inverse_phi_len  ~ inv_gamma(8, 15);	
+	beta_len_sex     ~ normal(0, 3);
+	beta_len_spec    ~ normal(0, 3);
 
 
   // Imputed Covariates Priors: mehg
@@ -540,8 +550,8 @@ model {
 // Imputed NA Lengths
 // -----
 
-	ind_len_have ~ normal(mu_len_have, sd_len[ind_in_pop[ind_len_which_have]]);
-	ind_len_mis  ~ normal(mu_len_mis, sd_len[ind_in_pop[ind_len_which_mis]]);
+	ind_len_have ~ gamma(inverse_phi_len, rate_len_have);
+	ind_len_mis  ~ gamma(inverse_phi_len, rate_len_mis);
 
 
 // -----
