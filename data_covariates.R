@@ -165,6 +165,9 @@ daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_
 capt_history.p %<>% left_join(., daily_hab_covar) %>% mutate(
   drawdown_cont = drawdown_cont / 100
 , veg_cont      = veg_cont / 100
+) %>% mutate(
+  drawdown_cont = scale(drawdown_cont)[, 1]
+, veg_cont      = scale(veg_cont)[, 1]
 )
 
 ####
@@ -186,3 +189,22 @@ capt_history.p %<>% left_join(.
 capt_history.p %<>% mutate(
  yday_s = scale(yday)[, 1] 
 )
+
+## Other scaling
+
+site_covar.cat %<>% mutate(
+  drawdown_cont = drawdown_cont / 100
+, veg_cont      = veg_cont / 100
+) %>% mutate(
+  drawdown_cont = scale(drawdown_cont)[, 1]
+, veg_cont      = scale(veg_cont)[, 1]
+)
+
+daily_hab_covar %<>% mutate(
+  drawdown_cont = drawdown_cont / 100
+, veg_cont      = veg_cont / 100
+) %>% mutate(
+  drawdown_cont = scale(drawdown_cont)[, 1]
+, veg_cont      = scale(veg_cont)[, 1]
+)
+

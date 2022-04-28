@@ -42,8 +42,8 @@ data {
 	int<lower=1> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
 	int<lower=1> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=1> n_days;				    // number of sampling occasions
-	int<lower=1> n_sex;					    // Number of sex entries (M, F, but possibly U)
-	int<lower=0> n_pop_year;			    // Number of years in which sampling occurred
+	int<lower=1> n_sex;				    // Number of sex entries (M, F, but possibly U)
+	int<lower=1> n_pop_year;			    // Number of years in which sampling occurred
 	
   // dimensional and bookkeeping params (vectors)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals

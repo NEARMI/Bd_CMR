@@ -2,65 +2,24 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-### New issues found with new crop of models:
- ## 1) in populations with no "within season" n_phi_in is length zero, which breaks...
-   ## -- happens for Blackrock C for CMR_single_population.stan
-   ## ^^ Solution is to make _another_ model??
+#### Notes April 28 ---- 
 
- ## 2) 
-
-
-### To do rest of this week and next
-
-## April 28 (Thursday)
- ## 1) D, E, F below
-
-## April 29 (Friday)
- ## 1) G, H below
- ## 2) Read through reviews
-
-## Next week:
- ## 1) Update overleaf with some new model thoughts
- ## 2) By end of week get overleaf to a point for sharing
- ## 3) Write clear steps for individual tasks for week in Point Pelee
-
-#### Notes April 27 ---- 
-
-## 1) Model matrix and no-loop version of multi-pop model seems to be about 8x faster than the old version
- ##    -- comparing the predictions from the individual model for RANA.SummitMeadow and the estimates from the 
- ##    -- multi-population are extremely similar, suggesting that the multi-pop model is built correctly
-
-## 2) Also made some decent progress on code and repo cleaning, but still have some to do
-
-## 3) Moving forward that next critical steps are to:
-
- ## -- D) [ ] clean up all of the fit_pops_XXXX.R scripts 
- ## -- E) [ ] add back in a daily average detection probability from which to calculate population size
- ## -- F) [ ] update all of the plotting scripts for the new model structure. Backup the old plotting scripts?
-
- ## -- G) [ ] run the individual populations alone and update individual_model_runs and upload new scripts to overleaf
- ## -- H) [ ] start making the rest of the models (see 3 below)
-
-
-
-## 3) **Older note because I am not sure what is going to happen once the model matrix form is written out much better** But leaving here for now
- ##   Moving forward to fill all models: I think the most viable strategy is going to be to fit a few different models that accommodate different populations.
- ## A) The first of these models would utilize most of the multipop structure, but drop the
-  ##    `by species' fixed effects, and just use random effects for variation among the populations, so
-  ##    in essence all that is really needed is to collapse the multipop model a bit.
-  ##    The goal then would be to still fit all of the populations together, but simply with less stuff to fit to speed things up
-  ##    [ ] remove all `by species' fixed effects
-  ##    [ ] check
- ## B) The second option would be to use the above model but fit different species by themselves (at least RANA and ANBO)
-  ##    [ ] try
- ## C) The second actually different model would be an adjusted Bd-MeHg interaction model that would incorporate
-  ##    all populations in which there are enough MeHg measured individuals to impute
-  ##    [ ] Expand the single population model with a single fixed effect and multiple random effects
- ## D) The third model is a simple regression-form Bd over time for NOVI
-  ##    [ ] Nearly finished but needs a bit of debugging
- ## E) The fourth, which could be a completely separate paper would be a better disease model
-  ##    [ ] Much work to be done here
-
+## 1) Moving forward that next critical steps are to:
+ ## -- A) [ ] add back in a daily average detection probability from which to calculate population size
+ ## -- B) [ ] Tiny bit of extra tidying of plotting script to handle the new pop size calculations
+ ## -- C) [ ] Series of minor and sub-major model adjustments
+  ##           -- [ ] check scaling on veg and drawdown
+  ##           -- [ ] some minor cleanup needed for the length imputation in all of the individual models
+  ##           -- [ ] some minor oranization and commenting needed in most of the individual models
+  ##           -- [ ] switch to having Male as the intercept, check to insure that it is working
+  ##           -- [ ] create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
+ ## -- D) [ ] Run all of the individual populations alone and update individual_model_runs and upload new scripts to overleaf
+  ##           -- add models and make changes to models as needed
+ ## -- E) [ ] Create a number of subsidiary models from the master models
+  ##           -- [ ] A multi-pop model that has only one species
+  ##           -- [ ] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
+  ##           -- [ ] Refine the ``Simple'' continuous time Bd model
+  ##           -- [ ] {Probably an entirely different paper} Write an actual disease model, which is informed by CMR style data
 
 #### Code ----
 
@@ -88,7 +47,6 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
 red_ind    <- FALSE
-# red_ind_PA_debug <- FALSE ## Temp debug switch, will integrate if model works
 if (red_ind) {
 num_ind    <- 200
 }
@@ -126,4 +84,8 @@ source("stan_fit_mm.R")
 }
 
 ## And some diagnostics and such
-#source("diagnostics.R")
+if (length(which.dataset) == 1) {
+source("plotting.R")
+} else {
+source("multipop_plotting.R")
+}

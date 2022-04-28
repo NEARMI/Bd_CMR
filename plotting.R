@@ -2,11 +2,6 @@
 ## Plot diagnostics for each model fit individually ##
 ######################################################
 
-# stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
-# stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_mm.Rds")
-# stan.fit <- readRDS("fits/stan_fit_RANA.JonesPond_scaled.Rds")
-# stan.fit <- readRDS("fits/stan_fit_ANBO.Blackrock-C_p3.Rds")
-
 print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
 print("---------------------")

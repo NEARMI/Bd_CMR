@@ -37,7 +37,6 @@ data {
 
 
   // dimensional and bookkeeping params (single vals)
-	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years and all populations)	
 	int<lower=1> ind_per_period_bd;			    // n_ind * year (the unique periods of time in which each individual's bd is estimated)
 	int<lower=1> ind_occ;			   	    // n_ind * all sampling periods (all events in which each individual could potentially have been captured)
@@ -51,6 +50,7 @@ data {
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
+	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -75,6 +75,8 @@ data {
 	int<lower=0> ind_len_which_have[n_ind_len_have];    // Index of individuals that we have length data
 	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
+	matrix[n_ind_len_have, n_sex] ind_len_sex_have;	    // The sex of all individuals that we have lengths for, in model matrix form
+	matrix[n_ind_len_mis, n_sex] ind_len_sex_mis;	    // The sex of all individuals that we don't have lengths for, in model matrix form
 
   // covariates (MeHg)
 	int<lower=0> n_ind_mehg_have;			    // Number of individuals that we have mehg data	  
@@ -83,9 +85,6 @@ data {
 	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];    // Index of individuals with missing mehg data
 	vector[n_ind_mehg_have] ind_mehg_have;		    // The actual mehg values that we have
 	
-  // covariates (sex)
-	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 

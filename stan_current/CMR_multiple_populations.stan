@@ -36,8 +36,7 @@ data {
 // -----
 // Given long comments, this model is best read in full screen on an external monitor
 
-
-  // dimensional and bookkeeping params (single vals)
+  // dimensional and bookkeeping data (non-vectors)
 	int<lower=1> n_pop;				    // Number of distinct populations (sampling areas)
 	int<lower=1> n_pop_year;			    // Index for pop*year
 	int<lower=1> n_ind;				    // Total number of individuals caught (ever, over all years and all populations)
@@ -46,44 +45,42 @@ data {
 	int<lower=1> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=1> n_days;				    // Number of sampling occasions
 	int<lower=1> n_spec;				    // Total number of species
+	int<lower=1> N_bd;				    // Number of defined values for bd
+	int<lower=1> n_col_mm_int;			    // Number of unique intercepts for detection and survival models (i.e., number of columns in the model matrix)
 	
-  // short vector indexes (length of n_ind)	
+  // Index vectors with length ``n_ind'' (used in all model components)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	int<lower=1> ind_in_pop[n_ind];		   	    // Which population each individual belongs to
 
-	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual	
-
-  // short vector indexes (length of n_pop)
-	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec
-
-  // short vector indexes (length of n_days)
+  // Index vectors with length ``n_days''
 	int<lower=1> day_which_pop[n_days];		    // Which pop is associated with each unique sampling day (for day-level detection deviates)
 		
-  // long vector indices for observation model (p)
+  // Components for detection model (p) (Index vectors)
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
+	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;	    // Intercept component of the model matrix
+	matrix[n_p_est, 2] fe_mm_p_slope;		    // Slope component of the model matrix
   
-  // long vector indices for survival model (phi)
+  // Components for survival model (phi) (Index vectors and model matrices)
 	int<lower=1> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
 	int<lower=1> phi_bd_index[ind_occ_min1];	    // Which entries of latent bd correspond to each entry of phi
 	int<lower=1> pop_phi[ind_occ_min1];		    // Population index for mortality predictors
+	matrix[n_ind, n_spec] ind_spec;			    // The species of each individual	
+	matrix[n_phi_off, n_col_mm_int] fe_mm_phi_int;      // Intercept component of the model matrix
+	matrix[n_phi_off, n_spec] fe_mm_phi_slope;	    // Slope component of the model matrix
 	  
-  // individual-level covariates
-	int<lower=1> N_bd;				    // Number of defined values for bd
+  // Components for Bd model (Bd)
  	real X_bd[N_bd];			   	    // The bd values 
-	int<lower=1> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
-
-  // long vector indexes: bd stuff (bd)
+	int<lower=1> x_bd_index[N_bd];			    // Entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 	int<lower=1> ind_bd_rep[ind_per_period_bd];	    // Index of individual for individual bd estimates (as each individual gets one estimate per year)    
 	int<lower=1> ind_in_pop_year[ind_per_period_bd];    // Index of pop*year for individual bd estimates
 	int<lower=1> pop_bd[ind_per_period_bd];             // Index of population for individual bd estimates
+	matrix[ind_per_period_bd, n_spec] spec_bd;	    // Index of species identity for individual bd estimates
 
-	matrix[ind_per_period_bd, n_spec] spec_bd;	    // Index of species identity for individual bd estimates	    
-
-  // covariates (length)
+  // Components for length imputation (Dimensions, Index vectors, covariates, and model matrices)
 	int<lower=1> n_ind_len_have;			    // Number of individuals that we have length data	  
 	int<lower=1> n_ind_len_mis;			    // Number of individuals with missing length data
 	int<lower=1> ind_len_which_have[n_ind_len_have];    // Index of individuals that we have length data
@@ -91,26 +88,25 @@ data {
 	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
  	int<lower=1> ind_len_spec_first_index[n_spec]; 	    // First size index associated with each unique species (for species-specific scaling of length values)
  	int<lower=1> ind_len_spec_size[n_spec];      	    // Number of individuals of each species with lengths (for species-specific scaling of length values)
+	matrix[n_ind, n_col_mm_int] ind_mm_len;		    // Intercept component of the model matrix
 
-  // covariates (MeHg)
+  // Components for MeHg model (Dimensions, Index vectors, covariates, and model matrices)
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
  	int<lower=0> ind_mehg_pop[n_ind_mehg];	   	    // Populations associated with each measure of MeHg
+	matrix[n_ind_mehg, n_spec] ind_mehg_spec;	    // Species associated with each measure of MeHg 
+	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec (for estimating pop average MeHg values)	    
 
-	matrix[n_ind_mehg, n_spec] ind_mehg_spec;	    // Species associated with each measure of MeHg 	    
-
-  // site-level covariates, converted continuous from cat
+  // Site-level covariates
 	real<lower=0, upper=1> pop_drawdown[n_pop];	    // population specific covariate for proportion drawdown    
-
-  // site-level covariates, taken continuous
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
 	
-  // captures
+  // Capture data
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
 	vector<lower=0>[n_days] n_capt_per_day;	   	    // Number of captures on each day 
 
-  // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
+  // Indices of phi, p, and chi that are 0, 1, or estimated, 
   // set up in R to avoid looping over the full length of phi and p here. See R code for details
 	int<lower=1> n_phi_zero;  
 	int<lower=1> n_phi_one;      
@@ -126,21 +122,13 @@ data {
 	int<lower=1> p_zero_index[n_p_zero];
 	int<lower=1> p_est_index[n_p_est];
 
+  // Which entries of phi, p, and chi inform the likelihood.
+  // set up in R to avoid looping over the full length of phi and p here. See R code for details
 	int<lower=1> n_phi_ll;
 	int<lower=1> n_p_ll;
 	int<lower=1> which_phi_ll[n_phi_ll];
 	int<lower=1> which_p_ll[n_p_ll];
 	int<lower=1> which_chi_ll[n_ind];
-
-  // various model matrices
-	int<lower=1> n_col_mm_int;
-	matrix[n_ind, n_col_mm_int] ind_mm_len;
-
-	matrix[n_phi_off, n_col_mm_int] fe_mm_phi_int;
-	matrix[n_phi_off, n_spec] fe_mm_phi_slope;
-
-	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;
-	matrix[n_p_est, 2] fe_mm_p_slope;
 
 }
 
