@@ -144,6 +144,8 @@ stan_data     <- list(
    )[, ]
   )
 
+model_name <- paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = ".")
+
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "stan_current/mehg_trial.stan"
@@ -162,4 +164,4 @@ stan.fit  <- stan(
 #, pars    = c("phi", "p", "chi")
   )
 
-saveRDS(stan.fit, paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = "."))
+saveRDS(stan.fit, model_name)

@@ -17,7 +17,7 @@
 
 ## create the model matrices, separated for intercepts and slopes (which all use the same model matrix)
 fe_mm_phi_int   <- model.matrix(~Species + Sex, capt_history.phi)[phi_off_index, ]
-fe_mm_phi_slope <- model.matrix(~Species*log_bd_load, capt_history.phi)[phi_off_index, 5:8]
+fe_mm_phi_slope <- model.matrix(~Species*log_bd_load, capt_history.phi)[phi_off_index, 4:6]
 fe_mm_phi_slope <- ifelse(fe_mm_phi_slope != 0, 1, 0)  
 
 re_mm_phi <- model.matrix(~-1+pop_spec, capt_history.phi)[phi_off_index, ]

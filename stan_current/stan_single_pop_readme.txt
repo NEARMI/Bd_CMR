@@ -19,6 +19,8 @@ CMR_single_population_nl.stan
 CMR_single_population_no_gl.stan
 	-- [1] without sex in length imputation because one sex was missing all lengths
 
+CMR_single_population_no_in.stan
+	-- [1] without any in-season for populations with none of the defined "in-season" time gaps
 
 
 [2] CMR_single_population_mehg.stan
@@ -31,3 +33,4 @@ CMR_single_population_mehg_nli.stan
 
 [3] CMR_single_population_con.stan
 	-- [1] but with seasonally varying bd loads at the individual level
+

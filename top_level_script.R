@@ -2,6 +2,14 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
+### New issues found with new crop of models:
+ ## 1) in populations with no "within season" n_phi_in is length zero, which breaks...
+   ## -- happens for Blackrock C for CMR_single_population.stan
+   ## ^^ Solution is to make _another_ model??
+
+ ## 2) 
+
+
 ### To do rest of this week and next
 
 ## April 28 (Thursday)
@@ -66,12 +74,12 @@ source("../ggplot_theme.R")
 source("data_load.R")
 
 ## For dev and debug purposes pick a subset of locations
-some_pops  <- FALSE
+some_pops  <- TRUE
 
 if (some_pops) {
-#which.dataset  <- unique(data.all$pop_spec)[c(4, 5, 8, 9, 11, 15, 16, 20)] %>% droplevels()
+which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[20] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
@@ -98,7 +106,7 @@ source("data_covariates.R")
 source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
-if (length(which.dataset) == 1) {
+if (length(which.dataset) != 1) {
 source("establishing_mm.R")
 }
 
@@ -107,8 +115,8 @@ source("establishing_mm.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 700
-stan.burn     <- 300
+stan.iter     <- 1000
+stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 if (length(which.dataset) == 1) {

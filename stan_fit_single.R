@@ -138,7 +138,8 @@ stan.fit  <- try(
  stan(
 # file    = "stan_current/CMR_single_population_mehg_gl_mm_scaled.stan"
 # file    = this_model_fit
-  file    = "stan_current/CMR_single_population.stan"
+# file    = "stan_current/CMR_single_population.stan"
+  file    = "stan_current/CMR_single_population_no_in.stan"
 # file    = "stan_current/CMR_single_population_mehg_nli.stan"
 # file    = "stan_current/old_slow_models/CMR_single_population_mehg_nli.stan"
 # file    = "stan_current/CMR_single_population_nl.stan"
