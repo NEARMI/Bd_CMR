@@ -19,6 +19,7 @@ stan_data     <- list(
  , ind_occ_min1      = nrow(capt_history.phi)
  , n_days            = (capt_history.p %>% group_by(pop_spec) %>% summarize(days_in_pop = n_distinct(date_fac)))$days_in_pop %>% sum()
  , n_spec            = length(unique(capt_history$Species))
+ , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = n_sex + length(unique(capt_history$Species)) - 1
   
@@ -38,13 +39,20 @@ stan_data     <- list(
  , fe_mm_p_int       = fe_mm_p_int
  , fe_mm_p_slope     = fe_mm_p_slope
   
+  ## Components for population size estimates
+ , n_fe_mm_p_int_uni = fe_mm_p_int %>% as.data.frame() %>% distinct() %>% nrow()
+ , fe_mm_p_int_uni   = fe_mm_p_int %>% as.data.frame() %>% distinct()
+ , fe_mm_p_slope_uni = fe_mm_p_slope_uni
+ , spec_to_int       = spec_to_int
+ , spec_pop_se       = spec_pop_se
+  
   ## Components for survival model (phi) (Index vectors and model matrices)
  , ind_occ_min1_rep  = capt_history.phi$Mark
  , phi_bd_index      = capt_history.phi$X_stat_index
  , pop_phi           = as.numeric(capt_history.phi$pop_spec)
  , ind_spec          = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec), value = 0))[, ]
- , fe_mm_phi_int   = fe_mm_phi_int
- , fe_mm_phi_slope = fe_mm_phi_slope
+ , fe_mm_phi_int     = fe_mm_phi_int
+ , fe_mm_phi_slope   = fe_mm_phi_slope
   
   ## Components for Bd model (Bd)
  , X_bd              = capt_history.bd_load$log_bd_load
@@ -59,14 +67,14 @@ stan_data     <- list(
  , n_ind_len_mis            = length(len.mis)
  , ind_len_which_have       = len.have
  , ind_len_which_mis        = len.mis %>% as.array()
- , ind_len_have             = ind.len[len.have]
+ , ind_len_have             = ind.len$len[len.have]
  , ind_len_spec_first_index = ind_len_spec_first_index
  , ind_len_spec_size        = ind_len_spec_size
- , ind_mm_len               = model.matrix(~spec + sex, data.frame(spec = as.factor(ind.len.spec), sex = as.factor(ind_sex), value = 0))[, ]
+ , ind_mm_len               = model.matrix(~spec + sex, data.frame(spec = as.factor(ind.len.spec), sex = ind.sex$Sex, value = 0))[, ]
   
   ## Components for MeHg model (Dimensions, Index vectors, covariates, and model matrices)
- , n_ind_mehg        = length(ind.hg[hg.have])
- , ind_mehg          = ind.hg[hg.have]
+ , n_ind_mehg        = length(ind.hg$merc[hg.have])
+ , ind_mehg          = ind.hg$merc[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
  , ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
  , spec_pop          = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
@@ -76,9 +84,10 @@ stan_data     <- list(
  , pop_temp          = site_covar.con$Temp_Mean
 
   ## Capture data
- , N_y               = nrow(capt_history)
- , y                 = capt_history.p$captured
- , n_capt_per_day    = (capt_history.p %>% group_by(date_fac) %>% summarize(num_capt = sum(captured)))$num_capt
+ , N_y                = nrow(capt_history)
+ , y                  = capt_history.p$captured
+ , n_capt_per_day     = (capt_history.p %>% group_by(date_fac) %>% summarize(num_capt = sum(captured)))$num_capt
+ , n_capt_per_day_sex = n_capt_per_day_sex
   
   ## Indices of phi, p, and chi that are 0, 1, or estimated, set up in R to avoid looping over the full 
    ## length of phi and p here. See R code for details
@@ -113,12 +122,12 @@ stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "stan_current/mehg_trial.stan"
 # file    = "stan_current/len_trial.stan"
-  file    = "stan_current/CMR_multiple_populations_mm.stan"
+  file    = "stan_current/CMR_multiple_populations.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
 , refresh = 10
-, init    = list(list(ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()))
+, init    = list(list(ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()))
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin

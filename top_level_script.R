@@ -2,16 +2,37 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 28 ---- 
+#### Notes April 29 (continuation of To Do list from April 28) ---- 
+
+## 0.1) Priorities for Mon - Wed (May 2, 3, 4)
+ ## -- Finish off A2
+ ## -- B below
+ ## -- D below, which debugs a lot of A-C
+ ## -- E below, which debugs the rest of A-C 
+ ## -- Start on next models (E below)
+
+## 0.2) Priorities for Thurs, Fri (May 5, 6)
+ ## -- Build script for sending all populations individually. Send jobs
+ ## -- Send a few multi-population jobs
+ ## -- Continue next models (E below)
+
+## 0.3) Priorities for the following week (Point Pelee)
+ ## -- Debug fits
+ ## -- Upload new figures to overleaf
+ ## -- Update overleaf writing
+ ## -- Finish next models (E below)
+ ## -- Start sketching more complicated disease/CMR model
 
 ## 1) Moving forward that next critical steps are to:
- ## -- A) [ ] add back in a daily average detection probability from which to calculate population size
- ## -- B) [ ] Tiny bit of extra tidying of plotting script to handle the new pop size calculations
+ ## -- A1) [-done but not debugged in all models-] fix population size calculation in the single population model
+ ## -- A2) [-done but not debugged in all models-] fix population size calculation in the multiple population model
+  ##           -- [ ] Code is quite ugly, so even if it works, will need some cleaning
+ ## -- B) [ ] Tiny bit of extra tidying of the multipop plotting script to handle the new pop size calculations
  ## -- C) [ ] Series of minor and sub-major model adjustments
-  ##           -- [ ] check scaling on veg and drawdown
-  ##           -- [ ] some minor cleanup needed for the length imputation in all of the individual models
-  ##           -- [ ] some minor oranization and commenting needed in most of the individual models
-  ##           -- [ ] switch to having Male as the intercept, check to insure that it is working
+  ##           -- [-done but not debugged-] check scaling on veg and drawdown
+  ##           -- [-done but not debugged-] some minor cleanup needed for the length imputation in all of the individual models
+  ##           -- [-done but not debugged-] some minor organization and commenting needed in most of the individual models
+  ##           -- [-done but not debugged-] switch to having Male as the intercept, check to insure that it is working
   ##           -- [ ] create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
  ## -- D) [ ] Run all of the individual populations alone and update individual_model_runs and upload new scripts to overleaf
   ##           -- add models and make changes to models as needed
@@ -38,7 +59,7 @@ some_pops  <- TRUE
 if (some_pops) {
 which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[5] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
@@ -46,7 +67,7 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- FALSE
+red_ind    <- TRUE
 if (red_ind) {
 num_ind    <- 200
 }

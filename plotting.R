@@ -16,6 +16,7 @@ this_spec <- capt_history$Species[1]  %>% as.character()
 nparms <- dim(stan.fit.samples$beta_offseason)[2] + 1
 p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
 p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
+inseas <- "beta_phi" %in% names(stan.fit.samples)
 
 if (nparms == 2) {
   this_params <- c("Int", "Bd")
@@ -44,6 +45,8 @@ beta_est <- stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>
   , species    = this_spec
     )
 
+if (inseas) {
+
 outval   <- seq(1, by = 1)
 out.pred <- matrix(nrow = dim(stan.fit.samples[[1]])[1], ncol = length(outval))
 
@@ -70,6 +73,8 @@ out.pred.in <- out.pred %>%
   , species    = this_spec  
   )
 
+}
+
 pred.vals <- expand.grid(
   bd   = seq(0, 14, by = 1)
 , len  = seq(-3, 3, by = 0.5)
@@ -80,7 +85,7 @@ pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples
 
 for (j in 1:nrow(pred.est)) {
    pred.est[j, ] <- plogis(
-    stan.fit.samples$beta_offseason_sex[, 1] + stan.fit.samples$beta_offseason_sex[, 2] + ## Male
+    stan.fit.samples$beta_offseason_sex[, 1] + 
     stan.fit.samples$beta_offseason[, 1] * pred.vals[j, ]$bd + {
       if (nparms > 2) {
         stan.fit.samples$beta_offseason[, 2] * pred.vals[j, ]$len
@@ -317,7 +322,6 @@ beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")
 
 beta_est %<>% mutate(param = interaction(params, param_lev))
-
 
 ####
 ## Actual Plotting

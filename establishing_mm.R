@@ -1,12 +1,16 @@
-####
-## Building the complete model matrices for the joint model
-####
+##############################################################
+## Building the complete model matrices for the joint model ##
+##############################################################
 
 ## NOTE: This is ``non-dynamic'' in the sense that it needs to be changed manually to match
  ## whatever the linear predictors look like in the stan model
 
 ## See bottom of script for current linear predictors (again, non-dynamic, code must be updated
  ## whenever these linear predictors change)
+
+####
+## Model matrices for the survival part of the model
+####
 
 ## create the model matrices, separated for intercepts and slopes (which all use the same model matrix)
 fe_mm_phi_int   <- model.matrix(~Species + Sex, capt_history.phi)[phi_off_index, ]
@@ -16,6 +20,10 @@ fe_mm_phi_slope <- ifelse(fe_mm_phi_slope != 0, 1, 0)
 re_mm_phi <- model.matrix(~-1+pop_spec, capt_history.phi)[phi_off_index, ]
 re_mm_phi <- ifelse(re_mm_phi != 0, 1, 0)
 
+####
+## Model matrices for the detection part of the model
+####
+
 ## create the model matrices, separated for intercepts and slopes (which all use the same model matrix)
 fe_mm_p_int   <- model.matrix(~Species + Sex, capt_history.p)[p_est_index, ]
 fe_mm_p_slope <- model.matrix(~-1+drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
@@ -23,6 +31,40 @@ fe_mm_p_slope <- model.matrix(~-1+drawdown_cont + veg_cont, capt_history.p)[p_es
 re_mm_p <- model.matrix(~-1+pop_spec+date_fac, capt_history.p)[p_est_index, ]
 re_mm_p <- model.matrix(~-1+date_fac, capt_history.p)[p_est_index, ]
 re_mm_p <- ifelse(re_mm_p != 0, 1, 0)
+
+####
+## Model matrices and other vectors for getting population size estimates
+####
+
+## Model matrix used to extract each unique species -by- sex intercept value
+fe_mm_p_int.uni <- fe_mm_p_int %>% as.data.frame() %>% distinct()
+
+## *** Need to come back through and make this part dynamic
+colnames(fe_mm_p_int.uni) <- c("ANBO", "BCF", "RANA", "F", "U")
+spec_to_int               <- matrix(
+  data = seq(nrow(fe_mm_p_int.uni))
+, nrow = n_spec
+, ncol = n_sex
+, byrow = T
+)
+
+## number of each sex captured each day 
+n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(num_capt = sum(captured)) %>%
+    pivot_wider(., date_fac, values_from = num_capt, names_from = Sex) %>% ungroup() %>% dplyr::select(-date_fac) %>%
+    as.matrix()
+
+## Some pops dont have "U" for sex, but setting to zero won't affect their estimates
+n_capt_per_day_sex[is.na(n_capt_per_day_sex)] <- 0
+
+## the values of each of the continuous covariates used to estimate p on each sampling day (needed to get the
+ ## daily detection probability which is needed to get that days population size)
+fe_mm_p_slope_uni <- capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1) %>% ungroup() %>% dplyr::select(
+  drawdown_cont, veg_cont
+) %>% as.data.frame()
+
+## the species being sampled on each day
+spec_pop_se <- (capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1) %>% ungroup() %>% dplyr::select(Species) %>% as.data.frame() %>%
+  mutate(Species = as.numeric(Species)))$Species
 
 
 ## The linear predictor strategy for phi

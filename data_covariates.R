@@ -21,10 +21,9 @@ ind_len_spec_size        <- (ind.len %>% group_by(Species) %>% count())$n
 
 ind.len.spec <- ind.len$Species 
 ind.len.pop  <- ind.len$pop_spec
-ind.len      <- ind.len$len
 
-len.mis  <- which(is.na(ind.len))
-len.have <- which(!is.na(ind.len))
+len.mis  <- which(is.na(ind.len$len))
+len.have <- which(!is.na(ind.len$len))
 
 ## Proceed in a similar way with MeHg -- same code, used differently in the single (individual deviate estimated) 
  ## and multiple population models (pop mean estimated)
@@ -37,10 +36,9 @@ ind.hg <- capt_history %>%
 
 ind.hg.spec <- ind.hg$Species 
 ind.hg.pop  <- ind.hg$pop_spec
-ind.hg      <- ind.hg$merc
 
-hg.mis  <- which(is.na(ind.hg))
-hg.have <- which(!is.na(ind.hg))
+hg.mis  <- which(is.na(ind.hg$merc))
+hg.have <- which(!is.na(ind.hg$merc))
 
 
 ## Individual sex, important for survival and length imputation
@@ -53,19 +51,8 @@ ind.sex <- capt_history %>%
   , Sex2      = as.factor(Sex)) %>%
   mutate(Sex2 = as.numeric(Sex2))
 
-ind_sex <- ind.sex$Sex %>% factor(levels = c("F", "M", "U")) %>% as.numeric()
-
-n_sex <- length(unique(ind.sex$Sex))
-
-
-## The stan model requires a model matrix for all of the missing sexes. If the model matrix doesn't have the correct number of columns (= n_sex)
- ## stan will throw an error. So this bit just insures that all sexes are represented in column form even if there are not any row entries for
-  ## that sex (i.e., no missing lengths of that sex)
-ind_len_sex_mis <- model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.mis])), value = 0))[-seq(n_sex), ] %>% as.matrix() 
-if (dim(ind_len_sex_mis)[2] == 1) {
-  ind_len_sex_mis <- t(ind_len_sex_mis)
-}
-
+ind.sex %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U"))) %>% droplevels()
+n_sex   <- length(unique(ind.sex$Sex))
 
 ## -- Site level covariates -- ##
 

@@ -276,3 +276,9 @@ capt_history.p %<>%
 spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
 day_which_pop  <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
 spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
+
+
+## Set sex to a factor
+capt_history.phi %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
+capt_history.p   %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
+capt_history     %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))

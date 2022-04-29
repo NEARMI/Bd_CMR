@@ -25,7 +25,8 @@ stan_data     <- list(
  , ind_occ_min1_size = rep(colSums(n_occ) - 1, n_ind.per)
  , phi_first_index   = phi_first_index
  , p_first_index     = p_first_index
- , ind_sex           = model.matrix(~sex, data.frame(sex = as.factor(ind.sex$Sex), value = 0))[, ]
+ , ind_sex           = model.matrix(~sex, data.frame(sex = ind.sex$Sex, value = 0))[, ]
+ , uni_sex           = model.matrix(~sex, data.frame(sex = ind.sex$Sex, value = 0))[, ] %>% as.data.frame() %>% distinct()
   
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = capt_history.p$Mark
@@ -49,21 +50,22 @@ stan_data     <- list(
  , n_ind_len_mis      = length(len.mis)
  , ind_len_which_have = len.have
  , ind_len_which_mis  = len.mis %>% as.array()
- , ind_len_have       = `if`(length(len.mis) > 0, ind.len[len.have], scale(ind.len)[, 1])
- , ind_len_sex_have   = model.matrix(~sex, data.frame(sex = as.factor(c(seq(n_sex), ind_sex[len.have])), value = 0))[-seq(n_sex), ]
- , ind_len_sex_mis    = ind_len_sex_mis
+ , ind_len_have       = `if`(length(len.mis) > 0, ind.len$len[len.have], scale(ind.len$len)[, 1])
 
   ## individual mehg data
  , ind_mehg_which_have = hg.have
  , ind_mehg_which_mis  = hg.mis
  , n_ind_mehg_have     = length(hg.have)
  , n_ind_mehg_mis      = length(hg.mis)
- , ind_mehg_have       = ind.hg[hg.have]
+ , ind_mehg_have       = ind.hg$merc[hg.have]
   
   ## Capture data
- , N_y             = nrow(capt_history)
- , y               = capt_history.p$captured
- , n_capt_per_day  = (capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)))$num_capt
+ , N_y                = nrow(capt_history)
+ , y                  = capt_history.p$captured
+ , n_capt_per_day     = (capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)))$num_capt
+ , n_capt_per_day_sex = capt_history %>% group_by(capture_date, Sex) %>% summarize(num_capt = sum(captured)) %>%
+    pivot_wider(., capture_date, values_from = num_capt, names_from = Sex) %>% ungroup() %>% dplyr::select(-capture_date) %>%
+    as.matrix()
 
   ## indices of phi, p, and chi that are 1, 0, or estimated. Done to speed up code. See "stan_indices.R"
  , n_phi_zero        = phi_zero_index %>% length()
@@ -108,8 +110,8 @@ stan.fit  <- try(
 , refresh = 10
 , init    = list(
   list(
-     ind_len_mis  = rep(mean(ind.len, na.rm = T), length(len.mis)) %>% as.array()
-   , ind_mehg_mis = rep(mean(ind.hg, na.rm = T), length(hg.mis)) %>% as.array()
+     ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()
+   , ind_mehg_mis = rep(mean(ind.hg$merc, na.rm = T), length(hg.mis)) %>% as.array()
   )
 )
 , iter    = stan.iter            
