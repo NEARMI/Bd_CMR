@@ -84,7 +84,7 @@ data {
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
-	vector<lower=0>[n_days] n_capt_per_day;
+	matrix[n_days, n_sex] n_capt_per_day_sex;	    // Number of individuals of all sexes captured in a given day
 
   // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
   // set up in R to avoid looping over the full length of phi and p here. See R code for details
@@ -185,8 +185,6 @@ transformed parameters {
 
 	vector[n_days] p_day_dev;
 
-	vector<lower=0,upper=1>[n_days] p_per_day;	 // average detection per day
-
 // -----
 // Imputed NA Data values
 // -----
@@ -245,7 +243,6 @@ beta_offseason[4] * X[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind_occ_mi
 
 	for (t in 1:n_days) {
   	  p_day_dev[t]  = p_day_delta_sigma * p_day_delta_eps[t];
-	  p_per_day[t] = inv_logit(p_day_dev[t]);  
 	}
 
 	p[p_zero_index] = rep_vector(0, n_p_zero);
@@ -330,6 +327,16 @@ generated quantities {
 // ------------------------------ generated quantities ------------------------------
  
   vector<lower=0>[n_days] pop_size;
-  pop_size = n_capt_per_day ./ p_per_day;
+  vector[n_sex] beta_p_each_sex;
+  matrix[n_days, n_sex] p_per_day;
+
+  for (i in 1:n_sex) {
+   beta_p_each_sex[i] = uni_sex[i, ] * beta_p_sex;
+  } 
+
+  for (i in 1:n_days) {
+   p_per_day[i] = to_row_vector(inv_logit(beta_p_each_sex + rep_vector(p_day_dev[i], n_sex)));
+   pop_size[i]  = sum(n_capt_per_day_sex[i, ] ./ p_per_day[i]);
+  }
 
 }

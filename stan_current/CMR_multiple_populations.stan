@@ -45,6 +45,7 @@ data {
 	int<lower=1> ind_occ_min1;		 	    // n_ind * all sampling periods except the last 
 	int<lower=1> n_days;				    // Number of sampling occasions
 	int<lower=1> n_spec;				    // Total number of species
+	int<lower=1> n_sex;				    // Number of unique entries for sex (M, F, U)
 	int<lower=1> N_bd;				    // Number of defined values for bd
 	int<lower=1> n_col_mm_int;			    // Number of unique intercepts for detection and survival models (i.e., number of columns in the model matrix)
 	
@@ -58,13 +59,28 @@ data {
   // Index vectors with length ``n_days''
 	int<lower=1> day_which_pop[n_days];		    // Which pop is associated with each unique sampling day (for day-level detection deviates)
 		
-  // Components for detection model (p) (Index vectors)
+  // Components for detection model (p)
+	int<lower=1> n_p_zero;				    // Which entries of the longer vector p are set to zero
+	int<lower=1> n_p_est;				    // Which entries of the longer vector p inform the likelihood
+
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
 	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;	    // Intercept component of the model matrix
 	matrix[n_p_est, 2] fe_mm_p_slope;		    // Slope component of the model matrix
+
+  // Components for population size estimates
+	int<lower=1> n_fe_mm_p_int_uni;				  // number of unique intercept combos
+	matrix[n_fe_mm_p_int_uni, n_col_mm_int] fe_mm_p_int_uni;  // the unique model matrix entries (unique intercepts)
+	matrix[n_days, 2] fe_mm_p_slope_uni;			  // entries of the slope covariates for detection for each day
+	int<lower=1> spec_to_int[n_spec, n_sex];		  // which entries of the unique combos of the intercept are appropriate for the three sexes for each species
+	int<lower=1> spec_pop_se[n_days];			  // the species present in each population, used to select the appropriate intercept for a given population
   
   // Components for survival model (phi) (Index vectors and model matrices)
+	int<lower=1> n_phi_zero;  			    // Which entries of the longer vector phi are set to zero
+	int<lower=1> n_phi_one;      			    // Which entries of the longer vector phi are set to one
+	int<lower=1> n_phi_in;      			    // Which entries of the longer vector phi inform within season survival
+	int<lower=1> n_phi_off;  			    // Which entries of the longer vector phi inform between season survival
+
 	int<lower=1> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
 	int<lower=1> phi_bd_index[ind_occ_min1];	    // Which entries of latent bd correspond to each entry of phi
 	int<lower=1> pop_phi[ind_occ_min1];		    // Population index for mortality predictors
@@ -98,27 +114,22 @@ data {
 	matrix[n_pop, n_spec] spec_pop;			    // Which species is found in each pop_spec (for estimating pop average MeHg values)	    
 
   // Site-level covariates
-	real<lower=0, upper=1> pop_drawdown[n_pop];	    // population specific covariate for proportion drawdown    
+	real pop_drawdown[n_pop];	   		    // population specific covariate for proportion drawdown    
 	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
 	
   // Capture data
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
-	vector<lower=0>[n_days] n_capt_per_day;	   	    // Number of captures on each day 
+	matrix[n_days, n_sex] n_capt_per_day_sex;	    // Number of individuals of all sexes captured in a given day
+
 
   // Indices of phi, p, and chi that are 0, 1, or estimated, 
-  // set up in R to avoid looping over the full length of phi and p here. See R code for details
-	int<lower=1> n_phi_zero;  
-	int<lower=1> n_phi_one;      
-	int<lower=1> n_phi_in;      
-	int<lower=1> n_phi_off;    
+  // set up in R to avoid looping over the full length of phi and p here. See R code for details  
 	int<lower=1> phi_zero_index[n_phi_zero];  
 	int<lower=1> phi_one_index[n_phi_one];
 	int<lower=1> phi_in_index[n_phi_in];
 	int<lower=1> phi_off_index[n_phi_off]; 
 
-	int<lower=1> n_p_zero;
-	int<lower=1> n_p_est;
 	int<lower=1> p_zero_index[n_p_zero];
 	int<lower=1> p_est_index[n_p_est];
 
@@ -397,6 +408,8 @@ fe_mm_p_slope * beta_p_slope
 );
 
 
+
+
 // -----
 // Probability of never detecting an individual again after time t
 // -----
@@ -522,7 +535,29 @@ model {
 
 generated quantities {
 // ------------------------------ generated quantities ------------------------------
-           
-}
+          
+  vector<lower=0>[n_days] pop_size;
+  vector[n_fe_mm_p_int_uni] beta_p_each_int;
+  matrix[n_days, n_sex] p_per_day;
 
+  for (i in 1:n_fe_mm_p_int_uni) {
+   beta_p_each_int[i] = fe_mm_p_int_uni[i, ] * beta_p_int;
+  } 
+
+  for (i in 1:n_days) {
+
+   p_per_day[i] = to_row_vector(
+    inv_logit(
+     beta_p_each_int[spec_to_int[spec_pop_se[i], ]] + 
+     rep_vector(p_day_dev[i], n_sex)                + 
+     rep_vector(p_pop[day_which_pop[i]], n_sex)     +
+     rep_vector(fe_mm_p_slope_uni[i, ] * beta_p_slope, n_sex)
+    )
+   );
+
+   pop_size[i]  = sum(n_capt_per_day_sex[i, ] ./ p_per_day[i]);
+
+  }
+ 
+}
 
