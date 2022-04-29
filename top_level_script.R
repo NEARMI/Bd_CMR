@@ -5,16 +5,17 @@
 #### Notes April 29 (continuation of To Do list from April 28) ---- 
 
 ## 0.1) Priorities for Mon - Wed (May 2, 3, 4)
- ## -- Finish off A2
- ## -- B below
- ## -- D below, which debugs a lot of A-C
- ## -- E below, which debugs the rest of A-C 
- ## -- Start on next models (E below)
+ ## -- [Mon] Compare new multi-pop fit to old multi-pop fit of the same populations
+ ## -- [Mon] Compare new mutli-pop population size estimates to two of those same populations fit on their own
+ ## -- [Mon] Finish off A2
+ ## -- [Mon] B below
+ ## -- [Tues] D below, which debugs a lot of A-C
+ ## -- [Wed] Start on next models (F below)
 
 ## 0.2) Priorities for Thurs, Fri (May 5, 6)
- ## -- Build script for sending all populations individually. Send jobs
- ## -- Send a few multi-population jobs
- ## -- Continue next models (E below)
+ ## -- [Thurs] Build script for sending all populations individually. Send jobs
+ ## -- [Thurs] Send a few multi-population jobs
+ ## -- [Fri] Continue next models (F below)
 
 ## 0.3) Priorities for the following week (Point Pelee)
  ## -- Debug fits
@@ -36,7 +37,8 @@
   ##           -- [ ] create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
  ## -- D) [ ] Run all of the individual populations alone and update individual_model_runs and upload new scripts to overleaf
   ##           -- add models and make changes to models as needed
- ## -- E) [ ] Create a number of subsidiary models from the master models
+ ## -- E) [ ] Send a few multi-pop models
+ ## -- F) [ ] Create a number of subsidiary models from the master models
   ##           -- [ ] A multi-pop model that has only one species
   ##           -- [ ] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
   ##           -- [ ] Refine the ``Simple'' continuous time Bd model
