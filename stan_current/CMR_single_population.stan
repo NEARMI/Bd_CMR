@@ -51,6 +51,7 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
+	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)

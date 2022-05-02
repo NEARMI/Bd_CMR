@@ -50,7 +50,9 @@ data {
 	int<lower=1> ind_occ_min1_size[n_ind];		    // Number of sampling periods -1 for all individuals
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
-	
+	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
+	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)	
+
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
@@ -78,9 +80,6 @@ data {
 	int<lower=0> ind_mehg_which_mis[n_ind_mehg_mis];    // Index of individuals with missing mehg data
 	vector[n_ind_mehg_have] ind_mehg_have;		    // The actual mehg values that we have
 	
-  // covariates (sex)
-	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 

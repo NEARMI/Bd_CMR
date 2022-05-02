@@ -51,6 +51,7 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
+	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)
 	
   // long vector indices for observation model (p) and continuous time Bd model
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -72,8 +73,9 @@ data {
 
 	vector[ind_occ] yday;			   	    // Scaled Julian day (for now a placeholder, will want to get to a meaningful measure of temp soon)
 	vector[ind_occ] yday_sq;			    // Square of scaled Julian Day
-	int<lower=0> X_first_index[ind_per_period_bd];	    // First index for each section of Bd values (occasions in a year)
-	int<lower=0> X_gap[ind_per_period_bd];		    // Number of entries in X for each section of Bd values (occasions in a year)
+	int<lower=1> X_first_index[ind_per_period_bd];	    // First index for each section of Bd values (occasions in a year)
+	int<lower=1> X_gap[ind_per_period_bd];		    // Number of entries in X for each section of Bd values (occasions in a year)
+	int<lower=1> bd_year[ind_occ];			    // Year associated with each estimated bd value
 	
   // covariates (length)
 	int<lower=0> n_ind_len_have;			    // Number of individuals that we have length data	  
@@ -182,7 +184,7 @@ transformed parameters {
 	vector<lower=0,upper=1>[ind_occ] p;              // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
 
-	real p_day_dev[n_days];
+	vector[n_days] p_day_dev;
 
 
 // -----
@@ -213,7 +215,7 @@ transformed parameters {
 
   // latent bd model before obs error
 	for (t in 1:ind_occ) {
-	  X[t] = beta_bd_year[p_year[t]] + bd_ind[ind_occ_rep[t]] + beta_bd_day * yday[t] + beta_bd_day_sq * yday_sq[t] + beta_bd_len * ind_len_scaled[ind_occ_rep[t]];      
+	  X[t] = beta_bd_year[bd_year[t]] + bd_ind[ind_occ_rep[t]] + beta_bd_day * yday[t] + beta_bd_day_sq * yday_sq[t] + beta_bd_len * ind_len_scaled[ind_occ_rep[t]];      
         }
 
   // maximum estimated bd load experienced by an individual between offseasons

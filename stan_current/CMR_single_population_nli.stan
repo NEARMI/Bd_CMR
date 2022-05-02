@@ -51,6 +51,7 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
+	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)
 	
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
@@ -70,7 +71,7 @@ data {
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 
   // covariates (length)
-	real ind_len_have[n_ind];			    // Individual lengths already scaled (named with "have" for convenience for correspondence with other model)
+	vector[n_ind] ind_len_have;			    // Individual lengths already scaled (named with "have" for convenience for correspondence with other model)
 
   // captures
 	int<lower=1> N_y;				    // Number of defined values for captures
@@ -150,7 +151,7 @@ transformed parameters {
 	vector<lower=0,upper=1>[ind_occ] p;              // detection at time t
 	real<lower=0,upper=1> chi[ind_occ];              // probability an individual will never be seen again
 
-	real p_day_dev[n_days];				 // daily detection deviates
+	vector[n_days] p_day_dev;			 // daily detection deviates
 
 // -----
 // bd submodel, contained to estimating within-season bd

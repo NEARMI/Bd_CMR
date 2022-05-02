@@ -78,12 +78,10 @@ data {
   // indices of phi, p, and chi that are 0, 1, or estimated, and which entries inform the likelihood.
   // set up in R to avoid looping over the full length of phi and p here. See R code for details
 	int<lower=1> n_phi_zero;  
-	int<lower=1> n_phi_one;      
-	int<lower=1> n_phi_in;      
+	int<lower=1> n_phi_one;           
 	int<lower=1> n_phi_off;    
 	int<lower=1> phi_zero_index[n_phi_zero];  
 	int<lower=1> phi_one_index[n_phi_one];
-	int<lower=1> phi_in_index[n_phi_in];
 	int<lower=1> phi_off_index[n_phi_off]; 
 
 	int<lower=1> n_p_zero;
@@ -117,7 +115,6 @@ parameters {
 // survival
 // -----
 
-	real beta_phi;                  		 // single background intercept for survival in the offseason
 	real beta_offseason;  				 // survival as a function of bd stress
 	vector[n_sex] beta_offseason_sex;		 // sex effect on survival
 
@@ -169,7 +166,6 @@ transformed parameters {
 
 	phi[phi_zero_index] = rep_vector(0, n_phi_zero);
 	phi[phi_one_index]  = rep_vector(1, n_phi_one);
-	phi[phi_in_index]   = rep_vector(inv_logit(beta_phi), n_phi_in);
 	phi[phi_off_index]  = inv_logit(ind_sex[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_sex + beta_offseason * X[phi_bd_index[phi_off_index]]);
 
 
@@ -214,7 +210,6 @@ model {
 // Survival Priors
 
 	beta_bd_year        ~ normal(0, 3);
-	beta_phi            ~ normal(0, 1.95);
 	beta_offseason      ~ normal(0, 1.75);
 	beta_offseason_sex  ~ normal(0, 1.75);
 
