@@ -2,19 +2,16 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes April 29 (continuation of To Do list from April 28) ---- 
+#### Notes May 2 (continuation of To Do list from April 28) ---- 
 
 ## 0.1) Priorities for Mon - Wed (May 2, 3, 4)
- ## -- [Mon] Compare new multi-pop fit to old multi-pop fit of the same populations
- ## -- [Mon] Compare new mutli-pop population size estimates to two of those same populations fit on their own
- ## -- [Mon] Finish off A2
- ## -- [Mon] B below
- ## -- [Tues] D below, which debugs a lot of A-C
+ ## -- [Started on Monday, Finish Tues] D below, which debugs a lot of A-C
+ ## -- [Tues] Build script for sending all populations individually. Send jobs
  ## -- [Wed] Start on next models (F below)
 
 ## 0.2) Priorities for Thurs, Fri (May 5, 6)
- ## -- [Thurs] Build script for sending all populations individually. Send jobs
  ## -- [Thurs] Send a few multi-population jobs
+ ## -- [Thurs] Continue next models (F below)
  ## -- [Fri] Continue next models (F below)
 
 ## 0.3) Priorities for the following week (Point Pelee)
@@ -25,10 +22,10 @@
  ## -- Start sketching more complicated disease/CMR model
 
 ## 1) Moving forward that next critical steps are to:
- ## -- A1) [-done but not debugged in all models-] fix population size calculation in the single population model
- ## -- A2) [-done but not debugged in all models-] fix population size calculation in the multiple population model
-  ##           -- [ ] Code is quite ugly, so even if it works, will need some cleaning
- ## -- B) [ ] Tiny bit of extra tidying of the multipop plotting script to handle the new pop size calculations
+ ## -- A1) [x] fix population size calculation in the single population model
+ ## -- A2) [x] fix population size calculation in the multiple population model
+  ##           -- [x] Code is quite ugly, so even if it works, will need some cleaning
+ ## -- B) [x] Tiny bit of extra tidying of the multipop plotting script to handle the new pop size calculations
  ## -- C) [ ] Series of minor and sub-major model adjustments
   ##           -- [-done but not debugged-] check scaling on veg and drawdown
   ##           -- [-done but not debugged-] some minor cleanup needed for the length imputation in all of the individual models
@@ -61,7 +58,7 @@ some_pops  <- TRUE
 if (some_pops) {
 which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[5] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[9] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()

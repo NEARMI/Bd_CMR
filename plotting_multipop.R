@@ -3,8 +3,8 @@
 ###################################################
 
 stan.fit         <- readRDS(model_name)
-stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
+stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+stan.fit.samples <- extract(stan.fit[[1]])
 
 ## extract the species and population names for this fit
 these_specs <- unique(capt_history$Species)
@@ -226,14 +226,15 @@ each_pop_day <- capt_history.p %>% group_by(date_fac) %>% slice(1) %>%
   dplyr::select(pop_spec, capture_date, date_fac, veg_cont, drawdown_cont, Species) %>%
   mutate(pop_spec = as.numeric(pop_spec))
 
-spec_sex_mm.p <- spec_sex_mm %>% filter(SexM == 1)
+spec_sex_mm.p <- spec_sex_mm %>% filter(sex == "M")
 
 pred.est.p <- matrix(data = 0, nrow = nrow(each_pop_day), ncol = dim(stan.fit.samples[[1]])[1])
 
 for (i in 1:nrow(each_pop_day)) {
 
   which_temp_spec <- which(these_specs == each_pop_day$Species[i])
-  spec_sex_mm.p.t <- spec_sex_mm.p %>% filter(spec == which_temp_spec) %>% dplyr::select(-spec, -sex) %>% as.matrix()
+  spec_sex_mm.p.t <- spec_sex_mm.p %>% filter(spec == which_temp_spec) %>%
+    dplyr::select(-spec, -sex) %>% as.matrix()
   
   pred.est.p[i, ] <- plogis(
     (sweep(stan.fit.samples$beta_p_int, 2, spec_sex_mm.p.t, `*`) %>% rowSums()) +
@@ -296,8 +297,44 @@ gg9 <- each_pop_day.gg %>% {
     ylab("Daily detection estimate (rank)") +
     facet_wrap(~pop_spec, scales = "free")
 }
+
+pop_size_ests <- capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1) %>% 
+  dplyr::select(pop_spec, capture_date) %>% ungroup() %>%
+  mutate(capt_per_day = n_capt_per_day_sex %>% rowSums()) %>%
+  mutate(
+    lwr   = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.025))
+  , lwr_n = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.200))
+  , mid   = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.500))
+  , upr_n = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.800))
+  , upr   = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.975))
+    ) %>% ungroup() %>% group_by(pop_spec) %>% 
+  mutate(ss = seq(n())) %>% filter(ss != min(ss)) %>% ungroup()
+
+pop_size_ests[pop_size_ests$capt_per_day == 0, 5:9] <- NA
+
+x_labs <- pop_size_ests %>% group_by(pop_spec) %>% filter(
+  date_fac %in% seq(min(date_fac), max(date_fac), by = 5)
+)
+
+gg10 <- pop_size_ests %>% {
+    ggplot(., aes(date_fac, mid)) + 
+      geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+      geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.2) +
+      geom_line() +
+      geom_point(aes(date_fac, capt_per_day), colour = "firebrick3", size = 3) +
+      xlab("Date") +
+      ylab("Population Estimate") +
+      scale_x_continuous(
+        breaks = x_labs$date_fac
+      , labels = x_labs$capture_date
+        ) +
+      theme(axis.text.x = element_text(angle = 300, hjust = 0, size = 10)) +
+      facet_wrap(~pop_spec, scales = "free") +
+      scale_y_log10() +
+      ggtitle("Red Points Show Number of Captures - Lines and Ribbons Show Population Estimates")
+}
   
-gglist    <- c("gg1", "gg2", "gg3", "gg4", "gg5", "gg6", "gg7", "gg8", "gg9")
+gglist    <- c("gg1", "gg2", "gg3", "gg4", "gg5", "gg6", "gg7", "gg8", "gg9", "gg10")
 
 pdf(paste("plots/", paste("stan_fit_multipop", Sys.Date(), sep = "_"), ".pdf", sep = ""), onefile = TRUE)
 for (i in seq(length(gglist))) {

@@ -54,9 +54,9 @@ stan_data     <- list(
 
   ## individual mehg data
  , ind_mehg_which_have = hg.have
- , ind_mehg_which_mis  = hg.mis
+ , ind_mehg_which_mis  = hg.mis %>% as.array()
  , n_ind_mehg_have     = length(hg.have)
- , n_ind_mehg_mis      = length(hg.mis)
+ , n_ind_mehg_mis      = length(hg.mis) 
  , ind_mehg_have       = ind.hg$merc[hg.have]
   
   ## Capture data
@@ -93,6 +93,7 @@ stan_data     <- list(
  ## Stuff for continuous Bd model, only used in that model. Ignored in other models
  , yday              = capt_history.p$yday_s
  , yday_sq           = capt_history.p$yday_s^2
+ , bd_year           = capt_history.p$Year %>% as.factor() %>% as.numeric()
  , X_first_index     = (capt_history.p %>% ungroup() %>% mutate(row_index = seq(n())) %>% group_by(X_stat_index) %>% slice(1))$row_index
  , X_gap             = (capt_history.p %>% ungroup() %>% group_by(X_stat_index) %>% summarize(n_entries = n()))$n_entries
  , x_bd_index_full   = which(capt_history.p$swabbed == 1)
@@ -102,8 +103,8 @@ stan_data     <- list(
 stan.fit  <- try(
   {
  stan(
-# file    = this_model_fit
-  file    = "stan_current/CMR_single_population_no_in.stan"
+  file    = this_model_fit
+# file    = "stan_current/CMR_single_population_nl_no_in.stan"
 , data    = stan_data
 , chains  = 1
 , cores   = 1
@@ -131,8 +132,9 @@ stan.fit  <- try(
 
 saveRDS(
   list(
-  fitted_model = stan.fit
-, stan_data    = stan_data
+  fitted_model     = stan.fit
+, capt_history.p   = capt_history.p
+, capt_history.phi = capt_history.phi
   )
   , paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = ".")
   )

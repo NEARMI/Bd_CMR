@@ -142,7 +142,8 @@ stan.fit  <- stan(
 
 saveRDS(
   list(
-  fitted_model = stan.fit
-, stan_data    = stan_data
+  fitted_model     = stan.fit
+, capt_history.p   = capt_history.p
+, capt_history.phi = capt_history.phi
   )
   , model_name)
