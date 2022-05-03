@@ -12,8 +12,6 @@ stan.length   <- (stan.iter - stan.burn) / stan.thin
 red_ind       <- FALSE
 single_pop    <- TRUE
 
-which_model_fit <- read.csv("stan_current/which_model_fit.csv")
-
 ## Use parameter values from the command line
 args           <- commandArgs(TRUE) 
 which.dataset  <- args[1]
