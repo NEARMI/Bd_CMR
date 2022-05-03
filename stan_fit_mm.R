@@ -127,7 +127,11 @@ stan.fit  <- stan(
 , chains  = stan.chains
 , cores   = stan.cores
 , refresh = stan.refresh
-, init    = list(list(ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()))
+, init    = rep(
+  list(
+  list(ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array())
+  )
+, stan.chains)
 , iter    = stan.iter            
 , warmup  = stan.burn
 , thin    = stan.thin
