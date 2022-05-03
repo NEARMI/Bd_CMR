@@ -4,17 +4,15 @@
 
 #### Notes May 2 (continuation of To Do list from April 28) ---- 
 
-## 0.1) Priorities for Mon - Wed (May 2, 3, 4)
- ## -- [Started on Monday, Finish Tues] D below, which debugs a lot of A-C
- ## -- [Tues] Build script for sending all populations individually. Send jobs
+## 0.1) Priorities prior to Point Pelee
  ## -- [Wed] Start on next models (F below)
-
-## 0.2) Priorities for Thurs, Fri (May 5, 6)
- ## -- [Thurs] Send a few multi-population jobs
- ## -- [Thurs] Continue next models (F below)
+ ## -- [Thurs] Send all non-continuous fits individually
+ ## -- [Thurs] Send two Newt populations with continuous fits
+ ## -- [Thurs] Send a bigger multi-pop model
  ## -- [Fri] Continue next models (F below)
+ ## -- [Fri] Clean up code and repo and make plan
 
-## 0.3) Priorities for the following week (Point Pelee)
+## 0.2) Priorities for the following week (Point Pelee)
  ## -- Debug fits
  ## -- Upload new figures to overleaf
  ## -- Update overleaf writing
@@ -22,20 +20,12 @@
  ## -- Start sketching more complicated disease/CMR model
 
 ## 1) Moving forward that next critical steps are to:
- ## -- A1) [x] fix population size calculation in the single population model
- ## -- A2) [x] fix population size calculation in the multiple population model
-  ##           -- [x] Code is quite ugly, so even if it works, will need some cleaning
- ## -- B) [x] Tiny bit of extra tidying of the multipop plotting script to handle the new pop size calculations
- ## -- C) [ ] Series of minor and sub-major model adjustments
-  ##           -- [-done but not debugged-] check scaling on veg and drawdown
-  ##           -- [-done but not debugged-] some minor cleanup needed for the length imputation in all of the individual models
-  ##           -- [-done but not debugged-] some minor organization and commenting needed in most of the individual models
-  ##           -- [-done but not debugged-] switch to having Male as the intercept, check to insure that it is working
-  ##           -- [ ] create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
- ## -- D) [ ] Run all of the individual populations alone and update individual_model_runs and upload new scripts to overleaf
-  ##           -- add models and make changes to models as needed
- ## -- E) [ ] Send a few multi-pop models
- ## -- F) [ ] Create a number of subsidiary models from the master models
+ ## -- A) [ ] Run all of the individual populations alone on Yeti
+  ##           -- [ ] update individual_model_runs
+  ##           -- [ ] upload new plot fits to overleaf
+ ## -- B) [ ] Run a multi pop fit
+ ## -- C) [ ] Create a number of subsidiary models from the master models for other fits
+  ##           -- [ ] Create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
   ##           -- [ ] A multi-pop model that has only one species
   ##           -- [ ] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
   ##           -- [ ] Refine the ``Simple'' continuous time Bd model
