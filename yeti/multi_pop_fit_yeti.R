@@ -8,6 +8,9 @@ source("packages_functions.R")
 stan.iter     <- 3500
 stan.burn     <- 500
 stan.thin     <- 3
+stan.chains   <- 3
+stan.cores    <- 3
+stan.refresh  <- 10
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 red_ind       <- FALSE
 some_pops     <- TRUE

@@ -9,6 +9,9 @@ stan.iter     <- 1500
 stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
+stan.chains   <- 2
+stan.cores    <- 1
+stan.refresh  <- 10
 
 red_ind    <- FALSE
 single_pop <- TRUE

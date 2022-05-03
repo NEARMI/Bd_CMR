@@ -124,9 +124,9 @@ stan.fit  <- stan(
 # file    = "stan_current/len_trial.stan"
   file    = "stan_current/CMR_multiple_populations.stan"
 , data    = stan_data
-, chains  = 1
-, cores   = 1
-, refresh = 10
+, chains  = stan.chains
+, cores   = stan.cores
+, refresh = stan.refresh
 , init    = list(list(ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()))
 , iter    = stan.iter            
 , warmup  = stan.burn

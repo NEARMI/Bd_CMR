@@ -106,14 +106,17 @@ stan.fit  <- try(
   file    = this_model_fit
 # file    = "stan_current/CMR_single_population_nl_no_in.stan"
 , data    = stan_data
-, chains  = 1
-, cores   = 1
-, refresh = 10
-, init    = list(
+, chains  = stan.chains
+, cores   = stan.cores
+, refresh = stan.refresh
+, init    =   rep(
+  list(
   list(
      ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()
    , ind_mehg_mis = rep(mean(ind.hg$merc, na.rm = T), length(hg.mis)) %>% as.array()
   )
+)
+, stan.chains
 )
 , iter    = stan.iter            
 , warmup  = stan.burn

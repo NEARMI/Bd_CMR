@@ -97,6 +97,9 @@ stan.iter     <- 1000
 stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
+stan.chains   <- 1
+stan.cores    <- 1
+stan.refresh  <- 10
 if (length(which.dataset) == 1) {
 source("stan_fit_single.R")
 } else {
