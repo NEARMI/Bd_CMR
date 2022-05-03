@@ -2,7 +2,7 @@
 
 export IFS=","
 
-cat which_model_fit.csv | while read a b c d; do 
+cat which_model_fit_test.csv | while read a b c d; do 
 
 job_file="CMR_${a}${b}_pop.job"
 
@@ -17,7 +17,7 @@ echo "#!/bin/bash
 #SBATCH --output=CMR_${a}${b}pop.log
 
 ml R/4.1.1
-Rscript top_level_script.R "$a" "$b" 1" > $job_file
+Rscript fit_pops_along_yeti.R "$a" "$b" 1" > $job_file
 
     sbatch $job_file
 

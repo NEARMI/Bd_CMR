@@ -17,7 +17,7 @@ echo "#!/bin/bash
 #SBATCH --output=CMR_${a}${b}pop.log
 
 ml R/4.1.1
-Rscript top_level_script.R "$a" "$b" 1" > $job_file
+Rscript fit_pops_along_yeti.R "$a" "$b" 1" > $job_file
 
     sbatch $job_file
 
