@@ -32,7 +32,13 @@ ind.hg <- capt_history %>%
   summarize(merc = mean(merc, na.rm = T)) %>%
   mutate(
     pop_spec = as.numeric(pop_spec)
-  , Species  = as.numeric(Species))
+  , Species  = as.numeric(Species)) %>%
+  ungroup() %>%
+  mutate(index = seq(n()))
+
+## Same indexing vectors as for individual lengths
+ind_mehg_spec_first_index <- (ind.hg %>% group_by(Species) %>% summarize(first_index = min(index)))$first_index
+ind_mehg_spec_size        <- (ind.hg %>% group_by(Species) %>% count())$n
 
 ind.hg.spec <- ind.hg$Species 
 ind.hg.pop  <- ind.hg$pop_spec

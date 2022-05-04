@@ -25,11 +25,16 @@
   ##           -- [ ] upload new plot fits to overleaf
  ## -- B) [ ] Run a multi pop fit
  ## -- C) [ ] Create a number of subsidiary models from the master models for other fits
-  ##           -- [ ] Create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
+  ##           -- [x] Create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
+    ##              -- Fits fine, doesn't help at all
   ##           -- [ ] A multi-pop model that has only one species
-  ##           -- [ ] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
-  ##           -- [ ] Refine the ``Simple'' continuous time Bd model
+    ##              -- 
+  ##           -- [-in progress-] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
+    ##              -- Compiles, but going to be slow, need to run on other computer
+  ##           -- [-done for now-] Refine the ``Simple'' continuous time Bd model
+    ##              -- could conceivably modify to use some form of temp, but probably will save that for the model below
   ##           -- [ ] {Probably an entirely different paper} Write an actual disease model, which is informed by CMR style data
+    ##              -- 
 
 #### Code ----
 
@@ -46,9 +51,10 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
+#which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
+which.dataset  <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[9] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
@@ -56,7 +62,7 @@ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
-red_ind    <- TRUE
+red_ind    <- FALSE
 if (red_ind) {
 num_ind    <- 200
 }

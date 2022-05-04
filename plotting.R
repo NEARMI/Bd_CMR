@@ -18,6 +18,8 @@ p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
 p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
 inseas <- "beta_phi" %in% names(stan.fit.samples)
 
+mean_bd <- (capt_history.bd_load %>% filter(log_bd_load != 0) %>% summarize(mbd = mean(log_bd_load)))$mbd
+
 if (nparms == 2) {
   this_params <- c("Int", "Bd")
 } else if (nparms == 3) {
@@ -222,18 +224,18 @@ capt_history.slice <- capt_history.temp %>%
 
 if (p_sex & p_bd) {
   stan.p_pred_baseline <- data.frame(
-  val1  = (stan.fit.samples$beta_p_sex[, 1] + stan.fit.samples$beta_p_sex[, 2])
-, iterations = seq(length(stan.fit.samples$beta_p_sex[, 2]))
+  val1  = stan.fit.samples$beta_p_sex[, 1]
+, iterations = seq(length(stan.fit.samples$beta_p_sex[, 1]))
   ) %>% left_join(
     .
   , data.frame(
-    val2       = (stan.fit.samples$beta_p_bd * 5)
+    val2       = (stan.fit.samples$beta_p_bd * mean_bd)
   , iterations = seq(length(stan.fit.samples$beta_p_bd))
     )
   ) %>% mutate(value = val1 + val2)
 } else if (p_sex & !p_bd) {
   stan.p_pred_baseline <- data.frame(
-  value      = (stan.fit.samples$beta_p_sex[, 1] + stan.fit.samples$beta_p_sex[, 2])
+  value      = stan.fit.samples$beta_p_sex[, 1] 
 , iterations = seq(length(stan.fit.samples$beta_p_sex[, 2]))
   ) 
 } else {

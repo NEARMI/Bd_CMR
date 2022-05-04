@@ -31,6 +31,7 @@ stan_data     <- list(
   ## long vector indexes: detection stuff (p)
  , ind_occ_rep       = capt_history.p$Mark
  , p_day             = capt_history.p$date_fac
+ , p_bd_index        = capt_history.p$X_stat_index
 
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -103,8 +104,8 @@ stan_data     <- list(
 stan.fit  <- try(
   {
  stan(
-  file    = this_model_fit
-# file    = "stan_current/CMR_single_population_nl_no_in.stan"
+# file    = this_model_fit
+  file    = "stan_current/CMR_single_population_nli_p.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores

@@ -105,7 +105,6 @@ stan_data     <- list(
  , p_zero_index      = p_zero_index
  , p_est_index       = p_est_index 
 
-
   ## which entries of phi, p, and chi are used in the model definition (defining the likelihood)
    ## see "stan_indices.R" for details
  , n_phi_ll     = which_phi_ll %>% length()
@@ -114,6 +113,15 @@ stan_data     <- list(
  , which_p_ll   = which_p_ll
  , which_chi_ll = which_chi_ll
 
+  ## Components needed only for the multi-pop MeHg model
+ , n_ind_mehg_have             = hg.have %>% length()
+ , n_ind_mehg_mis              = hg.mis %>% length()
+ , ind_mehg_which_have         = hg.have
+ , ind_mehg_which_mis          = hg.mis 
+ , ind_mehg_have               = ind.hg$merc[hg.have]
+ , ind_mehg_spec_first_index   = ind_mehg_spec_first_index
+ , ind_mehg_spec_size          = ind_mehg_spec_size
+  
   )
 
 model_name <- paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds", sep = ".")
@@ -122,14 +130,17 @@ stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "stan_current/mehg_trial.stan"
 # file    = "stan_current/len_trial.stan"
-  file    = "stan_current/CMR_multiple_populations.stan"
+  file    = "stan_current/CMR_multiple_populations_mehg.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
 , refresh = stan.refresh
 , init    = rep(
   list(
-  list(ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array())
+  list(
+    ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()
+  , ind_mehg_mis = rep(mean(ind.hg$merc, na.rm = T), length(hg.mis)) %>% as.array()
+    )
   )
 , stan.chains)
 , iter    = stan.iter            
