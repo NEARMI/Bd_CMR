@@ -2,17 +2,20 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes May 2 (continuation of To Do list from April 28) ---- 
+#### Notes May 4 (continuation of To Do list from April 28) ---- 
 
-## 0.1) Priorities prior to Point Pelee
- ## -- [Wed] Start on next models (F below)
+## 0.1) [Over Time] Fit the next trial models and compare to the standard population
+  ##      -- [ ] CMR_multiple_populations_mehg_ssp
+  ##      -- [ ] CMR_multiple_populations_mehg
+  ##      -- [ ] CMR_multiple_populations_ssp
+
+## 0.2) Priorities prior to Point Pelee
  ## -- [Thurs] Send all non-continuous fits individually
  ## -- [Thurs] Send two Newt populations with continuous fits
  ## -- [Thurs] Send a bigger multi-pop model
- ## -- [Fri] Continue next models (F below)
- ## -- [Fri] Clean up code and repo and make plan
+ ## -- [Fri]   Clean up code and repo and make plan
 
-## 0.2) Priorities for the following week (Point Pelee)
+## 0.3) Priorities for the following week (Point Pelee)
  ## -- Debug fits
  ## -- Upload new figures to overleaf
  ## -- Update overleaf writing
@@ -27,10 +30,12 @@
  ## -- C) [ ] Create a number of subsidiary models from the master models for other fits
   ##           -- [x] Create a single_population model that has Bd load in detection to see if it can solve some of the crazy patterns in RANA
     ##              -- Fits fine, doesn't help at all
-  ##           -- [ ] A multi-pop model that has only one species
-    ##              -- 
+  ##           -- [-in progress-] A multi-pop model that has only one species
+    ##              -- [ ] Compiles, but going to be slow, need to run on other computer for debugging
   ##           -- [-in progress-] Multi-pop MeHg model that can support all populations in which MeHg can be estimated
-    ##              -- Compiles, but going to be slow, need to run on other computer
+    ##              -- [ ] Compiles, but going to be slow, need to run on other computer for debugging 
+  ##           -- [-in progress-] Multi-pop single species MeHg model (combination of the above 2)
+    ##              -- [ ] Compiles, but going to be slow, need to run on other computer for debugging
   ##           -- [-done for now-] Refine the ``Simple'' continuous time Bd model
     ##              -- could conceivably modify to use some form of temp, but probably will save that for the model below
   ##           -- [ ] {Probably an entirely different paper} Write an actual disease model, which is informed by CMR style data
@@ -51,8 +56,9 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-#which.dataset  <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
-which.dataset  <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
+which.dataset  <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()

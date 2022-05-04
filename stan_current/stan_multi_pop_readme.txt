@@ -6,6 +6,15 @@ MULTIPLE POPULATIONS STAN MODELS
  
 
 
-CMR_multiple_populations.stan
-	-- Current most up to date working model with fewer for loops and using design matrices. For older models see dev_stan and old_slow_models
+[1] CMR_multiple_populations.stan
+	-- The top level model
+
+[2] CMR_multiple_populations_mehg.stan
+	-- [1] with individual-level MeHg imputation
+
+CMR_multiple_populations_ssp.stan
+	-- [1] for only the populations of one species 
+
+CMR_multiple_populations_mehg_ssp.stan
+	-- [2] for only the populations of one species (probably only fittable for RANA)
 

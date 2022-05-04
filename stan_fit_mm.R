@@ -50,9 +50,21 @@ stan_data     <- list(
  , ind_occ_min1_rep  = capt_history.phi$Mark
  , phi_bd_index      = capt_history.phi$X_stat_index
  , pop_phi           = as.numeric(capt_history.phi$pop_spec)
- , ind_spec          = model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec), value = 0))[, ]
+ , ind_spec          = {
+   if (n_spec > 1) {
+    model.matrix(~spec, data.frame(spec = as.factor(ind.len.spec), value = 0))[, ]
+   } else {
+    NULL
+   }
+ }
  , fe_mm_phi_int     = fe_mm_phi_int
- , fe_mm_phi_slope   = fe_mm_phi_slope
+ , fe_mm_phi_slope   = {
+   if (n_spec > 1) {
+     fe_mm_phi_slope
+   } else {
+     NULL
+   }
+ }
   
   ## Components for Bd model (Bd)
  , X_bd              = capt_history.bd_load$log_bd_load
@@ -60,7 +72,13 @@ stan_data     <- list(
  , ind_bd_rep        = X_stat_index_covs$Mark  
  , ind_in_pop_year   = X_stat_index_covs$ind_in_pop_year ## basically bd_time in the single population model
  , pop_bd            = X_stat_index_covs$pop_for_bd
- , spec_bd           = model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+ , spec_bd           = {
+   if (n_spec > 1) {
+    model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+   } else {
+    NULL
+   }
+ }
   
   ## Components for length imputation (Dimensions, Index vectors, covariates, and model matrices)
  , n_ind_len_have           = length(len.have)
@@ -70,14 +88,33 @@ stan_data     <- list(
  , ind_len_have             = ind.len$len[len.have]
  , ind_len_spec_first_index = ind_len_spec_first_index
  , ind_len_spec_size        = ind_len_spec_size
- , ind_mm_len               = model.matrix(~spec + sex, data.frame(spec = as.factor(ind.len.spec), sex = ind.sex$Sex, value = 0))[, ]
+ , ind_mm_len               = {
+   if (n_spec > 1) {
+    model.matrix(~spec + sex, data.frame(spec = as.factor(ind.len.spec), sex = ind.sex$Sex, value = 0))[, ]
+   } else {
+    model.matrix(~sex, data.frame(spec = as.factor(ind.len.spec), sex = ind.sex$Sex, value = 0))[, ]
+   }
+ }
   
   ## Components for MeHg model (Dimensions, Index vectors, covariates, and model matrices)
  , n_ind_mehg        = length(ind.hg$merc[hg.have])
  , ind_mehg          = ind.hg$merc[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
- , ind_mehg_spec     = model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
- , spec_pop          = model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
+ , ind_mehg_spec     = {
+   if (n_spec > 1) {
+    model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
+   } else {
+    NULL
+   }
+ }
+ , spec_pop          = {
+   if (n_spec > 1) {
+    model.matrix(~spec, data.frame(spec = as.factor(spec_pop), value = 0))[, ]
+   } else {
+    NULL 
+   }
+   
+ }
   
   ## Site-level covariates
  , pop_drawdown      = site_covar.cat$drawdown_cont
@@ -130,7 +167,8 @@ stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = "stan_current/mehg_trial.stan"
 # file    = "stan_current/len_trial.stan"
-  file    = "stan_current/CMR_multiple_populations_mehg.stan"
+# file    = "stan_current/CMR_multiple_populations_mehg.stan"
+  file    = "stan_current/CMR_multiple_populations_mehg_ssp.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
