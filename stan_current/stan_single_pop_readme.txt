@@ -34,3 +34,6 @@ CMR_single_population_mehg_nli.stan
 [3] CMR_single_population_con.stan
 	-- [1] but with seasonally varying bd loads at the individual level
 
+
+[4] XXXX_p.stan
+	-- Models with bd in detection

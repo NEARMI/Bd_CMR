@@ -51,11 +51,12 @@ data {
 	int<lower=1> phi_first_index[n_ind];		    // The indexes of phi corresponding to the first entry for each individual
 	int<lower=1> p_first_index[n_ind];	            // The indexes of p corresponding to the first entry for each individual
 	matrix[n_ind, n_sex] ind_sex;		  	    // Sex of each individual
-	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)
-	
+	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)	
+
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
+	int<lower=0> p_bd_index[ind_occ];		    // which entries of latent bd correspond to each entry of p
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
@@ -71,11 +72,7 @@ data {
 	int<lower=0> x_bd_index[N_bd];			    // entries of X (latent bd) that have a corresponding real measure to inform likelihood with
 
   // covariates (length)
-	int<lower=0> n_ind_len_have;			    // Number of individuals that we have length data	  
-	int<lower=0> n_ind_len_mis;			    // Number of individuals with missing length data
-	int<lower=0> ind_len_which_have[n_ind_len_have];    // Index of individuals that we have length data
-	int<lower=0> ind_len_which_mis[n_ind_len_mis];      // Index of individuals with missing length data
-	vector[n_ind_len_have] ind_len_have;		    // The actual length values that we have
+	vector[n_ind] ind_len_have;			    // Individual lengths already scaled (named with "have" for convenience for correspondence with other model)
 
   // covariates (MeHg)
 	int<lower=0> n_ind_mehg_have;			    // Number of individuals that we have mehg data	  
@@ -142,18 +139,11 @@ parameters {
 // -----
 	
 	vector[n_sex] beta_p_sex;
-	
+	real beta_p_bd;
+
 	real<lower=0> p_day_delta_sigma;
 	real p_day_delta_eps[n_days];
 	
-// -----
-// imputed covariates: length
-// -----
-
-	real<lower=0> inverse_phi_len;		         // variance parameter for gamma regression
-	vector[n_sex] beta_len_sex;			 // regression coefficient len as a function of sex
-	vector[n_ind_len_mis] ind_len_mis;		 // the imputed values of len
-
 // -----
 // imputed covariates: MeHg
 // -----
@@ -168,18 +158,6 @@ parameters {
 transformed parameters {
 // ------------------------------ transformed parameters ------------------------------
 
-	// Individual Lengths
-
-  	vector[n_ind_len_have] mu_len_have; 		 // the expected values for the gamma regression
-  	vector[n_ind_len_have] rate_len_have; 	 	 // rate parameter for the gamma distribution
-
-  	vector[n_ind_len_mis] mu_len_mis; 		 // the expected values (linear predictor) for the missing len values
-  	vector[n_ind_len_mis] rate_len_mis; 		 // rate parameter for the gamma distribution for the missing len values
-
-	vector[n_ind] ind_len;				 // all individual len (combining data and imputed values)
-	vector[n_ind] ind_len_scaled;			 // all individual len scaled
-
-
 	// Individual MeHg
 
   	vector[n_ind_mehg_have] mu_mehg_have; 		 // the expected values for the gamma regression
@@ -190,6 +168,8 @@ transformed parameters {
 
 	vector[n_ind] ind_mehg;				 // all individual mehg (combining data and imputed values)
 	vector[n_ind] ind_mehg_scaled;			 // all individual mehg scaled
+	real ind_mehg_mean;				 // mean of ind_mehg
+	real ind_mehg_sd;				 // sd of ind_mehg	
 
 
 	// bd
@@ -210,32 +190,21 @@ transformed parameters {
 // Imputed NA Data values
 // -----
 
-	// Individual Length
-
-   	mu_len_have   = exp(ind_sex[ind_len_which_have, ] * beta_len_sex);  		// linear predictor for len regression 
-  	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;	// gamma parameter from mean
-
-  	mu_len_mis    = exp(ind_sex[ind_len_which_mis, ] * beta_len_sex);   		// predict for missing using estimated coefficients 	
-  	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;	// gamma parameter from mean
-
-	ind_len[ind_len_which_have] = ind_len_have;	 				// filling in the complete vector of ind_mehg with the data
-	ind_len[ind_len_which_mis]  = ind_len_mis;       				// filling in the complete vector of ind_mehg with the imputed values
-
-	ind_len_scaled = (ind_len - mean(ind_len))/sd(ind_len);
-
-
 	// Individual MeHg
   	
-  	mu_mehg_have   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_have]);  // linear predictor for mehg regression	
+  	mu_mehg_have   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_have[ind_mehg_which_have]);  // linear predictor for mehg regression	
   	rate_mehg_have = rep_vector(inverse_phi_mehg, n_ind_mehg_have) ./ mu_mehg_have;
 
-  	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_scaled[ind_mehg_which_mis]);    // linear predictor for mehg regression	
+  	mu_mehg_mis   = exp(beta_mehg_have[1] + beta_mehg_have[2] * ind_len_have[ind_mehg_which_mis]);    // linear predictor for mehg regression	
   	rate_mehg_mis = rep_vector(inverse_phi_mehg, n_ind_mehg_mis) ./ mu_mehg_mis;
 
 	ind_mehg[ind_mehg_which_have] = ind_mehg_have;	    						    // filling in the complete vector of ind_mehg with the data and imputed values
 	ind_mehg[ind_mehg_which_mis]  = ind_mehg_mis;
 
-	ind_mehg_scaled = (ind_mehg -  mean(ind_mehg))/sd(ind_mehg);
+	ind_mehg_mean = mean(ind_mehg);			
+	ind_mehg_sd   = sd(ind_mehg);
+
+	ind_mehg_scaled = (ind_mehg - ind_mehg_mean)/ind_mehg_sd;
 
 
 // -----
@@ -249,7 +218,7 @@ transformed parameters {
 
   // latent bd model before obs error
 	for (t in 1:ind_per_period_bd) {
-	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
+	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_have[ind_bd_rep[t]];      
         }
 
 // -----
@@ -263,10 +232,11 @@ transformed parameters {
 	phi[phi_off_index]  = inv_logit(
 ind_sex[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_sex + 
 beta_offseason[1] * X[phi_bd_index[phi_off_index]] +
-beta_offseason[2] * ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
+beta_offseason[2] * ind_len_have[ind_occ_min1_rep[phi_off_index]] +
 beta_offseason[3] * ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]] +
 beta_offseason[4] * X[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]]
 );
+
 
 // -----
 // Detection probability over the whole period
@@ -277,8 +247,8 @@ beta_offseason[4] * X[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind_occ_mi
 	}
 
 	p[p_zero_index] = rep_vector(0, n_p_zero);
-	p[p_est_index]  = inv_logit(ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
-	 
+	p[p_est_index]  = inv_logit(ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + p_day_dev[p_day[p_est_index]] + beta_p_bd * X[p_bd_index[p_est_index]]);
+
 	
 // -----
 // Probability of never detecting an individual again after time t
@@ -319,28 +289,16 @@ model {
 
 // Detection Priors
 
-	beta_p_sex        ~ normal(0, 1.45);
+	beta_p_sex        ~ normal(0, 1.15);
+	beta_p_bd         ~ normal(0, 1.15);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
-	p_day_delta_eps   ~ normal(0, 1.45);
-
-// Imputed Covariates Priors: length
-
-	inverse_phi_len  ~ inv_gamma(8, 15);	
-	beta_len_sex     ~ normal(0, 3);
-
+	p_day_delta_eps   ~ normal(0, 1.15);
 
 // Imputed Covariates Priors: MeHg
 
 	inverse_phi_mehg  ~ inv_gamma(8, 15);	
 	beta_mehg_have[1] ~ normal(0, 3);
 	beta_mehg_have[2] ~ normal(0, 3);
-
-// -----
-// Imputed NA Data values
-// -----
-
-	ind_len_have ~ gamma(inverse_phi_len, rate_len_have);
-	ind_len_mis  ~ gamma(inverse_phi_len, rate_len_mis);
 
 // -----
 // MeHg regression imputation
@@ -353,8 +311,7 @@ model {
 // Bd Process and Data Model
 // -----
 
-// observed bd is the linear predictor + some observation noise
-
+  // observed bd is the linear predictor + some observation noise
 	X_bd ~ normal(X[x_bd_index], bd_obs);
     
 // -----
