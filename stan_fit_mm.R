@@ -168,7 +168,7 @@ stan.fit  <- stan(
 # file    = "stan_current/mehg_trial.stan"
 # file    = "stan_current/len_trial.stan"
 # file    = "stan_current/CMR_multiple_populations_mehg.stan"
-  file    = "stan_current/CMR_multiple_populations_mehg_ssp.stan"
+  file    = "stan_current/CMR_multiple_populations_ssp.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores

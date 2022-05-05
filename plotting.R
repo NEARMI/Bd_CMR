@@ -6,8 +6,8 @@ print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
 print("---------------------")
 
-stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
+stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+stan.fit.samples <- extract(stan.fit[[1]])
 
 this_pop  <- capt_history$pop_spec[1] %>% as.character()
 this_loc  <- capt_history$Site[1]     %>% as.character()

@@ -1,0 +1,9 @@
+Notes from fitting populations in different ways
+------------------------------------------------
+
+
+[1] Positive relationships between Bd and survival
+
+ -- Some populations are estimated to have a positive relationship between Bd and survival.
+  -- This effect is strongly correlated with smaller sampled sizes
+  -- These results are generally robust to how fitting occurs (pop alone, pop with only other pops of the same species, many species and pops at once)
