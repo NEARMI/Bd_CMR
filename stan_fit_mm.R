@@ -167,10 +167,6 @@ model_name <- paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds
 
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
-# file    = "stan_current/mehg_trial.stan"
-# file    = "stan_current/len_trial.stan"
-# file    = "stan_current/CMR_multiple_populations_mehg.stan"
-# file    = "stan_current/CMR_multiple_populations_ssp.stan"
   file    = which_stan_file
 , data    = stan_data
 , chains  = stan.chains

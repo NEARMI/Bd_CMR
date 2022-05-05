@@ -104,8 +104,8 @@ stan_data     <- list(
 stan.fit  <- try(
   {
  stan(
-# file    = this_model_fit
-  file    = "stan_current/CMR_single_population_nli_p.stan"
+  file    = this_model_fit
+# file    = "stan_current/CMR_single_population_nli_p.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores

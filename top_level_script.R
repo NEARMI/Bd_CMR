@@ -41,11 +41,13 @@ source("data_load.R")
 some_pops  <- TRUE
 
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
 #which.dataset  <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[6] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()

@@ -15,7 +15,7 @@
 ## create the model matrices, separated for intercepts and slopes (which all use the same model matrix)
 if (n_spec > 1) {
 fe_mm_phi_int   <- model.matrix(~Species + Sex, capt_history.phi)[phi_off_index, ]
-fe_mm_phi_slope <- model.matrix(~Species*log_bd_load, capt_history.phi)[phi_off_index, 3:4]
+fe_mm_phi_slope <- model.matrix(~Species*log_bd_load, capt_history.phi)[phi_off_index, ((n_spec + 1):(n_spec*2))]
 fe_mm_phi_slope <- ifelse(fe_mm_phi_slope != 0, 1, 0)  
 } else {
 fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]
@@ -48,9 +48,12 @@ re_mm_p <- ifelse(re_mm_p != 0, 1, 0)
 fe_mm_p_int.uni <- fe_mm_p_int %>% as.data.frame() %>% distinct()
 
 ## *** Need to come back through and make this part dynamic
-#colnames(fe_mm_p_int.uni) <- c("ANBO", "RANA", "F", "U")
+if (n_spec > 1) {
+colnames(fe_mm_p_int.uni) <- c(unique(capt_history.phi$Species) %>% as.character(), c("F", "U"))
+} else {
 colnames(fe_mm_p_int.uni) <- c("M", "F", "U")
-spec_to_int               <- matrix(
+}
+spec_to_int <- matrix(
   data = seq(nrow(fe_mm_p_int.uni))
 , nrow = n_spec
 , ncol = n_sex
