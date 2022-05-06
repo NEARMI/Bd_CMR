@@ -2,58 +2,41 @@ CMR models with a latent disease process
 
 Models and code for the empirical data found in the main repo
 
- --- Open top_level_script.R and work from there. That script will walk you through running anything. All notes needed to run everything are present that script.
+ -- Fits can be run on a local machine by opening ``top_level_script.R'' and working from there. That script will walk you through running anything. All notes needed to run everything are present that script.
 
-Simulation model and scratch development found in: CMR_simulation
+ -- Fits can be run on a remote machine with slurm using scripts that read ``XXXX_yeti.R''. These wrapper scripts have less commenting than ``top_level_script.R''
+   -- Planned fits can be found in model_runs.numbers
+
+
+Simulation model and scratch development found in ``/CMR_simulation''
 
 
 ---------
-Some notes as of March 25
+Some notes as of May 6
 ---------
 
 
-1) "Full" multi-spec/multi-population model working, but yet to be fit on a large scale
+1) Current status of work
 ----- 
 
-A) Some notes about the model structure:
- -- Uses species-specific fixed effects wherever possible
-  -- To do so collapses all RAXX to RALU (expect little success in predicting fixed effect level for this grouping)
- -- Includes pop-spec random effects for most parameters
- -- Imputes length at the species level
- -- Estimates population-average MeHg
+A) Single and Multiple populations finished for now. Many run on Yeti, others waiting to be run
 
-B) Some thoughts about model fitting
- -- It appears as if many populations will provide little help for species fixed effects
-   -- As in species fixed effects of various forms seem likely to basically always overlap 0 with wide-ish CI
-   -- Because of this, it is likely that the pop-spec random effects will be heavily relied upon
- -- It seems that MeHg at the population level is going to provide little information
-   -- Likely will have to rely on a second single-population analysis for the MeHg questions
-   -- It appears that none of the covariates provide any resolution for MeHg
+B) Some notes on fitting process (3500 samples and three chains on Yeti)
+	-- All individual populations apart from PA and MA NOVI run within 6h
+	-- ANBO populations job running (but expected to finish within 12h)
+	-- RANA populations job running (with fitting MeHg) expected to finish 24-36h
+	-- All pops together without the few NOVI pops running, unclear about time expectation (maybe 36h)
 
+C) Notes on fits
+	-- Small populations consistently are predicted to have increasing survival with increasing Bd
+		-- adding Bd to detection doesn't seem to help these small populations
+	-- Most RANA populations have a very strong positive relationship between length and survival
+		-- These has too narrow of CIs to be reasonable. Need to try length in detection
 
-2) Some next steps 
-------
-
-A) A bit of cleanup still needed: 
-	- expand.grid in data_manip.R
-	- double check the single population model didn't get screwed up with all of the code cleaning for the multiple population model
-	- make sure the model with categorical covariates is working correctly when all levels aren't represented
-	- make sure the MeHg code in data_covariates.R still leads to appropriate model specification in both the single and multiple population models
-
-
-3) Bigger Plan
---------------
-
-A) Try and move forward with the species-level fixed effects and pop-spec random effects and step back and re-evaluate if that leads to troubles
-B) Fit the "full" model for the main question
-C) Fit two other models for sub-questions
- -- 1) Bd over time -- Newts
- -- 2) Relationship between Bd, MeHg and survival -- The well sampled MeHg populations
-
-
-4) Potential adjustments / additions
-------
-
-A) Individual "injury" effect on survival
-
+D) To Do
+	1) Plot, debug, and upload some fits to Overleaf
+	2) Clean up overleaf language, upload some new figures from fits, and share
+	3) Another new model needed for SMNWR_E AMCI because no individuals were found infected
+	4) Try length and Bd in detection for these RANA populations (with the MeHg single species multipop model)
+	
 

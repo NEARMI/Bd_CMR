@@ -2,23 +2,32 @@
 ## Plot diagnostics for each model fit individually ##
 ######################################################
 
-print("---------------------")
-print("Model Finished and Saved, Extracting samples and starting plotting")
-print("---------------------")
+source("packages_functions.R")
+source("ggplot_theme.R")
 
-stan.fit.summary <- summary(stan.fit)
-stan.fit.samples <- extract(stan.fit)
+data.files <- list.files("fits")
+data.files <- paste("fits/", data.files, sep = "")
 
-this_pop  <- capt_history$pop_spec[1] %>% as.character()
-this_loc  <- capt_history$Site[1]     %>% as.character()
-this_spec <- capt_history$Species[1]  %>% as.character()
+for (jj in seq_along(data.files)) {
+  
+stan.fit         <- readRDS(data.files[jj])
+stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+stan.fit.samples <- extract(stan.fit[[1]])
+capt_history.phi <- stan.fit$capt_history.phi
+capt_history.p   <- stan.fit$capt_history.p
+
+print(paste(data.files[jj], "    loaded, summary, and samples taken", sep = " "))
+
+this_pop  <- capt_history.p$pop_spec[1] %>% as.character()
+this_loc  <- capt_history.p$Site[1]     %>% as.character()
+this_spec <- capt_history.p$Species[1]  %>% as.character()
 
 nparms <- dim(stan.fit.samples$beta_offseason)[2] + 1
 p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
 p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
 inseas <- "beta_phi" %in% names(stan.fit.samples)
 
-mean_bd <- (capt_history.bd_load %>% filter(log_bd_load != 0) %>% summarize(mbd = mean(log_bd_load)))$mbd
+mean_bd <- (capt_history.p %>% ungroup( ) %>% filter(swabbed == 1) %>% filter(log_bd_load != 0) %>% summarize(mbd = mean(log_bd_load)))$mbd
 
 if (nparms == 2) {
   this_params <- c("Int", "Bd")
@@ -36,7 +45,7 @@ if (nparms == 2) {
 ## Plotting Setup
 ####
 
-beta_est <- stan.fit.summary[[1]][grep("beta", dimnames(stan.fit.summary[[1]])[[1]]), ] %>% 
+beta_est <- stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>% 
   reshape2::melt() %>%
   filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
@@ -147,7 +156,7 @@ stan.ind_pred_var <- stan.fit.samples$X %>%
   ) %>% arrange(mid) %>%
   mutate(ind = factor(ind, levels = ind))
 
-capt_history.temp <- capt_history %>% filter(pop_spec == this_pop)
+capt_history.temp <- capt_history.p %>% filter(pop_spec == this_pop)
 capt_history.slice <- capt_history.temp %>% group_by(X_stat_index) %>% slice(1)
 
 stan.ind_pred_var <- cbind(
@@ -213,7 +222,7 @@ ind_order %<>% mutate(
   , species    = this_spec 
 )
 
-capt_history.temp  <- capt_history %>% filter(pop_spec == this_pop)
+capt_history.temp  <- capt_history.p %>% filter(pop_spec == this_pop)
 capt_history.slice <- capt_history.temp %>% 
   group_by(capture_date) %>% 
   filter(captured == 1) %>% summarize(n_capts = n()) %>%
@@ -284,7 +293,7 @@ pop_size_est <- stan.fit.samples$pop_size %>%
     Sample_Date = plyr::mapvalues(
       Sample_Date
     , from = Sample_Date
-    , to   = as.character(unique(capt_history$capture_date)))) %>%
+    , to   = as.character(unique(capt_history.p$capture_date)))) %>%
       mutate(sdate = seq(1, n())) %>% filter(sdate > 1)
 
 ind_bd_est <- stan.fit.samples$bd_delta_eps %>% reshape2::melt() %>%
@@ -365,7 +374,7 @@ gg.2a <- pred.vals.gg %>% filter(len == 0, mehg %in% c(-2, -1, 0, 1, 2)) %>%
   }
 }
 
-gg.2b <- capt_history.bd_load %>% {
+gg.2b <- capt_history.p %>% filter(swabbed == 1) %>% {
   ggplot(., aes(x = log_bd_load)) +
     geom_histogram(bins = 30) +
     xlab("Bd Copies (log)") +
@@ -377,17 +386,15 @@ gg.2b <- capt_history.bd_load %>% {
 
 gg.2 <- gridExtra::arrangeGrob(gg.2a, gg.2b, layout_matrix = rbind(c(1, 1), c(1, 1), c(2, 2)))
 
-scaled_hg <- data.frame(ind_hg = scale(ind.hg)[, 1])
-
 if (nparms > 3) {
   
-gg.3a <- pred.vals.gg %>% filter(len == 0, bd == 7) %>% {
+gg.3 <- pred.vals.gg %>% filter(len == 0, bd == 7) %>% {
   ggplot(., aes(mehg, mid)) + 
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.3) +
     geom_line(size = 1) + 
     xlab("MeHg concentration (scaled)") + 
     ylab("Apparent Survival Between Seasons") +
-    scale_x_continuous(lim = c(min(scaled_hg, na.rm = T), max(scaled_hg, na.rm = T))) +
+    scale_x_continuous(lim = c(-3, 3)) +
     theme(
       axis.text.x = element_blank()
     , axis.ticks.x = element_blank()
@@ -396,18 +403,6 @@ gg.3a <- pred.vals.gg %>% filter(len == 0, bd == 7) %>% {
     ggtitle(this_pop)
 }
 
-gg.3b <- scaled_hg %>% {
-  ggplot(., aes(x = ind_hg)) +
-    geom_histogram(bins = 30) +
-    xlab("MeHg (scaled)") +
-    ylab("Density") +
-    theme(
-      plot.margin = unit(c(0,.2,.2,.66), "cm")
-    )
-}
-
-gg.3 <- gridExtra::arrangeGrob(gg.3a, gg.3b, layout_matrix = rbind(c(1, 1), c(1, 1), c(2, 2)))
-  
 }
 
 gg.4 <- stan.p_pred_var %>% 
@@ -440,7 +435,7 @@ gg.6 <- ind_order %>% {
     ylab("Estimated Bd Rank")
 }
 
-n_cap <- capt_history %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)) %>%
+n_cap <- capt_history.p %>% group_by(capture_date) %>% summarize(num_capt = sum(captured)) %>%
   mutate(capture_date = as.factor(capture_date)) %>% mutate(capture_date = as.numeric(capture_date))
 n_cap <- n_cap[-1, ]
 
@@ -465,7 +460,7 @@ if (max(pop_size_est$upr, na.rm = T) > (max(n_cap$num_capt) * 100)) {
 }
 
 gglist    <- c("gg.1", "gg.2", "gg.3", "gg.4", "gg.5", "gg.6", "gg.7")
-need_grob <- c(F, T, T, F, F, F, F)
+need_grob <- c(F, T, F, F, F, F, F)
 
 if (nparms < 4) {
   gglist    <- gglist[-3]
@@ -481,3 +476,5 @@ for (i in seq(length(gglist))) {
   }
 }
 dev.off()
+
+}
