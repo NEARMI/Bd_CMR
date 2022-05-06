@@ -19,7 +19,13 @@ Some notes as of May 6
 1) Current status of work
 ----- 
 
-A) Single and Multiple populations finished for now. Many run on Yeti, others waiting to be run
+A) Single and Multiple populations finished for now. Many run on Yeti, others waiting to be run. Where I am leaving this project for about 10 days:
+	-- Most individual models were run, but FL populations failed for some reason. Need to determine why
+	-- Plotting still not working for a number of populations. Need to retrieve the Rds files from PC and work through the plotting
+	-- Single NOVI continuous models running, but didn't check if they were going to finish or fail with timeout
+	-- Multi-population jobs running, but didn't check if they were going to finish or fail with timeout
+	-- Overleaf methods a bit behind the current fitting strategy (population groupings)
+	-- After all of this need to make some final decisions on what to run
 
 B) Some notes on fitting process (3500 samples and three chains on Yeti)
 	-- All individual populations apart from PA and MA NOVI run within 6h
@@ -39,4 +45,3 @@ D) To Do
 	3) Another new model needed for SMNWR_E AMCI because no individuals were found infected
 	4) Try length and Bd in detection for these RANA populations (with the MeHg single species multipop model)
 	
-
