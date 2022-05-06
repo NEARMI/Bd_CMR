@@ -23,6 +23,10 @@ this_loc  <- capt_history.p$Site[1]     %>% as.character()
 this_spec <- capt_history.p$Species[1]  %>% as.character()
 
 nparms <- dim(stan.fit.samples$beta_offseason)[2] + 1
+if (is.na(nparms)) {
+nparms <- 2
+stan.fit.samples$beta_offseason <- matrix(stan.fit.samples$beta_offseason, ncol = 1)
+}
 p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
 p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
 inseas <- "beta_phi" %in% names(stan.fit.samples)
@@ -330,7 +334,6 @@ beta_est[beta_est$params == "beta_offseason", ]$param_lev <- this_params[-1]
 beta_est %<>% mutate(params = plyr::mapvalues(params, from = "beta_phi", to = "beta_inseason"))
 beta_est[beta_est$params == "beta_inseason", ]$param_lev <- c("Int")
 beta_est[beta_est$params == "beta_p", ]$param_lev <- c("Int")
-
 beta_est %<>% mutate(param = interaction(params, param_lev))
 
 ####
