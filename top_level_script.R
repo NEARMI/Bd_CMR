@@ -2,30 +2,21 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes May 5 (continuation of To Do list from April 28) ---- 
+#### Notes June 6, 2022 ---- 
 
-## New models seem good, unclear of their utility but definitely function
-## Code and repo cleaned up 
+## Returning to the project after a two week break to work on some other things. 
 
-## 0.1) Priorities prior to Point Pelee
- ## -- [Fri]   [ ] Send all non-continuous fits individually
-  ##                 -- sent, need to check on
- ## -- [Fri]   [ ] Send two Newt populations with continuous fits
-  ##                 -- sent, need to check on
- ## -- [Fri]   [ ] Send a series of multi-pop models
-  ##                 -- still need to send
+## 0.1) Today played with a simple simulation to find that the pattern that the intercept is estimated with
+  ## increasing error with higher variance in the random effects holds with glmer. Not quite sure what to do about this
+## 0.2) Also reformulated the model to use Cholesky. Fitting now. Seems marginally faster but need to compare coefficient estimates
+## 0.3) Did some research on multiple random effects with different grouping variables, but it seems that my current strategy is fine
 
-## 0.2) Priorities for the following week (Point Pelee)
- ## -- Debug fits
- ## -- Upload new figures to overleaf
- ## -- Update overleaf writing
- ## -- Start sketching more complicated disease/CMR model
+## 1) Main issue now is to try and figure out a way to specify the joint model that avoids the uncertain 
+ ## intercept problems I am facing.
+  ## -- Some thoughts in model_transformation.txt 
 
-## 1) Moving forward, the next overall critical steps are to:
- ## -- A) [ ] Run all of the desired runs on Yeti
- ## -- B) [ ] Make sense of the output and choose and upload some new plots to overleaf
- ## -- C) [ ] Form a plan for the direction of this paper
- ## -- D) [ ] Start on a more expansive disease CMR model for the newt data
+## 2) Other issues:
+ ## -- Figure out what to do with Scotia Barrens
 
 #### Code ----
 
@@ -41,15 +32,17 @@ source("data_load.R")
 ## For dev and debug purposes pick a subset of locations
 some_pops  <- TRUE
 
+# data.all %>% group_by(Year, pop_spec, Mark) %>% filter(BdSample == "Y") %>% summarize(nswab = n()) %>% arrange(desc(nswab)) %>% as.data.frame()       
+
 if (some_pops) {
 #which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[c(3:7)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
 #which.dataset  <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(1, 2, 13)] %>% droplevels()
+#which.dataset  <- unique(data.all$pop_spec)[12] %>% droplevels() 
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -83,7 +76,7 @@ source("establishing_mm.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 1000
+stan.iter     <- 800
 stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin

@@ -22,6 +22,7 @@ stan_data     <- list(
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = n_sex + length(unique(capt_history$Species)) - 1
+ , n_u               = 4
   
   ## Index vectors with length ``n_ind'' (used in all model components)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -167,7 +168,8 @@ model_name <- paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds
 
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
-  file    = which_stan_file
+# file    = which_stan_file
+  file    = "stan_current/CMR_multiple_populations_ssp_mv.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
