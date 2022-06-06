@@ -6,8 +6,12 @@ print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
 print("---------------------")
 
-stan.fit.summary <- summary(stan.fit)
-stan.fit.samples <- extract(stan.fit)
+stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
+stan.fit.summary <- summary(stan.fit[[1]])
+stan.fit.samples <- extract(stan.fit[[1]])
+
+# stan.fit.summary <- summary(stan.fit)
+# stan.fit.samples <- readRDS("stan.fit.samples_SPR.Rds")
 
 this_pop  <- capt_history$pop_spec[1] %>% as.character()
 this_loc  <- capt_history$Site[1]     %>% as.character()
@@ -18,9 +22,9 @@ if (is.na(nparms)) {
 nparms <- 2
 stan.fit.samples$beta_offseason <- matrix(stan.fit.samples$beta_offseason, ncol = 1)
 }
-p_sex  <- "beta_p_sex" %in% names(stan.fit.samples)
-p_bd   <- "beta_p_bd" %in% names(stan.fit.samples)
-inseas <- "beta_phi" %in% names(stan.fit.samples)
+p_sex   <- "beta_p_sex" %in% names(stan.fit.samples)
+p_bd    <- "beta_p_bd" %in% names(stan.fit.samples)
+inseas  <- "beta_phi" %in% names(stan.fit.samples)
 
 mean_bd <- (capt_history.bd_load %>% filter(log_bd_load != 0) %>% summarize(mbd = mean(log_bd_load)))$mbd
 
@@ -151,7 +155,7 @@ stan.ind_pred_var <- stan.fit.samples$X %>%
   ) %>% arrange(mid) %>%
   mutate(ind = factor(ind, levels = ind))
 
-capt_history.temp <- capt_history %>% filter(pop_spec == this_pop)
+capt_history.temp  <- capt_history %>% filter(pop_spec == this_pop)
 capt_history.slice <- capt_history.temp %>% group_by(X_stat_index) %>% slice(1)
 
 stan.ind_pred_var <- cbind(

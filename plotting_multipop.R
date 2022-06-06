@@ -2,9 +2,38 @@
 ## Plot diagnostics for a joint population model ##
 ###################################################
 
+# model_name <- "fits/stan_fit_multipop_ANBO_2022-05-20.Rds"
+# model_name <- "fits/stan_fit_multipop_RANA_2022-05-20.Rds"
+# model_name <- "fits/stan_fit_multipop_2022-05-20.Rds"
+
 stan.fit         <- readRDS(model_name)
 stan.fit.summary <- summary(stan.fit[[1]])[[1]]
 stan.fit.samples <- extract(stan.fit[[1]])
+
+## For running this code on local laptop with memory issues
+ ## WITH MEMORY ISSUES RUN LINE BY LINE WITH rm() and gc(), do not just execute the script
+mem.ish <- TRUE
+
+## Problems with memory, so subset
+needed_entries <- c(
+  "beta_offseason_int"
+, "beta_offseason_bd"
+, "beta_offseason_len"
+, "beta_offseason_mehg"
+, "offseason_pop"
+, "offseason_pop_bd"
+, "offseason_pop_len"
+, "bd_ind"
+, "beta_p_int"
+, "p_pop"
+, "p_day_dev"
+, "beta_p_slope"
+, "pop_size"
+)
+
+stan.fit.samples <- stan.fit.samples[needed_entries]
+
+## stan.fit.samples <- readRDS("stan.fit.samples.Rds")
 
 capt_history.phi <- stan.fit$capt_history.phi
 capt_history.p   <- stan.fit$capt_history.p
@@ -45,7 +74,7 @@ spec_sex_mm %<>% mutate(
 spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()  
 spec_sex_mm %<>% mutate(
   ## *** non-dynamic, needs updating
- sex  = c("F", "U", "M")
+ sex  = c("M", "F", "U")
 )
 }
 
@@ -79,10 +108,10 @@ if (n_specs > 1) {
 } else {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
-    stan.fit.samples$offseason_pop[, spec_sex$pop[k]] + 
+     stan.fit.samples$offseason_pop[, spec_sex$pop[k]] + 
     (stan.fit.samples$beta_offseason_bd + stan.fit.samples$offseason_pop_bd[, spec_sex$pop[k]]) * pred.vals$bd[j] +
     (stan.fit.samples$beta_offseason_len + stan.fit.samples$offseason_pop_len[, spec_sex$pop[k]]) * pred.vals$len[j] +
-    stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
+     stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
  )
 }
   
@@ -110,10 +139,30 @@ pred.vals.f <- rbind(pred.vals.f, pred.vals)
 }
 }
 
+if (mem.ish) { 
+
+## More memory problems
+pred.vals.f.1 <- pred.vals.f[, c(1:5, 6:1005)]
+pred.vals.f.2 <- pred.vals.f[, c(1:5, 1006:2005)]
+pred.vals.f.3 <- pred.vals.f[, c(1:5, 2006:3005)]
+
+pred.vals.f.1 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est") 
+pred.vals.f.2 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
+pred.vals.f.3 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")
+
+pred.vals.f.1 <- rbind(pred.vals.f.1, pred.vals.f.2)
+pred.vals.f.1 <- rbind(pred.vals.f.1, pred.vals.f.3)
+
+pred.vals.f   <- pred.vals.f.1
+
+} else {
+
 if (n_specs > 1) {
 pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -spec, -sex), names_to = "iter", values_to = "est")
 } else {
 pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
+}
+
 }
 
 if (n_specs > 1) {
