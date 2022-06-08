@@ -4,8 +4,6 @@ MULTIPLE POPULATIONS STAN MODELS
 -- Current primary working models --
   (for older models see dev_stan)
  
-
-
 [1] CMR_multiple_populations.stan
 	-- The top level model
 
@@ -15,8 +13,11 @@ MULTIPLE POPULATIONS STAN MODELS
 CMR_multiple_populations_ssp.stan
 	-- [1] for only the populations of one species 
 
-CMR_multiple_populations_mehg_ssp.stan
-	-- [2] for only the populations of one species (probably only fittable for RANA and maybe ANBO)
-
 CMR_multiple_populations_ssp_mv.stan
 	-- ^^ but with explicit Cholesky decomposition for the random effects to model the covariance among them. Tends to be a bit faster/more efficient which is also good. 
+
+CMR_multiple_populations_ssp_fixed.stan
+	-- [1] Adjusted to use fixed effects and not random effects for population level differences 
+
+CMR_multiple_populations_mehg_ssp.stan
+	-- [2] for only the populations of one species (probably only fittable for RANA and maybe ANBO)

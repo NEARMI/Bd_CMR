@@ -18,11 +18,10 @@ fe_mm_phi_int   <- model.matrix(~Species + Sex, capt_history.phi)[phi_off_index,
 fe_mm_phi_slope <- model.matrix(~Species*log_bd_load, capt_history.phi)[phi_off_index, ((n_spec + 1):(n_spec*2))]
 fe_mm_phi_slope <- ifelse(fe_mm_phi_slope != 0, 1, 0)  
 } else {
-fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_int    <- model.matrix(~Sex + pop_spec, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_slope  <- model.matrix(~pop_spec, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_int_in <- model.matrix(~pop_spec, capt_history.phi)[phi_in_index, ]
 }
-
-re_mm_phi <- model.matrix(~-1+pop_spec, capt_history.phi)[phi_off_index, ]
-re_mm_phi <- ifelse(re_mm_phi != 0, 1, 0)
 
 ####
 ## Model matrices for the detection part of the model
@@ -32,33 +31,35 @@ re_mm_phi <- ifelse(re_mm_phi != 0, 1, 0)
 if (n_spec > 1) {
 fe_mm_p_int   <- model.matrix(~Species + Sex, capt_history.p)[p_est_index, ]
 } else {
-fe_mm_p_int   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
+fe_mm_p_sex   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
+fe_mm_p_pop   <- model.matrix(~pop_spec, capt_history.p)[p_est_index, ]
 }
+
 fe_mm_p_slope <- model.matrix(~-1+drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
 
-re_mm_p <- model.matrix(~-1+pop_spec+date_fac, capt_history.p)[p_est_index, ]
-re_mm_p <- model.matrix(~-1+date_fac, capt_history.p)[p_est_index, ]
-re_mm_p <- ifelse(re_mm_p != 0, 1, 0)
+####
+## Other model matrices
+####
+
+## For pop-level mercury effects
+if (n_spec > 1) {
+  ## to be filled in  
+} else {
+fe_mm_mehg_int <- model.matrix(~pop_spec
+  , capt_history.p %>% group_by(pop_spec) %>% slice(1)
+  )[, ]
+}
 
 ####
 ## Model matrices and other vectors for getting population size estimates
 ####
 
 ## Model matrix used to extract each unique species -by- sex intercept value
-fe_mm_p_int.uni <- fe_mm_p_int %>% as.data.frame() %>% distinct()
-
-## *** Need to come back through and make this part dynamic
-if (n_spec > 1) {
-colnames(fe_mm_p_int.uni) <- c(unique(capt_history.phi$Species) %>% as.character(), c("F", "U"))
-} else {
-colnames(fe_mm_p_int.uni) <- c("M", "F", "U")
-}
-spec_to_int <- matrix(
-  data = seq(nrow(fe_mm_p_int.uni))
-, nrow = n_spec
-, ncol = n_sex
-, byrow = T
-)
+fe_mm_p_uni_sex <- matrix(data = c(
+  1, 0, 0
+, 1, 1, 0
+, 1, 0, 1
+), ncol = n_sex, nrow = n_sex, byrow = T)
 
 ## number of each sex captured each day 
 n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(num_capt = sum(captured)) %>%

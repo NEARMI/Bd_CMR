@@ -8,11 +8,19 @@
  ## Will still want to use _some_ random effects (for individuals etc.) but it does seems like a general issue that because there is so
   ## much variability among the populations random effects may not be so viable at a population-level
 
+## Fixed model likely will become the default one (i.e., other models moved to /dev, but leaving all
+ ## stan models in the main folder at least for now)
+
 ## 1) To do:
- ## A) Update folder of stan models, update repo, run new single species jobs with fixed effects for intercepts and slopes
- ## B) Make similar updates to the multi-species model
- ## C) Figure out what to do with the Newt MA and PA models
- ## D) Run the whole model
+ ## A) [x] Update code to accommodate the single species multi pop fixed effects model
+ ## B) [x] Update folder of stan models, update repo
+   ##   -- Done, but still need to compare model fits to older model fits to check everything is as it should be
+ ## C) [ ] Run new single species jobs with fixed effects for intercepts and slopes on Yeti
+ ## D) [ ] Make similar updates to the multi-species model
+ ## E) [ ] Run the multi-species model
+ ## F) [ ] Update all of the helper scripts such as the plotting scripts
+ ## G) [ ] Figure out what to do with the Newt MA and PA models
+ ## H) [ ] Run the whole model
 
 #### Code ----
 

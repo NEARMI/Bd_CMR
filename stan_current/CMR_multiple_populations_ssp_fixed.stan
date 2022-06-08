@@ -47,7 +47,7 @@ data {
 	int<lower=1> n_sex;				    // Number of unique entries for sex (M, F, U)
 	int<lower=1> N_bd;				    // Number of defined values for bd
 	int<lower=1> n_col_mm_int;			    // Number of unique intercepts for detection and survival models (i.e., number of columns in the model matrix)
-	int<lower=1> n_col_mm_int_phi;			    // Sex and pop dummy matrix
+	int<lower=1> n_col_mm_int_phi;			    // Sex and pop dummy matrix for survival
 	
   // Index vectors with length ``n_ind'' (used in all model components)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -65,13 +65,13 @@ data {
 
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
-	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;	    // Intercept component of the model matrix
+	matrix[n_p_est, n_sex] fe_mm_p_sex;	   	    // Categorical sex component of the model matrix
+	matrix[n_p_est, n_pop] fe_mm_p_pop;		    // Categorical pop component of the model matrix
 	matrix[n_p_est, 2] fe_mm_p_slope;		    // Slope component of the model matrix
 
   // Components for population size estimates
-	int<lower=1> n_fe_mm_p_int_uni;				  // number of unique intercept combos
-	matrix[n_fe_mm_p_int_uni, n_col_mm_int] fe_mm_p_int_uni;  // the unique model matrix entries (unique intercepts)
-	matrix[n_days, 2] fe_mm_p_slope_uni;			  // entries of the slope covariates for detection for each day
+	matrix[n_sex, n_sex] fe_mm_p_uni_sex; 		    // the unique model matrix entries (unique intercepts)
+	matrix[n_days, 2] fe_mm_p_slope_uni;		    // entries of the slope covariates for detection for each day
 
   // Components for survival model (phi) (Index vectors and model matrices)
 	int<lower=1> n_phi_zero;  			    // Which entries of the longer vector phi are set to zero
@@ -105,16 +105,16 @@ data {
  	int<lower=0> n_ind_mehg;			    // Number of individuals with measured MeHg
  	vector<lower=0>[n_ind_mehg] ind_mehg;		    // Measured values of MeHg
  	int<lower=0> ind_mehg_pop[n_ind_mehg];	   	    // Populations associated with each measure of MeHg   
+	matrix[n_pop, n_pop] fe_mm_mehg_int;		    // Model matrix for intercept 
 
   // Site-level covariates
-	real pop_drawdown[n_pop];	   		    // population specific covariate for proportion drawdown    
-	real pop_temp[n_pop_year];		 	    // population*year specific covariate for temperature
+	vector[n_pop] pop_drawdown;	   		    // population specific covariate for proportion drawdown    
+	vector[n_pop_year] pop_temp;		 	    // population*year specific covariate for temperature
 	
   // Capture data
 	int<lower=1> N_y;				    // Number of defined values for captures
   	int<lower=0, upper=1> y[N_y];		            // The capture values 
 	matrix[n_days, n_sex] n_capt_per_day_sex;	    // Number of individuals of all sexes captured in a given day
-
 
   // Indices of phi, p, and chi that are 0, 1, or estimated, 
   // set up in R to avoid looping over the full length of phi and p here. See R code for details  
@@ -184,16 +184,15 @@ parameters {
 // -----
 
   // fixed
-	vector[n_col_mm_int] beta_p_int;		 // species-level average detection
+	vector[n_sex] beta_p_sex;			 // species-level average detection
+	vector[n_pop] beta_p_pop;		 // species-level average detection
 	vector[2] beta_p_slope; 			 // daily detection probably as a function of drawdown and vegetation
 
   // random: variance
-	real<lower=0> p_pop_sigma;			 // variation in detection by population
 	real<lower=0> p_day_delta_sigma[n_pop];	         // variation in detection by day (nested within each population)
 
   // random: deviates
 	real p_day_delta_eps[n_days];			 // day to day variation
-	vector[n_pop] p_pop_eps;			 // pop differences 
 
 
 // -----
@@ -212,13 +211,8 @@ parameters {
   // fixed
 	real<lower=0> inverse_phi_mehg;		         // variance parameter for gamma regression
 	real beta_mehg_drawdown;			 // effect of drawdown on MeHg
-	real beta_mehg_int;				 // intercept
+	vector[n_pop] beta_mehg_int;			 // intercept
 
-  // random: variance
-	real<lower=0> mehg_pop_sigma;			 // variation in mean MeHg by population
-
-  // random: deviates
-	real mehg_pop_eps[n_pop];			 // variation among pops
 
 }
 
@@ -248,7 +242,6 @@ transformed parameters {
 	real bd_pop_year[n_pop_year];			 // pop-by-year variation in Bd level
 
   // Detection 
-	vector[n_pop] p_pop;   				 // population-level detection deviates
 	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
 
   // Long-form containers for estimates from t to t+1
@@ -280,17 +273,14 @@ transformed parameters {
 // -----
 
   // calculate the mean at the population level; species, drawdown, and pop deviates on MeHg
-	for (z in 1:n_pop) {
-	  mehg_pop[z]     = mehg_pop_sigma * mehg_pop_eps[z] + beta_mehg_int;								
-	  mehg_pop_est[z] = exp(mehg_pop[z] + beta_mehg_drawdown * pop_drawdown[z]); 
-	} 
-
+	mehg_pop_est = exp(fe_mm_mehg_int * beta_mehg_int + beta_mehg_drawdown * pop_drawdown);
+	
   // scaled mehg population means
 	mehg_pop_est_scaled = (mehg_pop_est - mean(mehg_pop_est))/sd(mehg_pop_est);     
 
   // mean estimate generated from each individuals measured bd; species, drawdown, and pop deviates on MeHg
 	for (i in 1:n_ind_mehg) {
-	  mu_mehg[i]  = exp(mehg_pop[ind_mehg_pop[i]] + beta_mehg_drawdown * pop_drawdown[ind_mehg_pop[i]]);	
+	  mu_mehg[i]  = exp(fe_mm_mehg_int[ind_mehg_pop[i], ] * beta_mehg_int + beta_mehg_drawdown * pop_drawdown[ind_mehg_pop[i]]);	
 	}
 
   // transformation to get one of the parameters for the gamma distribution
@@ -340,11 +330,6 @@ fe_mm_phi_int     * beta_offseason_int +
 // Detection probability over the whole period
 // -----
 	
-  // population-level deviates
-	for (pp in 1:n_pop) {
-	  p_pop[pp]    = p_pop_sigma * p_pop_eps[pp];
-	}
-
   // day-level deviates
 	for (i in 1:n_days) {
   	  p_day_dev[i]  = p_day_delta_sigma[day_which_pop[i]] * p_day_delta_eps[i];  
@@ -353,12 +338,11 @@ fe_mm_phi_int     * beta_offseason_int +
 	p[p_zero_index] = rep_vector(0, n_p_zero);
 
 	p[p_est_index]  = inv_logit(
-fe_mm_p_int * beta_p_int      + 
-p_pop[pop_p[p_est_index]]     + 
-p_day_dev[p_day[p_est_index]] +
-fe_mm_p_slope * beta_p_slope  
+fe_mm_p_sex * beta_p_sex      + 
+fe_mm_p_pop * beta_p_pop      + 
+p_day_dev[p_day[p_est_index]] + 
+fe_mm_p_slope * beta_p_slope
 );
-
 
 // -----
 // Probability of never detecting an individual again after time t
@@ -410,18 +394,16 @@ model {
   // Detection Priors
 
   // fixed
-	beta_p_int   ~ normal(0, 0.85);
-	beta_p_slope ~ normal(0, 0.85);
+	beta_p_sex   ~ normal(0, 0.75);
+	beta_p_pop   ~ normal(0, 0.75);
+	beta_p_slope ~ normal(0, 0.75);
 
   // variances and deviates
-	p_pop_sigma       ~ inv_gamma(8, 15);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
-	p_pop_eps         ~ normal(0, 1.15);
-	p_day_delta_eps   ~ normal(0, 0.65);
+	p_day_delta_eps   ~ normal(0, 0.75);
 
 
   // Imputed Covariates Priors: length
-
 	sd_len    ~ inv_gamma(8, 15);	
 	beta_len  ~ normal(0, 3);
 
@@ -431,13 +413,6 @@ model {
   // fixed
 	beta_mehg_int      ~ normal(0, 1);		
 	beta_mehg_drawdown ~ normal(0, 1);
-
-  // variance
-	inverse_phi_mehg  ~ inv_gamma(8, 15);	
-	mehg_pop_sigma    ~ inv_gamma(8, 15);
-
- // deviates
-	mehg_pop_eps ~ normal(0, 1);
 
 
 // -----
@@ -476,20 +451,20 @@ generated quantities {
 // ------------------------------ generated quantities ------------------------------
           
   vector<lower=0>[n_days] pop_size;
-  vector[n_fe_mm_p_int_uni] beta_p_each_int;
+  vector[n_sex] beta_p_each_sex;
   matrix[n_days, n_sex] p_per_day;
 
-  for (i in 1:n_fe_mm_p_int_uni) {
-   beta_p_each_int[i] = fe_mm_p_int_uni[i, ] * beta_p_int;
+  for (i in 1:n_sex) {
+   beta_p_each_sex[i] = fe_mm_p_uni_sex[i, ] * beta_p_sex;
   } 
 
   for (i in 1:n_days) {
 
    p_per_day[i] = to_row_vector(
     inv_logit(
-     beta_p_each_int                             + 
-     rep_vector(p_day_dev[i], n_sex)             + 
-     rep_vector(p_pop[day_which_pop[i]], n_sex)  +
+     beta_p_each_sex + 
+     rep_vector(fe_mm_p_pop[day_which_pop[i], ] * beta_p_pop, n_sex)  +
+     rep_vector(p_day_dev[i], n_sex) + 
      rep_vector(fe_mm_p_slope_uni[i, ] * beta_p_slope, n_sex)
     )
    );

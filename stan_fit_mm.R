@@ -10,15 +10,8 @@
 
 stan_data     <- list(
   
-  ## Data needed for trial updates to model to deal with intercept uncertainty
-   n_u               = 3
- , fe_mm_phi_slope   = model.matrix(~pop_spec, capt_history.phi)[phi_off_index, ]
- , fe_mm_phi_int_in  = model.matrix(~pop_spec, capt_history.phi)[phi_in_index, ]
- , fe_mm_phi_int     = model.matrix(~Sex + pop_spec, capt_history.phi)[phi_off_index, ]
- , n_col_mm_int_phi  = 7
-  
   ## dimensional and bookkeeping data (non-vectors)
- , n_pop             = n_sites
+   n_pop             = n_sites
  , n_pop_year        = nrow(sampled_years)
  , n_ind             = n_ind
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
@@ -29,6 +22,8 @@ stan_data     <- list(
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = n_sex + length(unique(capt_history$Species)) - 1
+ , n_col_mm_int_phi  = fe_mm_phi_int %>% ncol()
+# , n_u               = 3 ## used only for the model with the Cholesky decomp. Leaving here for now
   
   ## Index vectors with length ``n_ind'' (used in all model components)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -43,15 +38,13 @@ stan_data     <- list(
   ## Components for detection model (p) (Index vectors)
  , p_day             = capt_history.p$date_fac 
  , pop_p             = as.numeric(capt_history.p$pop_spec)
- , fe_mm_p_int       = fe_mm_p_int
+ , fe_mm_p_sex       = fe_mm_p_sex
+ , fe_mm_p_pop       = fe_mm_p_pop
  , fe_mm_p_slope     = fe_mm_p_slope
   
   ## Components for population size estimates
- , n_fe_mm_p_int_uni = fe_mm_p_int %>% as.data.frame() %>% distinct() %>% nrow()
- , fe_mm_p_int_uni   = fe_mm_p_int %>% as.data.frame() %>% distinct()
+ , fe_mm_p_uni_sex   = fe_mm_p_uni_sex
  , fe_mm_p_slope_uni = fe_mm_p_slope_uni
- , spec_to_int       = spec_to_int
- , spec_pop_se       = spec_pop_se
   
   ## Components for survival model (phi) (Index vectors and model matrices)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -64,14 +57,9 @@ stan_data     <- list(
     NULL
    }
  }
-# , fe_mm_phi_int     = fe_mm_phi_int
- , fe_mm_phi_slope   = {
-   if (n_spec > 1) {
-     fe_mm_phi_slope
-   } else {
-     NULL
-   }
- }
+ , fe_mm_phi_int     = fe_mm_phi_int
+ , fe_mm_phi_slope   = fe_mm_phi_slope
+ , fe_mm_phi_int_in  = fe_mm_phi_int_in
   
   ## Components for Bd model (Bd)
  , X_bd              = capt_history.bd_load$log_bd_load
@@ -107,6 +95,7 @@ stan_data     <- list(
  , n_ind_mehg        = length(ind.hg$merc[hg.have])
  , ind_mehg          = ind.hg$merc[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
+ , fe_mm_mehg_int    = fe_mm_mehg_int
  , ind_mehg_spec     = {
    if (n_spec > 1) {
     model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
