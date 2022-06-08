@@ -5,6 +5,7 @@
 # model_name <- "fits/stan_fit_multipop_ANBO_2022-05-20.Rds"
 # model_name <- "fits/stan_fit_multipop_RANA_2022-05-20.Rds"
 # model_name <- "fits/stan_fit_multipop_2022-05-20.Rds"
+# model_name <- "fits/stan_fit_multipop_2022-06-06.Rds"
 
 stan.fit         <- readRDS(model_name)
 stan.fit.summary <- summary(stan.fit[[1]])[[1]]
@@ -16,13 +17,16 @@ mem.ish <- TRUE
 
 ## Problems with memory, so subset
 needed_entries <- c(
-  "beta_offseason_int"
-, "beta_offseason_bd"
-, "beta_offseason_len"
-, "beta_offseason_mehg"
-, "offseason_pop"
-, "offseason_pop_bd"
-, "offseason_pop_len"
+#  "beta_offseason_int"
+#, "beta_offseason_bd"
+#, "beta_offseason_len"
+#, "beta_offseason_mehg"
+#, "offseason_pop"
+#, "offseason_pop_bd"
+#, "offseason_pop_len"
+  "betas"
+, "z_r" 
+, "beta_inseason_int"
 , "bd_ind"
 , "beta_p_int"
 , "p_pop"

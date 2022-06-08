@@ -2,21 +2,17 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 6, 2022 ---- 
+#### Notes June 8, 2022 ---- 
 
-## Returning to the project after a two week break to work on some other things. 
+## 0.1) Couldn't get anything to work to fix intercept uncertainty apart from just shifting entirely to fixed effects.
+ ## Will still want to use _some_ random effects (for individuals etc.) but it does seems like a general issue that because there is so
+  ## much variability among the populations random effects may not be so viable at a population-level
 
-## 0.1) Today played with a simple simulation to find that the pattern that the intercept is estimated with
-  ## increasing error with higher variance in the random effects holds with glmer. Not quite sure what to do about this
-## 0.2) Also reformulated the model to use Cholesky. Fitting now. Seems marginally faster but need to compare coefficient estimates
-## 0.3) Did some research on multiple random effects with different grouping variables, but it seems that my current strategy is fine
-
-## 1) Main issue now is to try and figure out a way to specify the joint model that avoids the uncertain 
- ## intercept problems I am facing.
-  ## -- Some thoughts in model_transformation.txt 
-
-## 2) Other issues:
- ## -- Figure out what to do with Scotia Barrens
+## 1) To do:
+ ## A) Update folder of stan models, update repo, run new single species jobs with fixed effects for intercepts and slopes
+ ## B) Make similar updates to the multi-species model
+ ## C) Figure out what to do with the Newt MA and PA models
+ ## D) Run the whole model
 
 #### Code ----
 
@@ -37,6 +33,7 @@ some_pops  <- TRUE
 if (some_pops) {
 #which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(3)] %>% droplevels()
 which.dataset <- unique(data.all$pop_spec)[c(3:7)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()

@@ -6,6 +6,8 @@ print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
 print("---------------------")
 
+# stan.fit <- readRDS("fits/stan_fit_ANBO.Blackrock-C.Rds")
+
 stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 stan.fit.summary <- summary(stan.fit[[1]])
 stan.fit.samples <- extract(stan.fit[[1]])

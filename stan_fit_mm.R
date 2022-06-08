@@ -10,8 +10,15 @@
 
 stan_data     <- list(
   
+  ## Data needed for trial updates to model to deal with intercept uncertainty
+   n_u               = 3
+ , fe_mm_phi_slope   = model.matrix(~pop_spec, capt_history.phi)[phi_off_index, ]
+ , fe_mm_phi_int_in  = model.matrix(~pop_spec, capt_history.phi)[phi_in_index, ]
+ , fe_mm_phi_int     = model.matrix(~Sex + pop_spec, capt_history.phi)[phi_off_index, ]
+ , n_col_mm_int_phi  = 7
+  
   ## dimensional and bookkeeping data (non-vectors)
-   n_pop             = n_sites
+ , n_pop             = n_sites
  , n_pop_year        = nrow(sampled_years)
  , n_ind             = n_ind
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
@@ -22,7 +29,6 @@ stan_data     <- list(
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = n_sex + length(unique(capt_history$Species)) - 1
- , n_u               = 4
   
   ## Index vectors with length ``n_ind'' (used in all model components)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -58,7 +64,7 @@ stan_data     <- list(
     NULL
    }
  }
- , fe_mm_phi_int     = fe_mm_phi_int
+# , fe_mm_phi_int     = fe_mm_phi_int
  , fe_mm_phi_slope   = {
    if (n_spec > 1) {
      fe_mm_phi_slope
@@ -169,7 +175,8 @@ model_name <- paste(paste("fits/stan_fit_multipop", Sys.Date(), sep = "_"), "Rds
 stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = which_stan_file
-  file    = "stan_current/CMR_multiple_populations_ssp_mv.stan"
+# file    = "stan_current/CMR_multiple_populations_ssp_mv.stan"
+  file    = "stan_current/CMR_multiple_populations_ssp_fixed.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
