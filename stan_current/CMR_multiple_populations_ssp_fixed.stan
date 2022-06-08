@@ -47,7 +47,7 @@ data {
 	int<lower=1> n_sex;				    // Number of unique entries for sex (M, F, U)
 	int<lower=1> N_bd;				    // Number of defined values for bd
 	int<lower=1> n_col_mm_int;			    // Number of unique intercepts for detection and survival models (i.e., number of columns in the model matrix)
-	int<lower=1> n_u;				    // Number of random effects in between season survival portion
+	int<lower=1> n_col_mm_int_phi;			    // Sex and pop dummy matrix
 	
   // Index vectors with length ``n_ind'' (used in all model components)	
 	int<lower=1> ind_occ_size[n_ind];		    // Number of sampling periods for all individuals
@@ -82,8 +82,9 @@ data {
 	int<lower=1> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
 	int<lower=1> phi_bd_index[ind_occ_min1];	    // Which entries of latent bd correspond to each entry of phi
 	int<lower=1> pop_phi[ind_occ_min1];		    // Population index for mortality predictors
-
-	matrix[n_phi_off, n_col_mm_int] fe_mm_phi_int;      // Intercept component of the model matrix
+	matrix[n_phi_off, n_col_mm_int_phi] fe_mm_phi_int;  // Intercept component of the model matrix
+	matrix[n_phi_off, n_pop] fe_mm_phi_slope;	    // Slope component of the model matrix
+	matrix[n_phi_in, n_pop] fe_mm_phi_int_in;	    // Inseason intercept component of mortality predictors
 	  
   // Components for Bd model (Bd)
  	real X_bd[N_bd];			   	    // The bd values 
@@ -143,7 +144,9 @@ parameters {
 // -----
 
   // fixed
-	vector[3] beta_bd;				 // Vector of Bd regression coefficients
+	real beta_bd_int;			 	 // average bd level
+	real beta_bd_temp;				 // population-level temperature effect on bd levels
+	real beta_bd_len;				 // individual-specific length effect on bd levels
 
   // error
 	real<lower=0> bd_obs;    			 // observation noise for observed Bd compared to underlying state	
@@ -162,25 +165,18 @@ parameters {
 // -----
 
   // fixed
-	vector[n_col_mm_int + 3] beta_phi;		 // Vector of between-season survival regression coefficients
+	vector[n_col_mm_int_phi] beta_offseason_int;	 // Intercept for between season survival
+	vector[n_pop] beta_offseason_bd;		 // Bd effect on between season survival
+	vector[n_pop] beta_offseason_len;		 // Length effect on between season survival 
+	vector[n_pop] beta_offseason_mehg;		 // MeHg effect on between season survival
 
-  // random effects variance
-        cholesky_factor_corr[n_u] L_u;    		 // Cholesky factor of population random effect correlation matrix
-        matrix[n_u, n_pop] z_u;           		 // Spherical population level random effects
-        vector<lower=0>[n_u] sigma_u;     		 // Population random effects
 
 // -----
 // survival: inseason
 // -----
 
   // fixed
-	real beta_inseason_int;				 // in season survival intercept
-
-  // random: variance
-	real<lower=0> inseason_pop_sigma;		 // variation in inseason survival by population (intercept)
-
-  // random: deviates
-	real inseason_pop_eps[n_pop];			 // pop variation in within-season survival
+	vector[n_pop] beta_inseason_int;		 // in season survival intercept
 
 
 // -----
@@ -191,12 +187,7 @@ parameters {
 	vector[n_col_mm_int] beta_p_int;		 // species-level average detection
 	vector[2] beta_p_slope; 			 // daily detection probably as a function of drawdown and vegetation
 
-  // random effects variance
-        cholesky_factor_corr[n_p] L_p;    		 // Cholesky factor of population random effect correlation matrix
-        matrix[n_u, n_pop] z_u;           		 // Spherical population level random effects
-        vector<lower=0>[n_u] sigma_u;     		 // Population random effects
-
-
+  // random: variance
 	real<lower=0> p_pop_sigma;			 // variation in detection by population
 	real<lower=0> p_day_delta_sigma[n_pop];	         // variation in detection by day (nested within each population)
 
@@ -251,13 +242,10 @@ transformed parameters {
   // bd
 	real bd_ind[n_ind];				 // individual random effect deviates
 	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
+	vector[ind_per_period_bd] X_scaled;		 // Scaled Bd
 	
   // population:year random effect deviates
 	real bd_pop_year[n_pop_year];			 // pop-by-year variation in Bd level
-
-  // Survival
-	vector[n_pop] inseason_pop;			 // population specific survival within season (intercept)
-	matrix[n_u, n_pop] z_r; 			 // non-centered version of random effects
 
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates
@@ -325,33 +313,27 @@ transformed parameters {
 
   // latent bd model before obs error (species effect + pop temp effect + ind deviate + pop*year deviate)
 	for (t in 1:ind_per_period_bd) {
-	  X[t] = beta_bd[1] + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd[2] * pop_temp[pop_bd[t]] + beta_bd[3] * ind_len_scaled[ind_bd_rep[t]];      
+	  X[t] = beta_bd_int + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd_temp * pop_temp[pop_bd[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
         }
+
+	 X_scaled = (X - mean(X))/sd(X);
 
 
 // -----
 // Survival probability over the whole period
 // -----
 
-  // pop-spec deviates
-	for (pp in 1:n_pop) {
-	 inseason_pop[pp] = inseason_pop_sigma * inseason_pop_eps[pp] + beta_inseason_int;
-	} 
-
-	z_r = diag_pre_multiply(sigma_u, L_u) * z_u;
-
 	phi[phi_zero_index] = rep_vector(0, n_phi_zero);
 	phi[phi_one_index]  = rep_vector(1, n_phi_one);
 
-	phi[phi_in_index]   = inv_logit(inseason_pop[pop_phi[phi_in_index]]);
+	phi[phi_in_index]   = inv_logit(fe_mm_phi_int_in * beta_inseason_int);
 
-        phi[phi_off_index]  = inv_logit(
-fe_mm_phi_int * beta_phi[1:n_col_mm_int]  +
-to_vector(z_r[1, pop_phi[phi_off_index]]) +
-beta_phi[n_col_mm_int + 1] * mehg_pop_est_scaled[pop_phi[phi_off_index]] +
-(beta_phi[n_col_mm_int + 2] + to_vector(z_r[2, pop_phi[phi_off_index]])) .* X[phi_bd_index[phi_off_index]] +
-(beta_phi[n_col_mm_int + 3] + to_vector(z_r[3, pop_phi[phi_off_index]])) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
-        );
+	phi[phi_off_index]  = inv_logit(
+fe_mm_phi_int     * beta_offseason_int + 
+(fe_mm_phi_slope  * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]] +
+(fe_mm_phi_slope  * beta_offseason_bd)   .* X_scaled[phi_bd_index[phi_off_index]] +
+(fe_mm_phi_slope  * beta_offseason_len)  .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
+);
 
 
 // -----
@@ -401,7 +383,9 @@ model {
   // Bd Model Priors
 
   // fixed
-	beta_bd       ~ normal(0, 3);
+	beta_bd_int   ~ normal(0, 3);
+	beta_bd_temp  ~ normal(0, 3);
+	beta_bd_len   ~ normal(0, 3);
 
   // variances 
 	bd_pop_sigma  ~ inv_gamma(8, 15);
@@ -416,17 +400,11 @@ model {
   // Survival Priors
 
   // fixed
-	beta_phi            ~ normal(0, 0.65);
+	beta_offseason_int  ~ normal(0, 0.35);
+	beta_offseason_bd   ~ normal(0, 0.35);
+	beta_offseason_len  ~ normal(0, 0.35);
+	beta_offseason_mehg ~ normal(0, 0.35);
 	beta_inseason_int   ~ normal(0, 1.75);
-
-  // variances
-	sigma_u             ~ inv_gamma(8, 15);
-	L_u                 ~ lkj_corr_cholesky(2.0);
-	inseason_pop_sigma  ~ inv_gamma(8, 15);
-
-  // deviates
-	inseason_pop_eps    ~ normal(0, 1.75);
-	to_vector(z_u)      ~ normal(0, 0.85);
 
 
   // Detection Priors
