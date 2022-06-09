@@ -168,7 +168,7 @@ parameters {
 	vector[n_col_mm_int_phi] beta_offseason_int;	 // Intercept for between season survival
 	vector[n_pop] beta_offseason_bd;		 // Bd effect on between season survival
 	vector[n_pop] beta_offseason_len;		 // Length effect on between season survival 
-	vector[n_pop] beta_offseason_mehg;		 // MeHg effect on between season survival
+	real beta_offseason_mehg;			 // MeHg effect on between season survival
 
 
 // -----
@@ -185,7 +185,7 @@ parameters {
 
   // fixed
 	vector[n_sex] beta_p_sex;			 // species-level average detection
-	vector[n_pop] beta_p_pop;		 // species-level average detection
+	vector[n_pop] beta_p_pop;		 	 // species-level average detection
 	vector[2] beta_p_slope; 			 // daily detection probably as a function of drawdown and vegetation
 
   // random: variance
@@ -319,10 +319,10 @@ transformed parameters {
 	phi[phi_in_index]   = inv_logit(fe_mm_phi_int_in * beta_inseason_int);
 
 	phi[phi_off_index]  = inv_logit(
-fe_mm_phi_int     * beta_offseason_int + 
-(fe_mm_phi_slope  * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]] +
-(fe_mm_phi_slope  * beta_offseason_bd)   .* X_scaled[phi_bd_index[phi_off_index]] +
-(fe_mm_phi_slope  * beta_offseason_len)  .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
+fe_mm_phi_int       * beta_offseason_int + 
+beta_offseason_mehg * mehg_pop_est_scaled[pop_phi[phi_off_index]] +
+(fe_mm_phi_slope    * beta_offseason_bd)   .* X_scaled[phi_bd_index[phi_off_index]] +
+(fe_mm_phi_slope    * beta_offseason_len)  .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
 );
 
 

@@ -266,6 +266,7 @@ transformed parameters {
   // bd
 	real bd_ind[n_ind];				 // individual random effect deviates
 	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
+	vector[ind_per_period_bd] X_scaled;	
 	
   // population:year random effect deviates
 	real bd_pop_year[n_pop_year];			 // pop-by-year variation in Bd level
@@ -353,6 +354,8 @@ transformed parameters {
 	  X[t] = spec_bd[t, ] * beta_bd_spec + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd_temp * pop_temp[pop_bd[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]];      
         }
 
+	X_scaled = (X - mean(X)) / sd(X);
+
 
 // -----
 // Survival probability over the whole period
@@ -376,12 +379,9 @@ transformed parameters {
 fe_mm_phi_int    * beta_offseason_int  +
 offseason_pop[pop_phi[phi_off_index]]  +
 (fe_mm_phi_slope * beta_offseason_mehg) .* mehg_pop_est_scaled[pop_phi[phi_off_index]]                      + 
-(fe_mm_phi_slope * beta_offseason_bd   + offseason_pop_bd[pop_phi[phi_off_index]]) .* X[phi_bd_index[phi_off_index]] +
+(fe_mm_phi_slope * beta_offseason_bd   + offseason_pop_bd[pop_phi[phi_off_index]]) .* X_scaled[phi_bd_index[phi_off_index]] +
 (fe_mm_phi_slope * beta_offseason_len  + offseason_pop_len[pop_phi[phi_off_index]]) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]]
 );
-
-// re_mm_phi_bd * offseason_pop_bd
-
 
 
 // -----
@@ -406,7 +406,6 @@ p_pop[pop_p[p_est_index]]     +
 p_day_dev[p_day[p_est_index]] +
 fe_mm_p_slope * beta_p_slope  
 );
-
 
 
 

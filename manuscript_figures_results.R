@@ -255,14 +255,16 @@ mutate(
     geom_line(size = 1) + 
     scale_colour_discrete() +
     scale_fill_discrete() +
-    scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+  #  scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
+    scale_y_continuous(lim = c(0, 1)) +
     facet_wrap(~pop, ncol = 1, strip.position = "right") +
     theme(
       strip.text = element_text(size = 12)
     ) +
-    xlab("Bd Load") +
+    xlab("Bd Load (Scaled)") +
     ylab("Between-Season Survival")
-}
+  }
 
 ## Quick asside prior vs posterior
 

@@ -2,25 +2,23 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 8, 2022 ---- 
+#### Notes June 9, 2022 ---- 
 
-## 0.1) Couldn't get anything to work to fix intercept uncertainty apart from just shifting entirely to fixed effects.
- ## Will still want to use _some_ random effects (for individuals etc.) but it does seems like a general issue that because there is so
-  ## much variability among the populations random effects may not be so viable at a population-level
+## 1) Ahhh... Backtracking a bit and now have some messy code. It really is quite unsatisfying to be using fixed effects and possibly just 
+ ## wrong (maybe cheating in a way)
+  ## A) So now have two scripts for establishing_mm and stan_fit_mm.
+   ##    --- these will eventually need to be collapsed with some if statements
 
-## Fixed model likely will become the default one (i.e., other models moved to /dev, but leaving all
- ## stan models in the main folder at least for now)
+## 2) Found an error in a model matrix setup that caused much data to be unused in the fitting of the multi-species model
+ ## -- While I don't expect miracles (I think fixed effects at the species level are still going to be a problem), it does feel worth it
+  ##   to rerun this model corrected before moving forward to far
+   ## -- This is esspecially true because the model I have been banging my head aganist with the random vs fixed effects specification is not
+   ##    a 'final' model anway (as it includes only a single species)
 
-## 1) To do:
- ## A) [x] Update code to accommodate the single species multi pop fixed effects model
- ## B) [x] Update folder of stan models, update repo
-   ##   -- Done, but still need to compare model fits to older model fits to check everything is as it should be
- ## C) [ ] Run new single species jobs with fixed effects for intercepts and slopes on Yeti
- ## D) [ ] Make similar updates to the multi-species model
- ## E) [ ] Run the multi-species model
- ## F) [ ] Update all of the helper scripts such as the plotting scripts
- ## G) [ ] Figure out what to do with the Newt MA and PA models
- ## H) [ ] Run the whole model
+## 3) So the ToDo list has changed a bit from yesterday
+ ## A) Get the multi-population model fit and diagnose issues
+ ## B) From there update the Overleaf and decide what the next steps should be
+ ## C) Still do need to figure out what to do with the continuous Newt populations though...
 
 #### Code ----
 
@@ -39,10 +37,10 @@ some_pops  <- TRUE
 # data.all %>% group_by(Year, pop_spec, Mark) %>% filter(BdSample == "Y") %>% summarize(nswab = n()) %>% arrange(desc(nswab)) %>% as.data.frame()       
 
 if (some_pops) {
-#which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(3)] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[c(3:7)] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(3:7)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
 #which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
 #which.dataset  <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
@@ -73,7 +71,9 @@ source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
 if (length(which.dataset) != 1) {
-source("establishing_mm.R")
+# source("establishing_mm.R")
+# source("establishing_mm_rand.R")
+source("establishing_mm_rand_red.R")
 }
 
 ## Quick look at a given population

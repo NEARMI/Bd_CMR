@@ -54,10 +54,8 @@ ind.sex <- capt_history %>%
   mutate(
     pop_spec = as.numeric(pop_spec)
   , Species  = as.numeric(Species)
-  , Sex2      = as.factor(Sex)) %>%
-  mutate(Sex2 = as.numeric(Sex2))
+  , Sex2     = as.numeric(Sex))
 
-ind.sex %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U"))) %>% droplevels()
 n_sex   <- length(unique(ind.sex$Sex))
 
 ## -- Site level covariates -- ##

@@ -15,6 +15,9 @@
 ## (given the need for slightly different lengths for survival, detection, and bd given the structure of the model)
 ####
 
+## Before it becomes an issue establish Sex as a factor with appropriate levels 
+capt_history %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
+
 ## total number of individuals across all populations
 n_ind     <- length(unique(capt_history$Mark))
 
@@ -276,9 +279,3 @@ capt_history.p %<>%
 spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
 day_which_pop  <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
 spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
-
-
-## Set sex to a factor
-capt_history.phi %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
-capt_history.p   %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
-capt_history     %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
