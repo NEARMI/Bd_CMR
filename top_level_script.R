@@ -2,23 +2,17 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 9, 2022 ---- 
+#### Notes June 13, 2022 ---- 
 
-## 1) Ahhh... Backtracking a bit and now have some messy code. It really is quite unsatisfying to be using fixed effects and possibly just 
- ## wrong (maybe cheating in a way)
-  ## A) So now have two scripts for establishing_mm and stan_fit_mm.
-   ##    --- these will eventually need to be collapsed with some if statements
+## 1) At least the reduced multi-spec fit seems to be fine (reduced meaning no species-specific fixed effects).
+## 2) Unclear about model with species-specific fixed effects, model running now
 
-## 2) Found an error in a model matrix setup that caused much data to be unused in the fitting of the multi-species model
- ## -- While I don't expect miracles (I think fixed effects at the species level are still going to be a problem), it does feel worth it
-  ##   to rerun this model corrected before moving forward to far
-   ## -- This is esspecially true because the model I have been banging my head aganist with the random vs fixed effects specification is not
-   ##    a 'final' model anway (as it includes only a single species)
-
-## 3) So the ToDo list has changed a bit from yesterday
- ## A) Get the multi-population model fit and diagnose issues
- ## B) From there update the Overleaf and decide what the next steps should be
- ## C) Still do need to figure out what to do with the continuous Newt populations though...
+## 3) So the ToDo list has changed again
+ ## A) Check model with species-specific fixed effects
+ ## B) Adjust other remaining model to whichever seems better (fixed effects or not)
+ ## C) Figure out what to do with Newt populations
+ ## D) Run all final models
+ ## E) Update publication style overleaf
 
 #### Code ----
 
@@ -31,21 +25,26 @@ source("../ggplot_theme.R")
 ## Read in data
 source("data_load.R")
 
-## For dev and debug purposes pick a subset of locations
-some_pops  <- TRUE
+## Some choices to determine what model will be fit. Can't be perfectly dynamic because populations are manually chosen
+ ## and some choices won't work with certain models, so will need to double check. Mismatches will lead to errors
 
-# data.all %>% group_by(Year, pop_spec, Mark) %>% filter(BdSample == "Y") %>% summarize(nswab = n()) %>% arrange(desc(nswab)) %>% as.data.frame()       
+ ## 0) Single population?
+sing_pop       <- FALSE
+ ## 1) Multiple species?
+multi_spec     <- TRUE
+ ## 1.2) If multiple species, fit a reduced model with no species-specific fixed effects?
+multi_spec_red <- FALSE
+ ## 2) Not all populations?
+some_pops      <- TRUE
+ ## 3) Fit individual-level MeHg?
+fit_ind_mehg   <- FALSE
 
+## From these choices find the model to fit
+source("determine_model.R")
+
+## If a subset of populations, pick which ones
 if (some_pops) {
 which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(3)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(3:7)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(5, 6, 15, 16, 17, 18, 21)] %>% droplevels()
-#which.dataset  <- unique(data.all$pop_spec)[c(15:21)] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[-c(10:14)] %>% droplevels()
-#which.dataset  <- unique(data.all$pop_spec)[12] %>% droplevels() 
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -70,23 +69,24 @@ source("data_covariates.R")
 source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
-if (length(which.dataset) != 1) {
-# source("establishing_mm.R")
-# source("establishing_mm_rand.R")
-source("establishing_mm_rand_red.R")
+if (multi_spec) {
+source("establishing_mm.R")
 }
+
+## Print some details about the dataset being fit
+source("dataset_notes.R")
 
 ## Quick look at a given population
 #source("capt_plot.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 800
-stan.burn     <- 400
+stan.iter     <- 1000
+stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
-stan.chains   <- 1
-stan.cores    <- 1
+stan.chains   <- 3
+stan.cores    <- 3
 stan.refresh  <- 10
 if (length(which.dataset) == 1) {
 source("stan_fit_single.R")

@@ -5,7 +5,7 @@
 # model_name <- "fits/stan_fit_multipop_ANBO_2022-05-20.Rds"
 # model_name <- "fits/stan_fit_multipop_RANA_2022-05-20.Rds"
 # model_name <- "fits/stan_fit_multipop_2022-05-20.Rds"
-# model_name <- "fits/stan_fit_multipop_2022-06-06.Rds"
+# model_name <- "fits/stan_fit_multipop_2022-06-11.Rds"
 
 stan.fit         <- readRDS(model_name)
 stan.fit.summary <- summary(stan.fit[[1]])[[1]]
@@ -37,7 +37,7 @@ needed_entries <- c(
 
 stan.fit.samples <- stan.fit.samples[needed_entries]
 
-## stan.fit.samples <- readRDS("stan.fit.samples.Rds")
+## stan.fit.samples <- readRDS("stan_multipop_samples_red.Rds")
 
 capt_history.phi <- stan.fit$capt_history.phi
 capt_history.p   <- stan.fit$capt_history.p
@@ -68,33 +68,30 @@ spec_sex    <- data.frame(
 
 ## rather non-dynamic, can come back and clean this up later possibly
 if (n_specs > 1) {
-spec_sex_mm <- model.matrix(~Species + Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
-spec_sex_mm %<>% mutate(
-  spec = rep(seq(n_specs), each = 3)
-  ## *** non-dynamic, needs updating
-, sex  = c("M", "F", "U", "M", "F", "U", "F", "U", "M")
-)
+#spec_sex_mm <- model.matrix(~Species + Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
+#spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
+#spec_sex_mm %<>% mutate(spec = rep(seq(n_specs), each = 3))
+spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
+spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
 } else {
-spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()  
-spec_sex_mm %<>% mutate(
-  ## *** non-dynamic, needs updating
- sex  = c("M", "F", "U")
-)
+spec_sex_mm <- model.matrix(~Sex + pop_spec, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
+spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
 }
 
 for (k in 1:nrow(spec_sex)) {
   
 pred.vals <- expand.grid(
-  bd   = seq(0, 14, by = 1)
-, len  = seq(-3, 3, by = 0.5)
-, mehg = seq(-3, 3, by = 0.5)
+  bd   = scale(seq(0, 14, by = 1))[, 1]
+, len  = seq(-2, 2, by = 0.4)
+, mehg = seq(-2, 2, by = 0.4)
 )
 
 pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples[[1]])[1])
 
 if (n_specs > 1) {
-spec_sex_mm.t <- spec_sex_mm %>% filter(spec == spec_sex$spec[k], sex == spec_sex$sex[k]) %>% 
-  dplyr::select(-spec, -sex) %>% as.matrix()
+#spec_sex_mm.t <- spec_sex_mm %>% filter(spec == spec_sex$spec[k], sex == spec_sex$sex[k]) %>% 
+#  dplyr::select(-spec, -sex) %>% as.matrix()
+spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
 } else {
 spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
 }
@@ -104,10 +101,10 @@ for (j in 1:nrow(pred.est)) {
 if (n_specs > 1) {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
-    stan.fit.samples$offseason_pop[, spec_sex$pop[k]] + 
-    (stan.fit.samples$beta_offseason_bd[, spec_sex$spec[k]] + stan.fit.samples$offseason_pop_bd[, spec_sex$pop[k]]) * pred.vals$bd[j] +
-    (stan.fit.samples$beta_offseason_len[, spec_sex$spec[k]] + stan.fit.samples$offseason_pop_len[, spec_sex$pop[k]]) * pred.vals$len[j] +
-    stan.fit.samples$beta_offseason_mehg[, spec_sex$spec[k]] * pred.vals$mehg[j]
+    stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
+    (stan.fit.samples$beta_offseason_bd  + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+    (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
+    stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
  )
 } else {
  pred.est[j, ] <- plogis(
@@ -225,6 +222,169 @@ gg2 <- pred.vals.gg %>% filter(sex == "M", mehg == 0, bd == 7) %>% {
     } +
     xlab("Length") +
     ylab("Between-Season Survival")
+}
+
+### CI on Intercept
+
+int.est <- matrix(
+  data = 0
+, nrow = dim(stan.fit.samples$z_r)[1]
+, ncol = dim(stan.fit.samples$z_r)[3]
+)
+
+for (j in 1:ncol(bd.est)) {
+  int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
+}
+
+int.est        <- reshape2::melt(int.est)
+names(int.est) <- c("Sample", "Population", "Value")
+int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
+  , "Notophthalmus viridescens", "Rana spp."
+  ))
+)
+
+int.est %<>% mutate(Value = plogis(Value)) %>% group_by(Population, Species) %>% summarize(
+    lwr   = quantile(Value, 0.025)
+  , lwr_n = quantile(Value, 0.200)
+  , mid   = quantile(Value, 0.500)
+  , upr_n = quantile(Value, 0.800)
+  , upr   = quantile(Value, 0.975)
+) %>% ungroup()
+
+int.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
+"Ambystoma cingulatum
+SMNWR East"
+, "Ambystoma cingulatum
+SMNWR West"
+, "Anaxyrus boreas
+Blackrock Complex"
+, "Anaxyrus boreas
+Blackrock H"
+, "Anaxyrus boreas
+Jones Pond"
+, "Anaxyrus boreas
+Sonoma Mountain"
+, "Anaxyrus boreas
+Two Medicine"
+, "Pseudacris maculata
+Lily Pond"
+, "Pseudacris maculata
+Matthews Pond"
+, "Notophthalmus viridescens
+Mud Lake"
+, "Notophthalmus viridescens
+SMNWR West"
+, "Rana pretiosa
+Dilman Meadows"
+, "Rana boylii
+Fox Creek"
+, "Rana luteiventris
+Jones Pond"
+, "Rana luteiventris
+Lost Horse"
+, "Rana draytonii
+San Francisquito"
+, "Rana sierrae
+Summit Meadow"
+, "Rana cascadae
+Three Creeks"
+    ))
+) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
+  ggplot(., aes(mid, Population, colour = Species)) + 
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "Dark2") +
+    xlab("Survival at mean Bd load") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
+}
+
+### CI on Bd-effect
+
+bd.est <- matrix(
+  data = 0
+, nrow = dim(stan.fit.samples$z_r)[1]
+, ncol = dim(stan.fit.samples$z_r)[3]
+)
+
+for (j in 1:ncol(bd.est)) {
+  bd.est[, j] <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j]
+}
+
+bd.est        <- reshape2::melt(bd.est)
+names(bd.est) <- c("Sample", "Population", "Value")
+bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
+  , "Notophthalmus viridescens", "Rana spp."
+  ))
+)
+
+bd.est %<>% group_by(Population, Species) %>% summarize(
+    lwr   = quantile(Value, 0.025)
+  , lwr_n = quantile(Value, 0.200)
+  , mid   = quantile(Value, 0.500)
+  , upr_n = quantile(Value, 0.800)
+  , upr   = quantile(Value, 0.975)
+) %>% ungroup()
+
+bd.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
+"Ambystoma cingulatum
+SMNWR East"
+, "Ambystoma cingulatum
+SMNWR West"
+, "Anaxyrus boreas
+Blackrock Complex"
+, "Anaxyrus boreas
+Blackrock H"
+, "Anaxyrus boreas
+Jones Pond"
+, "Anaxyrus boreas
+Sonoma Mountain"
+, "Anaxyrus boreas
+Two Medicine"
+, "Pseudacris maculata
+Lily Pond"
+, "Pseudacris maculata
+Matthews Pond"
+, "Notophthalmus viridescens
+Mud Lake"
+, "Notophthalmus viridescens
+SMNWR West"
+, "Rana pretiosa
+Dilman Meadows"
+, "Rana boylii
+Fox Creek"
+, "Rana luteiventris
+Jones Pond"
+, "Rana luteiventris
+Lost Horse"
+, "Rana draytonii
+San Francisquito"
+, "Rana sierrae
+Summit Meadow"
+, "Rana cascadae
+Three Creeks"
+    ))
+) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
+  ggplot(., aes(mid, Population, colour = Species)) + 
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "Dark2") +
+    xlab("Bd-Survival Effect") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
 }
 
 beta_est <- stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>% 

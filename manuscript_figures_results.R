@@ -433,16 +433,18 @@ Three Creeks"
     ))
 ) %>% filter(sex == "M", len == 0, mehg == 0) %>% {
   ggplot(., aes(bd, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.3) +
-    geom_line(size = 1) + 
-    scale_colour_discrete() +
-    scale_fill_discrete() +
-    scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
+    geom_line(aes(colour = spec), size = 1) + 
+    scale_colour_brewer(name = "Species", palette = "Dark2") +
+    scale_fill_brewer(name = "Species", palette = "Dark2") +
+   # scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
     facet_wrap(~pop) +
     theme(
       strip.text.x = element_text(size = 11)
   ,   axis.text.y = element_text(size = 12)
+  ,   axis.text.x = element_text(size = 11)
     ) +
     xlab("Bd Load") +
     ylab("Between-Season Survival")

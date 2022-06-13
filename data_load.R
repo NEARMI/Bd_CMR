@@ -312,3 +312,4 @@ data.all    %<>% mutate(Sex = plyr::mapvalues(Sex, from = "", to = "U"))
 
 sex_entries <- unique(data.all$Sex)
 
+# data.all %>% group_by(Year, pop_spec, Mark) %>% filter(BdSample == "Y") %>% summarize(nswab = n()) %>% arrange(desc(nswab)) %>% as.data.frame()  

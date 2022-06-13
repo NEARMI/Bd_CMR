@@ -17,7 +17,9 @@ if (n_spec > 1) {
 fe_mm_phi_int   <- model.matrix(~Species + Sex, capt_history.phi)[phi_off_index, ]
 fe_mm_phi_slope <- model.matrix(~Species, capt_history.phi)[phi_off_index, ]
 } else {
-fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_int    <- model.matrix(~Sex + pop_spec, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_slope  <- model.matrix(~pop_spec, capt_history.phi)[phi_off_index, ]
+fe_mm_phi_int_in <- model.matrix(~pop_spec, capt_history.phi)[phi_in_index, ]
 }
 
 ####
@@ -28,9 +30,24 @@ fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]
 if (n_spec > 1) {
 fe_mm_p_int   <- model.matrix(~Species + Sex, capt_history.p)[p_est_index, ]
 } else {
-fe_mm_p_int   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
+fe_mm_p_sex   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
+fe_mm_p_pop   <- model.matrix(~pop_spec, capt_history.p)[p_est_index, ]
 }
+
 fe_mm_p_slope <- model.matrix(~-1+drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
+
+####
+## Other model matrices
+####
+
+## For pop-level mercury effects
+if (n_spec > 1) {
+  ## to be filled in  
+} else {
+fe_mm_mehg_int <- model.matrix(~pop_spec
+  , capt_history.p %>% group_by(pop_spec) %>% slice(1)
+  )[, ]
+}
 
 ####
 ## Model matrices and other vectors for getting population size estimates
@@ -48,13 +65,6 @@ fe_mm_p_uni_sex <- matrix(data = c(
 , 1, 0, 1
 ), ncol = n_sex, nrow = n_sex, byrow = T)
 }
-
-spec_to_int <- matrix(
-  data = seq(nrow(fe_mm_p_int.uni))
-, nrow = n_spec
-, ncol = n_sex
-, byrow = T
-)
 
 ## number of each sex captured each day 
 n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(num_capt = sum(captured)) %>%
@@ -90,3 +100,5 @@ spec_pop_se <- (capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1)
 # fe_mm.int * alpha_p + re_mm_pop * pop + re_mm_day * pop_day
  ## drawdown and veg
 # fe_mm.slope * beta_p
+
+

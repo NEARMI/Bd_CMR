@@ -21,9 +21,9 @@ stan_data     <- list(
  , n_spec            = length(unique(capt_history$Species))
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
- , n_col_mm_int      = ncol(fe_mm_phi_int)
- , n_col_mm_int_len  = n_sex + length(unique(capt_history$Species)) - 1
- , n_u               = 3
+ , n_col_mm_int      = n_sex + length(unique(capt_history$Species)) - 1
+ , n_col_mm_int_phi  = fe_mm_phi_int %>% ncol()
+# , n_u               = 3 ## used only for the model with the Cholesky decomp. Leaving here for now
   
   ## Index vectors with length ``n_ind'' (used in all model components)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -38,15 +38,13 @@ stan_data     <- list(
   ## Components for detection model (p) (Index vectors)
  , p_day             = capt_history.p$date_fac 
  , pop_p             = as.numeric(capt_history.p$pop_spec)
- , fe_mm_p_int       = fe_mm_p_int
+ , fe_mm_p_sex       = fe_mm_p_sex
+ , fe_mm_p_pop       = fe_mm_p_pop
  , fe_mm_p_slope     = fe_mm_p_slope
   
   ## Components for population size estimates
- , n_fe_mm_p_int_uni = fe_mm_p_int.uni %>% nrow()
- , fe_mm_p_int_uni   = fe_mm_p_int.uni
+ , fe_mm_p_uni_sex   = fe_mm_p_uni_sex
  , fe_mm_p_slope_uni = fe_mm_p_slope_uni
- , spec_to_int       = spec_to_int
- , spec_pop_se       = spec_pop_se
   
   ## Components for survival model (phi) (Index vectors and model matrices)
  , ind_occ_min1_rep  = capt_history.phi$Mark
@@ -60,13 +58,8 @@ stan_data     <- list(
    }
  }
  , fe_mm_phi_int     = fe_mm_phi_int
- , fe_mm_phi_slope   = {
-   if (n_spec > 1) {
-     fe_mm_phi_slope
-   } else {
-     NULL
-   }
- }
+ , fe_mm_phi_slope   = fe_mm_phi_slope
+ , fe_mm_phi_int_in  = fe_mm_phi_int_in
   
   ## Components for Bd model (Bd)
  , X_bd              = capt_history.bd_load$log_bd_load
@@ -102,6 +95,7 @@ stan_data     <- list(
  , n_ind_mehg        = length(ind.hg$merc[hg.have])
  , ind_mehg          = ind.hg$merc[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
+ , fe_mm_mehg_int    = fe_mm_mehg_int
  , ind_mehg_spec     = {
    if (n_spec > 1) {
     model.matrix(~spec, data.frame(spec = as.factor(c(seq(n_spec), ind.hg.spec[hg.have])), value = 0))[-seq(n_spec), ]  
@@ -171,7 +165,7 @@ stan.fit  <- stan(
 # file    = "stan_current/CMR_multiple_populations.stan"
 # file    = which_stan_file
 # file    = "stan_current/CMR_multiple_populations_ssp_mv.stan"
-  file    = "stan_current/CMR_multiple_populations_mv_red.stan"
+  file    = "stan_current/CMR_multiple_populations_ssp_fixed.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
