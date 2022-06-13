@@ -33,7 +33,7 @@ sing_pop       <- FALSE
  ## 1) Multiple species?
 multi_spec     <- TRUE
  ## 1.2) If multiple species, fit a reduced model with no species-specific fixed effects?
-multi_spec_red <- FALSE
+multi_spec_red <- TRUE
  ## 2) Not all populations?
 some_pops      <- TRUE
  ## 3) Fit individual-level MeHg?
@@ -41,6 +41,7 @@ fit_ind_mehg   <- FALSE
 
 ## From these choices find the model to fit
 source("determine_model.R")
+print(paste("Model to fit:  ", which_stan_file, sep = ""))
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
@@ -73,8 +74,10 @@ if (multi_spec) {
 source("establishing_mm.R")
 }
 
-## Print some details about the dataset being fit
+## Print some details about the dataset being fit, if its a single population
+if (sing_pop) {
 source("dataset_notes.R")
+}
 
 ## Quick look at a given population
 #source("capt_plot.R")
@@ -85,8 +88,8 @@ stan.iter     <- 1000
 stan.burn     <- 500
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
-stan.chains   <- 3
-stan.cores    <- 3
+stan.chains   <- 1
+stan.cores    <- 1
 stan.refresh  <- 10
 if (length(which.dataset) == 1) {
 source("stan_fit_single.R")

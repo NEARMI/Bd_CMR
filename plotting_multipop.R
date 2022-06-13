@@ -3,9 +3,6 @@
 ###################################################
 
 # model_name <- "fits/stan_fit_multipop_ANBO_2022-05-20.Rds"
-# model_name <- "fits/stan_fit_multipop_RANA_2022-05-20.Rds"
-# model_name <- "fits/stan_fit_multipop_2022-05-20.Rds"
-# model_name <- "fits/stan_fit_multipop_2022-06-11.Rds"
 
 stan.fit         <- readRDS(model_name)
 stan.fit.summary <- summary(stan.fit[[1]])[[1]]
