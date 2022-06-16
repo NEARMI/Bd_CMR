@@ -46,7 +46,6 @@ ind.hg.pop  <- ind.hg$pop_spec
 hg.mis  <- which(is.na(ind.hg$merc))
 hg.have <- which(!is.na(ind.hg$merc))
 
-
 ## Individual sex, important for survival and length imputation
 ind.sex <- capt_history %>% 
   group_by(Mark, pop_spec, Species) %>% 
@@ -144,13 +143,19 @@ site_covar.con %<>%
 ####
 
 ## Jump through a quick hoop to make sure that both Site and Capture Date have stayed in the correct order
-daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% group_by(Site, capture_date) %>% slice(1) %>% left_join(.
-  , 
-  daily_hab_covar %>% rename(capture_date = CaptureDate)
+daily_hab_covar <- capt_history %>% dplyr::select(Site, capture_date) %>% 
+  group_by(Site, capture_date) %>% slice(1) %>% left_join(.
+  , daily_hab_covar %>% rename(capture_date = CaptureDate)
   ) %>% ungroup() %>% mutate(
     drawdown = as.factor(drawdown) %>% as.numeric()
   , veg      = as.factor(veg) %>% as.numeric()
   )
+
+## *** Temporary: Convert NA's to means for missing sub-site info
+daily_hab_covar %<>% group_by(Site) %>% mutate(
+  drawdown_cont = ifelse(is.na(drawdown_cont), mean(drawdown_cont, na.rm = T), drawdown_cont)
+, veg_cont      = ifelse(is.na(veg_cont), mean(veg_cont, na.rm = T), veg_cont)
+)
 
 ## Add covariates to p, where they are used
 capt_history.p %<>% left_join(., daily_hab_covar) %>% mutate(

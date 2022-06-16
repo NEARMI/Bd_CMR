@@ -17,13 +17,14 @@ stan_data     <- list(
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
- , n_days            = (capt_history.p %>% group_by(pop_spec) %>% summarize(days_in_pop = n_distinct(date_fac)))$days_in_pop %>% sum()
+ , n_days            = ifelse(red_p_model, p_rand_which_day %>% length(), day_which_pop %>% length()) 
+ , n_days_for_p      = {if(red_p_model){day_which_pop %>% length()}else{NULL}}
  , n_spec            = length(unique(capt_history$Species))
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = ncol(fe_mm_phi_int)
  , n_col_mm_int_len  = n_sex + length(unique(capt_history$Species)) - 1
- , n_u               = 3
+ , n_u               = ifelse(fit_ind_mehg, 5, 3)
   
   ## Index vectors with length ``n_ind'' (used in all model components)
  , ind_occ_size      = rep(colSums(n_occ), n_ind.per)           
@@ -32,8 +33,10 @@ stan_data     <- list(
  , p_first_index     = p_first_index  
  , ind_in_pop        = ind_in_pop
  
-  ## Index vectors with length ``n_days''
- , day_which_pop     = day_which_pop
+  ## Index vectors with length ``n_days'' or 
+ , day_which_pop      = day_which_pop
+ , p_rand_which_day   = {if(red_p_model){p_rand_which_day}else{NULL}}
+ , day_which_pop_rand ={if(red_p_model){day_which_pop_rand}else{NULL}}
 
   ## Components for detection model (p) (Index vectors)
  , p_day             = capt_history.p$date_fac 

@@ -69,6 +69,8 @@ spec_to_int <- matrix(
 )
 
 ## number of each sex captured each day 
+if (!red_p_model) {
+  
 n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(num_capt = sum(captured)) %>%
     pivot_wider(., date_fac, values_from = num_capt, names_from = Sex) %>% ungroup() %>% dplyr::select(-date_fac) %>%
     as.matrix()
@@ -86,6 +88,21 @@ fe_mm_p_slope_uni <- capt_history.p %>% ungroup() %>% group_by(date_fac) %>% sli
 spec_pop_se <- (capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1) %>% ungroup() %>% dplyr::select(Species) %>% as.data.frame() %>%
   mutate(Species = as.numeric(Species)))$Species
 
+} else {
+  
+n_capt_per_day_sex <- capt_history.p %>% group_by(pop_spec, capture_date, Sex) %>% summarize(num_capt = sum(captured)) %>%
+    pivot_wider(., c(pop_spec, capture_date), values_from = num_capt, names_from = Sex) %>% ungroup() %>% dplyr::select(-pop_spec, -capture_date) %>%
+    as.matrix()
+n_capt_per_day_sex[is.na(n_capt_per_day_sex)] <- 0
+
+fe_mm_p_slope_uni <- capt_history.p %>% ungroup() %>% group_by(pop_spec, capture_date) %>% slice(1) %>% ungroup() %>% dplyr::select(
+  drawdown_cont, veg_cont
+) %>% as.data.frame()
+
+spec_pop_se <- (capt_history.p %>% ungroup() %>% group_by(pop_spec, capture_date) %>% slice(1) %>% ungroup() %>% dplyr::select(Species) %>% as.data.frame() %>%
+  mutate(Species = as.numeric(Species)))$Species
+
+}
 
 ## The linear predictor strategy for phi
  ## int

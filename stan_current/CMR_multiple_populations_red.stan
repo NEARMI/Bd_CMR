@@ -446,7 +446,6 @@ model {
 	beta_offseason_mehg ~ normal(0, 0.50);
 	beta_inseason       ~ normal(0, 1.75);
 
-
   // variances
 	sigma_u             ~ inv_gamma(8, 15);
 	L_u                 ~ lkj_corr_cholesky(2.0);

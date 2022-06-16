@@ -385,13 +385,11 @@ pop_size_ests %>% mutate(
 
 # %% 14) msp_Bdmort
 
-pred.vals.gg <- readRDS("pred.vals.gg.Rds")
+ord_of_effort <- sampling %>% group_by(pop_spec) %>% summarize(n_dates = n_distinct(CaptureDate)) %>%
+  arrange(desc(n_dates)) %>% mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 
-pred.vals.gg %<>% ungroup() %>% mutate(
-  pop  = plyr::mapvalues(pop , from = unique(pred.vals.gg$pop) , to = as.character(these_pops))
-)
-
-pred.vals.gg %>% mutate(
+pred.vals.gg %>%
+  mutate(
   pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
     , to = c(
 "Ambystoma cingulatum

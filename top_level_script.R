@@ -2,17 +2,16 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 13, 2022 ---- 
+#### Notes June 16, 2022 ---- 
 
-## 1) At least the reduced multi-spec fit seems to be fine (reduced meaning no species-specific fixed effects).
-## 2) Unclear about model with species-specific fixed effects, model running now
+## Finally down to one major problem to resolve: How to collapse the newt data...
 
-## 3) So the ToDo list has changed again
- ## A) Check model with species-specific fixed effects
- ## B) Adjust other remaining model to whichever seems better (fixed effects or not)
- ## C) Figure out what to do with Newt populations
- ## D) Run all final models
- ## E) Update publication style overleaf
+## 1) Collapsed the detection model a bit today, but it is unclear how helpful it will be. Sending jobs to see
+
+## 2) So the full ToDo list is now basically:
+ ## A) Figure out what to do with Newt populations
+ ## B) Run all final models
+ ## C) Update publication style overleaf
 
 #### Code ----
 
@@ -27,17 +26,20 @@ source("data_load.R")
 
 ## Some choices to determine what model will be fit. Can't be perfectly dynamic because populations are manually chosen
  ## and some choices won't work with certain models, so will need to double check. Mismatches will lead to errors
+  ## List of populations that can be fit with individual-level mercury listed in "determine_model.R"
 
  ## 0) Single population?
 sing_pop       <- FALSE
  ## 1) Multiple species?
 multi_spec     <- TRUE
  ## 1.2) If multiple species, fit a reduced model with no species-specific fixed effects?
-multi_spec_red <- TRUE
+multi_spec_red <- FALSE
  ## 2) Not all populations?
 some_pops      <- TRUE
  ## 3) Fit individual-level MeHg?
 fit_ind_mehg   <- FALSE
+ ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
+red_p_model    <- TRUE
 
 ## From these choices find the model to fit
 source("determine_model.R")
@@ -45,7 +47,9 @@ print(paste("Model to fit:  ", which_stan_file, sep = ""))
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
+# which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
 which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 15, 16, 17, 18, 19, 21)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -84,8 +88,8 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 1000
-stan.burn     <- 500
+stan.iter     <- 300
+stan.burn     <- 150
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1

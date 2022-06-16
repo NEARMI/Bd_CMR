@@ -2,7 +2,7 @@
 ## Plot diagnostics for a joint population model ##
 ###################################################
 
-# model_name <- "fits/stan_fit_multipop_ANBO_2022-05-20.Rds"
+# model_name <- "fits/stan_fit_multipop_mehg_red_2022-06-14.Rds"
 
 stan.fit         <- readRDS(model_name)
 stan.fit.summary <- summary(stan.fit[[1]])[[1]]
@@ -14,14 +14,14 @@ mem.ish <- TRUE
 
 ## Problems with memory, so subset
 needed_entries <- c(
-#  "beta_offseason_int"
-#, "beta_offseason_bd"
-#, "beta_offseason_len"
-#, "beta_offseason_mehg"
 #, "offseason_pop"
 #, "offseason_pop_bd"
 #, "offseason_pop_len"
-  "betas"
+  "beta_offseason_int"
+, "beta_offseason_bd"
+, "beta_offseason_len"
+, "beta_offseason_mehg"
+, "beta_offseason_mehg_bd"
 , "z_r" 
 , "beta_inseason_int"
 , "bd_ind"
@@ -34,7 +34,7 @@ needed_entries <- c(
 
 stan.fit.samples <- stan.fit.samples[needed_entries]
 
-## stan.fit.samples <- readRDS("stan_multipop_samples_red.Rds")
+## stan.fit.samples <- readRDS("chains/stan_multipop_samples.Rds")
 
 capt_history.phi <- stan.fit$capt_history.phi
 capt_history.p   <- stan.fit$capt_history.p
@@ -65,11 +65,14 @@ spec_sex    <- data.frame(
 
 ## rather non-dynamic, can come back and clean this up later possibly
 if (n_specs > 1) {
-#spec_sex_mm <- model.matrix(~Species + Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
-#spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
-#spec_sex_mm %<>% mutate(spec = rep(seq(n_specs), each = 3))
+  if (multi_spec_red) {
 spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
 spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
+  } else {
+spec_sex_mm <- model.matrix(~Species + Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
+spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
+spec_sex_mm %<>% mutate(spec = rep(seq(n_specs), each = 3))
+  }
 } else {
 spec_sex_mm <- model.matrix(~Sex + pop_spec, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
 spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
@@ -86,9 +89,12 @@ pred.vals <- expand.grid(
 pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples[[1]])[1])
 
 if (n_specs > 1) {
-#spec_sex_mm.t <- spec_sex_mm %>% filter(spec == spec_sex$spec[k], sex == spec_sex$sex[k]) %>% 
-#  dplyr::select(-spec, -sex) %>% as.matrix()
+  if (multi_spec_red) {
 spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
+  } else {
+spec_sex_mm.t <- spec_sex_mm %>% filter(spec == spec_sex$spec[k], sex == spec_sex$sex[k]) %>% 
+  dplyr::select(-spec, -sex) %>% as.matrix()
+  }
 } else {
 spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
 }
@@ -96,6 +102,7 @@ spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::selec
 for (j in 1:nrow(pred.est)) {
   
 if (n_specs > 1) {
+  if (multi_spec_red) {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
@@ -103,6 +110,19 @@ if (n_specs > 1) {
     (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
     stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
  )
+  } else {
+ pred.est[j, ] <- plogis(
+    (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
+    (
+      (sweep(stan.fit.samples$beta_offseason_bd, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) + 
+        stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+    (
+      (sweep(stan.fit.samples$beta_offseason_len, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) +
+        stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
+    (sweep(stan.fit.samples$beta_offseason_mehg, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) * pred.vals$mehg[j]
+ )
+  }
 } else {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
@@ -221,7 +241,7 @@ gg2 <- pred.vals.gg %>% filter(sex == "M", mehg == 0, bd == 7) %>% {
     ylab("Between-Season Survival")
 }
 
-### CI on Intercept
+### CI on Intercept and Bd effect
 
 int.est <- matrix(
   data = 0
@@ -229,8 +249,33 @@ int.est <- matrix(
 , ncol = dim(stan.fit.samples$z_r)[3]
 )
 
+bd.est <- matrix(
+  data = 0
+, nrow = dim(stan.fit.samples$z_r)[1]
+, ncol = dim(stan.fit.samples$z_r)[3]
+)
+
+bd.mehg <- matrix(
+  data = 0
+, nrow = dim(stan.fit.samples$z_r)[1]
+, ncol = dim(stan.fit.samples$z_r)[3]
+)
+
 for (j in 1:ncol(bd.est)) {
-  int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
+  if (multi_spec_red) {
+   int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
+   bd.est[, j]  <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j]
+  } else {
+  int.est[, j] <- (sweep(stan.fit.samples$beta_offseason_int[, 1:5], 2
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:5] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 1, j]
+   bd.est[, j] <- (sweep(stan.fit.samples$beta_offseason_bd, 2
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:5] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 2, j]
+  }
+  if (fit_ind_mehg) {
+  bd.mehg[, j] <- stan.fit.samples$beta_offseason_mehg_bd + stan.fit.samples$z_r[, 5, j]
+  }
 }
 
 int.est        <- reshape2::melt(int.est)
@@ -242,13 +287,104 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   ))
 )
 
+bd.est        <- reshape2::melt(bd.est)
+names(bd.est) <- c("Sample", "Population", "Value")
+bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
+  , "Notophthalmus viridescens", "Rana spp."
+  ))
+)
+
+bd.mehg        <- reshape2::melt(bd.mehg)
+names(bd.mehg) <- c("Sample", "Population", "Value")
+bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Anaxyrus boreas", "Rana spp."
+  ))
+)
+
 int.est %<>% mutate(Value = plogis(Value)) %>% group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
   , mid   = quantile(Value, 0.500)
   , upr_n = quantile(Value, 0.800)
   , upr   = quantile(Value, 0.975)
-) %>% ungroup()
+) %>% ungroup() %>% mutate(
+  pop_spec = unique(capt_history$pop_spec)
+) %>% mutate(
+  CI_width = upr - lwr
+)
+
+bd.est %<>% group_by(Population, Species) %>% summarize(
+    lwr   = quantile(Value, 0.025)
+  , lwr_n = quantile(Value, 0.200)
+  , mid   = quantile(Value, 0.500)
+  , upr_n = quantile(Value, 0.800)
+  , upr   = quantile(Value, 0.975)
+) %>% ungroup() %>% mutate(
+  pop_spec = unique(capt_history$pop_spec)
+) %>% mutate(
+  CI_width = upr - lwr
+)
+
+bd.mehg %<>% group_by(Population, Species) %>% summarize(
+    lwr   = quantile(Value, 0.025)
+  , lwr_n = quantile(Value, 0.200)
+  , mid   = quantile(Value, 0.500)
+  , upr_n = quantile(Value, 0.800)
+  , upr   = quantile(Value, 0.975)
+) %>% ungroup() %>% mutate(
+  pop_spec = unique(capt_history$pop_spec)
+) %>% mutate(
+  CI_width = upr - lwr
+)
+
+num_samples  <- sampling %>% group_by(pop_spec) %>% summarize(n_dates = n_distinct(CaptureDate)) %>%
+  arrange(desc(n_dates)) %>% mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
+
+recaps <- capt_history %>% group_by(pop_spec, Mark) %>% 
+  filter(captured == 1) %>%
+  summarize(recaps = sum(captured)) %>% 
+  mutate(recaptured = ifelse(recaps > 1, 1, 0)) %>% 
+  ungroup(Mark) %>%
+  summarize(
+    inds_capt  = n_distinct(Mark)
+  , recapt_ind = sum(recaptured)
+  , caps_per_ind = mean(recaps)) %>% 
+  ungroup() 
+
+n_swabs <- capt_history %>% group_by(pop_spec, Mark) %>% 
+  filter(swabbed == 1) %>%
+  summarize(swabbs = sum(swabbed)) %>% 
+  mutate(reswabbed = ifelse(swabbs > 1, 1, 0)) %>% 
+  ungroup(Mark) %>%
+  summarize(
+    inds_swabbed  = n_distinct(Mark)
+  , reswabbed_ind = sum(reswabbed)
+  , swabs_per_ind = mean(swabbs)) %>% 
+  ungroup() 
+
+int.est %<>% left_join(., num_samples) %>% left_join(., recaps)
+
+int.est %>% {
+  ggplot(., aes(caps_per_ind, CI_width)) + geom_point() + 
+    scale_x_log10() +
+    xlab("Number of Captures Per Individual") +
+    ylab("95% CI Width")
+}
+
+bd.est %<>% left_join(., num_samples) %>% left_join(., recaps) %>% left_join(., n_swabs)
+
+ggplot(bd.est, aes(recapt_ind, CI_width)) + 
+    geom_point(size = 2, aes(colour = reswabbed_ind)) + 
+    scale_x_log10() +
+    xlab("Number of Recaptured Individuals") +
+    ylab("95% CI Width") +
+  scale_color_continuous(name = "Total
+Individuals
+Reswabbed") +
+theme(legend.key.size = unit(0.65, "cm"), legend.position = c(0.85, 0.7))
 
 int.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
 "Ambystoma cingulatum
@@ -302,35 +438,6 @@ Three Creeks"
       , legend.title = element_text(size = 13))
 }
 
-### CI on Bd-effect
-
-bd.est <- matrix(
-  data = 0
-, nrow = dim(stan.fit.samples$z_r)[1]
-, ncol = dim(stan.fit.samples$z_r)[3]
-)
-
-for (j in 1:ncol(bd.est)) {
-  bd.est[, j] <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j]
-}
-
-bd.est        <- reshape2::melt(bd.est)
-names(bd.est) <- c("Sample", "Population", "Value")
-bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
-  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
-  , "Notophthalmus viridescens", "Rana spp."
-  ))
-)
-
-bd.est %<>% group_by(Population, Species) %>% summarize(
-    lwr   = quantile(Value, 0.025)
-  , lwr_n = quantile(Value, 0.200)
-  , mid   = quantile(Value, 0.500)
-  , upr_n = quantile(Value, 0.800)
-  , upr   = quantile(Value, 0.975)
-) %>% ungroup()
-
 bd.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
 "Ambystoma cingulatum
 SMNWR East"
@@ -366,6 +473,41 @@ Lost Horse"
 San Francisquito"
 , "Rana sierrae
 Summit Meadow"
+, "Rana cascadae
+Three Creeks"
+    ))
+) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
+  ggplot(., aes(mid, Population, colour = Species)) + 
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "Dark2") +
+    xlab("Bd-Survival Effect") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
+}
+
+bd.mehg %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
+  "Anaxyrus boreas
+Blackrock H"
+, "Anaxyrus boreas
+Jones Pond"
+, "Anaxyrus boreas
+Sonoma Mountain"
+, "Rana pretiosa
+Dilman Meadows"
+, "Rana boylii
+Fox Creek"
+, "Rana luteiventris
+Jones Pond"
+, "Rana luteiventris
+Lost Horse"
+, "Rana draytonii
+San Francisquito"
 , "Rana cascadae
 Three Creeks"
     ))

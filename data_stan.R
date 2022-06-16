@@ -265,17 +265,49 @@ X_stat_index_covs <- capt_history.phi %>%
 ####
 ## Finally, create an index vector for unique sampling dates for a date-level random effect for detection
 ####
+
+if (red_p_model) {
+  
+### *** Establish "unique" sampling days (based on combinations of SubSites sampled, Month, and Year) that 
+sampling_for_p2 <- left_join(
+  sampling
+, sampling_for_p %>% dplyr::select(Site, CaptureDate, Species, SubSite)
+) %>% group_by(pop_spec, CaptureDate, Month, Year) %>%
+  summarize(uni_site = unique(SubSite)) %>% mutate(site_str = paste(unique(uni_site), collapse = "-")) %>% 
+  mutate(date_fac = interaction(pop_spec, site_str, Year, Month)) %>%
+  dplyr::select(pop_spec, CaptureDate, Month, Year, date_fac) %>% distinct() %>% 
+  ungroup()
+  
+## add to the p data frame
+capt_history.p %<>% left_join(.
+ , sampling_for_p2 %>% dplyr::select(pop_spec, CaptureDate, date_fac) %>% rename(capture_date = CaptureDate)
+  ) %>% mutate(date_fac = as.factor(as.character(date_fac))) %>%
+  mutate(date_fac = as.numeric(date_fac))
+  
+} else {
+  
 capt_history.p %<>% 
   mutate(date_fac = interaction(pop_spec, capture_date)) %>%
   mutate(date_fac = as.character(date_fac)) %>% 
   mutate(date_fac = as.factor(date_fac)) %>% 
   mutate(date_fac = as.numeric(date_fac))
-
+  
+}
 
 ####
 ## And finally finally, create a few vectors for the stan model
 ####
 
-spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
-day_which_pop  <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
-spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
+spec_pop         <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric() 
+
+if (red_p_model) {
+ day_which_pop    <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
+ day_which_pop_rand  <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
+ p_rand_which_day <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$date_fac %>% as.numeric()
+ spec_which_pop   <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
+} else {
+ spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+ day_which_pop  <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
+}
+

@@ -47,7 +47,12 @@ check.rana <- unique(data.temp$Species)[grep("RA", unique(data.temp$Species))]
 if (length(check.rana) > 0) {
  data.temp  %<>% mutate(Species = plyr::mapvalues(Species, from = check.rana, to = rep("RANA", length(check.rana))))   
 }
-  
+
+## *** Check for the two NOVI individuals captured in SMNWR_E
+if (data.files[i] == "data/cleaned_cmr_csv/SM_NOVI.csv") {
+  data.temp %<>% filter(!(Site == "SMNWR_E" & Species == "NOVI")) %>% droplevels()
+}
+
 ## deal with dates
 if (strsplit(data.temp$CaptureDate[1], split = " ")[[1]] %>% length() > 1) {
   ddate <- apply(matrix(data.temp$CaptureDate), 1, FUN = function(x) strsplit(x, split = " ")[[1]][1])
@@ -223,6 +228,9 @@ if (i == 1) {
 ## Build a data frame that contains a description of the habitat structure in each
  ## SubSite sampled on that day (for detection in the model)
 daily_hab_covar <- sampling %>% dplyr::select(Region, Site, SubSite, Species, CaptureDate)
+
+## Store a temp sampling file for calculating days for unique entries of day detection random effect if desired
+sampling_for_p <- sampling
 
 ## *** Adjust the master "sampling" file to match the choices for the data (i.e., dropping subsites as I am doing for now)
 sampling %<>% 
