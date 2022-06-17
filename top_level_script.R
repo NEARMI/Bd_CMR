@@ -2,11 +2,29 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 16, 2022 ---- 
+#### Notes June 17, 2022 ---- 
 
 ## Finally down to one major problem to resolve: How to collapse the newt data...
 
-## 1) Collapsed the detection model a bit today, but it is unclear how helpful it will be. Sending jobs to see
+## 1) The fit from the reduced form P model seems just about as good as the other model. 
+ ## Seems only marginally faster, but didn't compare in detail
+
+## 2) Sent a job only making the small change of the reduced form P model. Could be enough to get the model to run,
+ ## but will have to see. 
+  ## -- An initial slow fit shows that 
+   ##  -- 18 pops without PA and MA:
+     ##     -- 1600 Seconds per chain:
+      ##       -- 31k, 14k --> 78, 28 seconds per sample -- Ratio of 0.04875, 0.0175 relative to seconds estimate
+      ##       -- 33k, 23k --> 83, 46 seconds per sample -- Ratio of 0.051875, 0.02875 relative to seconds estimate
+      ##       -- 38k, 26k --> 95, 52 seconds per sample -- Ratio of 0.059375, 0.0325 relative to seconds estimate
+   ##  -- 20 pops with these:
+     ##     -- 10000 Seconds per chain:
+      ##       -- Time estimate of about [at worst?]:
+       ##          -- 0.059375 * 10000 per, so with 400 warmup -- 66h, with desired 500   -- 82h
+       ##          -- 0.0325   * 10000 per, so with 500 samples -- 45h, with desired 3000 -- 270h
+      ##    In total expect 4.625 days, so finishing ~ Monday at Midnight?
+      ##      -- If on pace, expect warmup to be done ~ Sunday at about 10pm. Can check this
+      ##    For the final complete model ~ 15 days, 11 days with 2000 samples and 2 thin
 
 ## 2) So the full ToDo list is now basically:
  ## A) Figure out what to do with Newt populations
@@ -88,8 +106,8 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 300
-stan.burn     <- 150
+stan.iter     <- 900
+stan.burn     <- 400
 stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1

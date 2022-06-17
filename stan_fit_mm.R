@@ -36,7 +36,7 @@ stan_data     <- list(
   ## Index vectors with length ``n_days'' or 
  , day_which_pop      = day_which_pop
  , p_rand_which_day   = {if(red_p_model){p_rand_which_day}else{NULL}}
- , day_which_pop_rand ={if(red_p_model){day_which_pop_rand}else{NULL}}
+ , day_which_pop_rand = {if(red_p_model){day_which_pop_rand}else{NULL}}
 
   ## Components for detection model (p) (Index vectors)
  , p_day             = capt_history.p$date_fac 
