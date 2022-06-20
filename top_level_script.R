@@ -2,14 +2,19 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 17, 2022 ---- 
+#### Notes June 20, 2022 ---- 
 
-## Finally down to one major problem to resolve: How to collapse the newt data...
+## 1) Job below failed because of ram issues. But ran about a full day faster than expected.
+ ##   -- Submitted two new jobs with a subset of parameters that shouldn't have a ram issue
 
-## 1) The fit from the reduced form P model seems just about as good as the other model. 
- ## Seems only marginally faster, but didn't compare in detail
+## 2) Spent most of the day on the Introduction.
+ ## -- To do list for Overleaf as follows:
+  ## A) Adjust detection model description to match the new random effects structure
+  ## B) Drop the description of the continuous time model, will save that for a different paper
+  ## C) Expand out the Results with some of the placeholder figures, can still write about these before the full runs are done
+  ## D) expand the list of caveats in the Discussion
 
-## 2) Sent a job only making the small change of the reduced form P model. Could be enough to get the model to run,
+## -- Sent a job only making the small change of the reduced form P model. Could be enough to get the model to run,
  ## but will have to see. 
   ## -- An initial slow fit shows that 
    ##  -- 18 pops without PA and MA:
@@ -25,6 +30,7 @@
       ##    In total expect 4.625 days, so finishing ~ Monday at Midnight?
       ##      -- If on pace, expect warmup to be done ~ Sunday at about 10pm. Can check this
       ##    For the final complete model ~ 15 days, 11 days with 2000 samples and 2 thin
+  ## -- Actually ended up fitting in 78h, but failed to allocate enough memory (23.5gb)
 
 ## 2) So the full ToDo list is now basically:
  ## A) Figure out what to do with Newt populations
@@ -65,8 +71,8 @@ print(paste("Model to fit:  ", which_stan_file, sep = ""))
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
-# which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
-which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
+#which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 15, 16, 17, 18, 19, 21)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()

@@ -184,11 +184,22 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.93, max_treedepth = 13)
    ## drop a few parameters to reduce the size of the saved ston object
-#, include = FALSE
-#, pars    = c(
-#  "chi", "phi", "p", "X",
-#  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
-#, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
+ , include = TRUE
+, pars    = c(
+  "beta_offseason_int"
+, "beta_offseason_bd"
+, "beta_offseason_len"
+, "beta_offseason_mehg"
+, "z_r" 
+, "beta_inseason"
+, "inseason_pop"
+, "bd_ind"
+, "beta_p_int"
+, "p_pop"
+, "p_day_dev"
+, "beta_p_slope"
+, "pop_size"
+  )
   )
 
 saveRDS(

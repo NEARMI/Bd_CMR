@@ -14,9 +14,6 @@ mem.ish <- TRUE
 
 ## Problems with memory, so subset
 needed_entries <- c(
-#, "offseason_pop"
-#, "offseason_pop_bd"
-#, "offseason_pop_len"
   "beta_offseason_int"
 , "beta_offseason_bd"
 , "beta_offseason_len"
