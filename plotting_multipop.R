@@ -2,17 +2,22 @@
 ## Plot diagnostics for a joint population model ##
 ###################################################
 
-# model_name <- "fits/stan_fit_multipop_mehg_red_2022-06-14.Rds"
+####
+## Data loading, sample and summary extraction
+####
 
-stan.fit         <- readRDS(model_name)
-stan.fit.summary <- summary(stan.fit[[1]])[[1]]
-stan.fit.samples <- extract(stan.fit[[1]])
+if (plot_from == "fit" | plot_from == "saved_model") {
 
-## For running this code on local laptop with memory issues
- ## WITH MEMORY ISSUES RUN LINE BY LINE WITH rm() and gc(), do not just execute the script
-mem.ish <- TRUE
-
-## Problems with memory, so subset
+  if (plot_from == "fit") {
+    stan.fit.summary <- summary(stan.fit)[[1]]
+    stan.fit.samples <- extract(stan.fit)
+  } else if (plot_from == "saved_model") {
+    stan.fit         <- readRDS(saved_model)
+    stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+    stan.fit.samples <- extract(stan.fit[[1]])
+  }
+  
+## Can easily have problems with memory, so subset to just the parameters needed for plotting
 needed_entries <- c(
   "beta_offseason_int"
 , "beta_offseason_bd"
@@ -30,17 +35,64 @@ needed_entries <- c(
 )
 
 stan.fit.samples <- stan.fit.samples[needed_entries]
-
-## stan.fit.samples <- readRDS("chains/stan_multipop_samples.Rds")
-
-capt_history.phi <- stan.fit$capt_history.phi
-capt_history.p   <- stan.fit$capt_history.p
+  
+  } else if (plot_from == "saved_samples") {
+  
+cleaned_output.temp <- readRDS(saved_samples)
+stan.fit.summary    <- cleaned_output.temp[[1]]
+stan.fit.samples    <- cleaned_output.temp[[2]]
+  
+}
 
 ## extract the species and population names for this fit
 these_specs <- unique(capt_history.phi$Species)
 n_specs     <- length(these_specs)
 these_pops  <- unique(capt_history.phi$pop_spec)
 these_sexes <- c("F", "M")    ## skipping U for now
+
+## Very non-dynamic... Write out the Species and Populations in a full way for beautified plots
+spec_pop_plot_labels <- c(
+"Ambystoma cingulatum
+SMNWR East"
+, "Ambystoma cingulatum
+SMNWR West"
+, "Anaxyrus boreas
+Blackrock Complex"
+, "Anaxyrus boreas
+Blackrock H"
+, "Anaxyrus boreas
+Jones Pond"
+, "Anaxyrus boreas
+Sonoma Mountain"
+, "Anaxyrus boreas
+Two Medicine"
+, "Pseudacris maculata
+Lily Pond"
+, "Pseudacris maculata
+Matthews Pond"
+, "Notophthalmus viridescens
+Mud Lake"
+, "Notophthalmus viridescens
+Scotia Barrens"
+, "Notophthalmus viridescens
+SMNWR West"
+, "Notophthalmus viridescens
+SMNWR Springfield"
+, "Rana pretiosa
+Dilman Meadows"
+, "Rana boylii
+Fox Creek"
+, "Rana luteiventris
+Jones Pond"
+, "Rana luteiventris
+Lost Horse"
+, "Rana draytonii
+San Francisquito"
+, "Rana sierrae
+Summit Meadow"
+, "Rana cascadae
+Three Creeks"
+    )
 
 ## Re-establish n_capt_per_day_sex for plotting
 ## number of each sex captured each day 
@@ -50,17 +102,20 @@ n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(n
 n_capt_per_day_sex[is.na(n_capt_per_day_sex)] <- 0
 
 ####
-## Plotting Setup
+## Plotting Setup: Estimation of generated quantities
 ####
 
+## Which species are associated with each population
 spec_in_pop <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+## Full data frame of all the combinations of spec, sex, and population seen in the data
+ ## (from which to create estimates from model samples)
 spec_sex    <- data.frame(
   spec = rep(spec_in_pop, 2)
 , sex  = rep(c("F", "M"), each = length(spec_in_pop))
 , pop  = rep(seq(length(spec_in_pop)), 2)
 )
 
-## rather non-dynamic, can come back and clean this up later possibly
+## Create the model matrix of all of these combinations of species and sex
 if (n_specs > 1) {
   if (multi_spec_red) {
 spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
@@ -75,16 +130,20 @@ spec_sex_mm <- model.matrix(~Sex + pop_spec, capt_history.phi)[, ] %>% as.data.f
 spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
 }
 
+## loop over each species, sex, pop to estimate the survival of each of the individual types found in the data
 for (k in 1:nrow(spec_sex)) {
   
+## grid over which to predict
 pred.vals <- expand.grid(
   bd   = scale(seq(0, 14, by = 1))[, 1]
 , len  = seq(-2, 2, by = 0.4)
 , mehg = seq(-2, 2, by = 0.4)
 )
 
-pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples[[1]])[1])
+## matrix to house the full posterior 
+pred.est <- matrix(data = 0, nrow = nrow(pred.vals), ncol = dim(stan.fit.samples$z_r)[1])
 
+## Obtain the model matrix entry for this spec, sex, pop combination
 if (n_specs > 1) {
   if (multi_spec_red) {
 spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
@@ -96,6 +155,7 @@ spec_sex_mm.t <- spec_sex_mm %>% filter(spec == spec_sex$spec[k], sex == spec_se
 spec_sex_mm.t <- spec_sex_mm %>% filter(sex == spec_sex$sex[k]) %>% dplyr::select(-sex) %>% as.matrix()
 }
 
+## loop over all posterior samples to calculate the outcome of interest (here survival)
 for (j in 1:nrow(pred.est)) {
   
 if (n_specs > 1) {
@@ -121,17 +181,20 @@ if (n_specs > 1) {
  )
   }
 } else {
+  ## Potentially outdated, but the goal is to never really run a single species at a time anyway. 
+   ## Probably worth coming back and cleaning up at some point though
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
-     stan.fit.samples$offseason_pop[, spec_sex$pop[k]] + 
-    (stan.fit.samples$beta_offseason_bd + stan.fit.samples$offseason_pop_bd[, spec_sex$pop[k]]) * pred.vals$bd[j] +
-    (stan.fit.samples$beta_offseason_len + stan.fit.samples$offseason_pop_len[, spec_sex$pop[k]]) * pred.vals$len[j] +
-     stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
+    stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
+    (stan.fit.samples$beta_offseason_bd  + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+    (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
+    stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
  )
 }
   
 }
 
+## Add in the details about the spec, sex, and pop 
 if (n_specs > 1) {
 pred.vals %<>% mutate(
   pop  = spec_sex$pop[k]
@@ -147,6 +210,7 @@ pred.vals %<>% mutate(
 pred.vals <- cbind(pred.vals, pred.est) 
 print(paste("Through", k, "population:sex", sep = " "))
 
+## stick it all together
 if (k == 1) {
 pred.vals.f <- pred.vals
 } else {
@@ -154,35 +218,11 @@ pred.vals.f <- rbind(pred.vals.f, pred.vals)
 }
 }
 
-if (mem.ish) { 
-
-## More memory problems
-pred.vals.f.1 <- pred.vals.f[, c(1:5, 6:1005)]
-pred.vals.f.2 <- pred.vals.f[, c(1:5, 1006:2005)]
-pred.vals.f.3 <- pred.vals.f[, c(1:5, 2006:3005)]
-
-pred.vals.f.1 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est") 
-pred.vals.f.2 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
-pred.vals.f.3 %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")
-
-pred.vals.f.1 <- rbind(pred.vals.f.1, pred.vals.f.2)
-pred.vals.f.1 <- rbind(pred.vals.f.1, pred.vals.f.3)
-
-pred.vals.f   <- pred.vals.f.1
-
-} else {
-
 if (n_specs > 1) {
 pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -spec, -sex), names_to = "iter", values_to = "est")
-} else {
-pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
-}
-
-}
-
-if (n_specs > 1) {
 pred.vals.gg <- pred.vals.f %>% group_by(bd, len, mehg, spec, pop, sex)
 } else {
+pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
 pred.vals.gg <- pred.vals.f %>% group_by(bd, len, mehg, pop, sex)
 }
 
@@ -206,35 +246,50 @@ pred.vals.gg %<>% mutate(pop =  as.factor(pop), spec = as.factor(spec))
 pred.vals.gg %<>% mutate(pop =  as.factor(pop))
 }
 
-gg1 <- pred.vals.gg %>% filter(sex == "M", len == 0, mehg == 0) %>% {
+####
+## Plotting
+####
+
+gg1 <- pred.vals.gg %>% mutate(
+  pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
+  , to = spec_pop_plot_labels
+)) %>% filter(sex == "M", len == 0, mehg == 0) %>% {
   ggplot(., aes(bd, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = pop), alpha = 0.3) +
-    geom_line(aes(colour = pop), size = 1) + 
-    scale_colour_discrete() +
-    scale_fill_discrete() + {
-      if (n_specs > 1) {
-        facet_grid(~spec*pop)
-      } else {
-        facet_grid(~pop)
-      }
-    } +
-    xlab("Bd Load") +
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
+    geom_line(aes(colour = spec), size = 1) + 
+    scale_colour_brewer(name = "Species", palette = "Dark2") +
+    scale_fill_brewer(name = "Species", palette = "Dark2") +
+   # scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
+    facet_wrap(~pop) +
+    theme(
+      strip.text.x = element_text(size = 11)
+  ,   axis.text.y = element_text(size = 12)
+  ,   axis.text.x = element_text(size = 11)
+    ) +
+    xlab("Bd Load (scaled)") +
     ylab("Between-Season Survival")
 }
 
-gg2 <- pred.vals.gg %>% filter(sex == "M", mehg == 0, bd == 7) %>% {
+gg2 <- pred.vals.gg %>% mutate(
+  pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
+  , to = spec_pop_plot_labels
+)) %>% filter(sex == "M", bd == 0, mehg == 0) %>% {
   ggplot(., aes(len, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = pop), alpha = 0.3) +
-    geom_line(aes(colour = pop), size = 1) + 
-    scale_colour_discrete() +
-    scale_fill_discrete() + {
-      if (n_specs > 1) {
-        facet_grid(~spec*pop)
-      } else {
-        facet_grid(~pop)
-      }
-    } +
-    xlab("Length") +
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
+    geom_line(aes(colour = spec), size = 1) + 
+    scale_colour_brewer(name = "Species", palette = "Dark2") +
+    scale_fill_brewer(name = "Species", palette = "Dark2") +
+    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
+    facet_wrap(~pop) +
+    theme(
+      strip.text.x = element_text(size = 11)
+  ,   axis.text.y = element_text(size = 12)
+  ,   axis.text.x = element_text(size = 11)
+    ) +
+    xlab("Length (scaled)") +
     ylab("Between-Season Survival")
 }
 
@@ -258,16 +313,18 @@ bd.mehg <- matrix(
 , ncol = dim(stan.fit.samples$z_r)[3]
 )
 
+## Derived quantities here being average survival at the mean of all continuous predictors and
+ ## the effect of Bd
 for (j in 1:ncol(bd.est)) {
   if (multi_spec_red) {
    int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
    bd.est[, j]  <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j]
   } else {
-  int.est[, j] <- (sweep(stan.fit.samples$beta_offseason_int[, 1:5], 2
-    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:5] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+  int.est[, j] <- (sweep(stan.fit.samples$beta_offseason_int[, 1:n_spec], 2
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, j]
    bd.est[, j] <- (sweep(stan.fit.samples$beta_offseason_bd, 2
-    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:5] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 2, j]
   }
   if (fit_ind_mehg) {
@@ -277,6 +334,7 @@ for (j in 1:ncol(bd.est)) {
 
 int.est        <- reshape2::melt(int.est)
 names(int.est) <- c("Sample", "Population", "Value")
+## Not dynamic, needs to get manually updated if the species change
 int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
     "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
@@ -284,24 +342,11 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   ))
 )
 
-bd.est        <- reshape2::melt(bd.est)
-names(bd.est) <- c("Sample", "Population", "Value")
-bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
-  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
-  , "Notophthalmus viridescens", "Rana spp."
-  ))
-)
+## A data frame for later to help scale the effect of Bd to the more interpretable probability scale
+int.est2 <- int.est %>% group_by(Population, Species) %>% summarize(mid   = quantile(Value, 0.500))
 
-bd.mehg        <- reshape2::melt(bd.mehg)
-names(bd.mehg) <- c("Sample", "Population", "Value")
-bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
-  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Anaxyrus boreas", "Rana spp."
-  ))
-)
-
-int.est %<>% mutate(Value = plogis(Value)) %>% group_by(Population, Species) %>% summarize(
+int.est %<>% mutate(Value = plogis(Value)) %>% 
+  group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
   , mid   = quantile(Value, 0.500)
@@ -311,6 +356,15 @@ int.est %<>% mutate(Value = plogis(Value)) %>% group_by(Population, Species) %>%
   pop_spec = unique(capt_history$pop_spec)
 ) %>% mutate(
   CI_width = upr - lwr
+)
+
+bd.est        <- reshape2::melt(bd.est)
+names(bd.est) <- c("Sample", "Population", "Value")
+bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
+  , "Notophthalmus viridescens", "Rana spp."
+  ))
 )
 
 bd.est %<>% group_by(Population, Species) %>% summarize(
@@ -325,6 +379,15 @@ bd.est %<>% group_by(Population, Species) %>% summarize(
   CI_width = upr - lwr
 )
 
+if (fit_ind_mehg) {
+bd.mehg        <- reshape2::melt(bd.mehg)
+names(bd.mehg) <- c("Sample", "Population", "Value")
+bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Anaxyrus boreas", "Rana spp."
+  ))
+)
+
 bd.mehg %<>% group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
@@ -336,7 +399,9 @@ bd.mehg %<>% group_by(Population, Species) %>% summarize(
 ) %>% mutate(
   CI_width = upr - lwr
 )
+}
 
+## Calculate a number of metrics of effort for some coarse correlations between effort and CI width
 num_samples  <- sampling %>% group_by(pop_spec) %>% summarize(n_dates = n_distinct(CaptureDate)) %>%
   arrange(desc(n_dates)) %>% mutate(pop_spec = factor(pop_spec, levels = unique(pop_spec)))
 
@@ -383,44 +448,9 @@ Individuals
 Reswabbed") +
 theme(legend.key.size = unit(0.65, "cm"), legend.position = c(0.85, 0.7))
 
-int.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
-"Ambystoma cingulatum
-SMNWR East"
-, "Ambystoma cingulatum
-SMNWR West"
-, "Anaxyrus boreas
-Blackrock Complex"
-, "Anaxyrus boreas
-Blackrock H"
-, "Anaxyrus boreas
-Jones Pond"
-, "Anaxyrus boreas
-Sonoma Mountain"
-, "Anaxyrus boreas
-Two Medicine"
-, "Pseudacris maculata
-Lily Pond"
-, "Pseudacris maculata
-Matthews Pond"
-, "Notophthalmus viridescens
-Mud Lake"
-, "Notophthalmus viridescens
-SMNWR West"
-, "Rana pretiosa
-Dilman Meadows"
-, "Rana boylii
-Fox Creek"
-, "Rana luteiventris
-Jones Pond"
-, "Rana luteiventris
-Lost Horse"
-, "Rana draytonii
-San Francisquito"
-, "Rana sierrae
-Summit Meadow"
-, "Rana cascadae
-Three Creeks"
-    ))
+int.est %>% mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels)
 ) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
   ggplot(., aes(mid, Population, colour = Species)) + 
     geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
@@ -435,45 +465,10 @@ Three Creeks"
       , legend.title = element_text(size = 13))
 }
 
-bd.est %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
-"Ambystoma cingulatum
-SMNWR East"
-, "Ambystoma cingulatum
-SMNWR West"
-, "Anaxyrus boreas
-Blackrock Complex"
-, "Anaxyrus boreas
-Blackrock H"
-, "Anaxyrus boreas
-Jones Pond"
-, "Anaxyrus boreas
-Sonoma Mountain"
-, "Anaxyrus boreas
-Two Medicine"
-, "Pseudacris maculata
-Lily Pond"
-, "Pseudacris maculata
-Matthews Pond"
-, "Notophthalmus viridescens
-Mud Lake"
-, "Notophthalmus viridescens
-SMNWR West"
-, "Rana pretiosa
-Dilman Meadows"
-, "Rana boylii
-Fox Creek"
-, "Rana luteiventris
-Jones Pond"
-, "Rana luteiventris
-Lost Horse"
-, "Rana draytonii
-San Francisquito"
-, "Rana sierrae
-Summit Meadow"
-, "Rana cascadae
-Three Creeks"
-    ))
-) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
+bd.est %>% mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels
+)) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
   ggplot(., aes(mid, Population, colour = Species)) + 
     geom_vline(xintercept = 0, linetype = "dashed") +
     geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
@@ -488,6 +483,42 @@ Three Creeks"
       , legend.title = element_text(size = 13))
 }
 
+## Sample plot as the above, but converting the effect to the probability scale
+
+int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels)
+) %>% rename(mid_p = mid) %>% left_join(.
+  , 
+  bd.est %>% mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels
+))
+  ) %>% mutate(
+    lwr   = plogis(mid_p - lwr)   - plogis(mid_p)
+  , lwr_n = plogis(mid_p - lwr_n) - plogis(mid_p)
+  , mid   = plogis(mid_p - mid)   - plogis(mid_p)
+  , upr_n = plogis(mid_p - upr_n) - plogis(mid_p)
+  , upr   = plogis(mid_p - upr)   - plogis(mid_p)
+  ) %>% arrange(desc(mid)) %>% 
+  mutate(Population = factor(Population, levels = Population)) %>% {
+  ggplot(., aes(mid, Population, colour = Species)) + 
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "Dark2") +
+    xlab("Bd-Survival Effect") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
+}
+
+if (fit_ind_mehg) {
+
+## Different populations so the previously stored vector of pop spec names won't work
 bd.mehg %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
   "Anaxyrus boreas
 Blackrock H"
@@ -522,6 +553,10 @@ Three Creeks"
       , legend.text = element_text(size = 11)
       , legend.title = element_text(size = 13))
 }
+  
+}
+
+## Continuing with all of the other beta estimates
 
 beta_est <- stan.fit.summary[grep("beta", dimnames(stan.fit.summary)[[1]]), ] %>% 
   reshape2::melt() %>%

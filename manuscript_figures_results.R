@@ -413,7 +413,11 @@ Matthews Pond"
 , "Notophthalmus viridescens
 Mud Lake"
 , "Notophthalmus viridescens
+Scotia Barrens"
+, "Notophthalmus viridescens
 SMNWR West"
+, "Notophthalmus viridescens
+SMNWR Springfield"
 , "Rana pretiosa
 Dilman Meadows"
 , "Rana boylii
