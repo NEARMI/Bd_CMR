@@ -23,7 +23,6 @@ stan_data     <- list(
  , n_sex             = n_sex
  , N_bd              = nrow(capt_history.bd_load)
  , n_col_mm_int      = ncol(fe_mm_phi_int)
- , n_col_mm_int_len  = n_sex + length(unique(capt_history$Species)) - 1
  , n_u               = ifelse(fit_ind_mehg, 5, 3)
   
   ## Index vectors with length ``n_ind'' (used in all model components)
@@ -184,22 +183,22 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.93, max_treedepth = 13)
    ## drop a few parameters to reduce the size of the saved ston object
- , include = TRUE
-, pars    = c(
-  "beta_offseason_int"
-, "beta_offseason_bd"
-, "beta_offseason_len"
-, "beta_offseason_mehg"
-, "z_r" 
-, "beta_inseason"
-, "inseason_pop"
-, "bd_ind"
-, "beta_p_int"
-, "p_pop"
-, "p_day_dev"
-, "beta_p_slope"
-, "pop_size"
-  )
+#, include = TRUE
+#, pars    = c(
+#  "beta_offseason_int"
+#, "beta_offseason_bd"
+#, "beta_offseason_len"
+#, "beta_offseason_mehg"
+#, "z_r" 
+#, "beta_inseason"
+#, "inseason_pop"
+#, "bd_ind"
+#, "beta_p_int"
+#, "p_pop"
+#, "p_day_dev"
+#, "beta_p_slope"
+#, "pop_size"
+#  )
   )
 
 saveRDS(

@@ -47,7 +47,7 @@
 
 ## Can be false if just plotting of output is desired, which still requires the data cleaning, or plotting can also be false
  ## if saving a fit is the only desire
-fit_model  <- FALSE
+fit_model  <- TRUE
 plot_model <- TRUE
 ## Flag to determine how plotting will proceed (after fitting, or from a saved model, or from extracted chains)
 if (plot_model) {
@@ -112,8 +112,8 @@ multi_spec     <- TRUE
 multi_spec_red <- FALSE
  ## 2) Not all populations?
 some_pops      <- TRUE
- ## 3) Fit individual-level MeHg?
-fit_ind_mehg   <- FALSE
+ ## 3) Fit individual-level MeHg? Be careful what populations to choose
+fit_ind_mehg   <- TRUE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
 red_p_model    <- TRUE
 
@@ -128,11 +128,16 @@ print(paste("red_p_model =", sing_pop, sep = " "))
 ## From these choices find the model to fit
 source("determine_model.R")
 
+## Some population choices:
+ ## -10                                -- Full fit
+ ## c(4, 5, 6, 15, 16, 17, 18, 19, 21) -- MeHg fit
+ ## c(1:9, 11, 13, 15:21)              -- Full fit without Springfield and Scotia Barrens
+
 ## If a subset of populations, pick which ones
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
-#which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+ which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }

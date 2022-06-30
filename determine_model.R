@@ -27,10 +27,10 @@ if (!multi_spec) {
 } else {
   
   if (fit_ind_mehg) {
-   which_stan_file <- "CMR_multiple_populations_mehg"
+   which_stan_file     <- "CMR_multiple_populations_mehg"
   } else {
     if (multi_spec_red) {
-      which_stan_file <- "CMR_multiple_populations_red"
+      which_stan_file  <- "CMR_multiple_populations_red"
     } else {
       if (red_p_model) {
        which_stan_file <- "CMR_multiple_populations_alt_p"
