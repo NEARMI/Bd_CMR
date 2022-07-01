@@ -2,38 +2,33 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes June 24, 2022 ---- 
+#### Notes July 1, 2022 ---- 
 
-## -- Most of today spent cleaning this top level script, updating the plotting script, and thinking about
- ## what a results section will look like
+## 1) Recovered fit, took 7 days 6 hours. Mixed well, still a little low on effective sample size, so will want to fit a little longer
+ ## for the final fit. A few notes about this fit:
+  ## -- Still weird effects of length
+  ## -- Need to recover predicted MeHg in each population to get an accurate estimate (assuming mean in each population is
+    ##  not correct because it is a population-level covariate, so using 0 may over- or under-estimate overall survival in any given pop)
 
-## -- Big success of just fitting all populations with the reduced detection model.
- ##   My guess is that it may take about 12 days to fit the model with enough samples for the publication
+## 2) Worked today on plotting. Nearly complete, but still have a tiny bit more cleanup needed in "plotting_multipop.R" 
 
-## -- NOTE: had to stop in the midst of updating files on yeti for some cleaning
- ## Critical to do:
-  ## -- Finish fixing the cleaning script for the MeHg model fit
-  ## -- Finish updating the plotting scripts
 
 ## Next To Do:
 
-## 1) While the long run is fitting on yeti:
- ## A) Update the MeHg model for the new 
- ## B) Clean up code (plotting scripts and summary and sample extraction scripts most importantly)
- ## C) Update files/repo (e.g., moving stan files appropriately and updating readme)
- ## D) Gather the fits from what has been done so far to start writing a results section
- ##    -- most notably the full pop fit and the MeHg fit
- ## E) Refit the MeHg model
- ## F) Update the methods in the overleaf
-  ## i)  Change the detection model to reflect what is now being fit
-  ## ii) Drop the continuous time model and update the results to reflect the two models
+## 1) Recover MeHg fit and go back through the plotting script with this new output
+## 2) Overleaf Results section
+## 3) Overleaf Discussion section (mostly caveats and potential issues)
+## 4) Some code and repo cleaning (mostly stan folders and stan files)
 
-## 2) Some potentially remaining issues to be cleaned up:
- ## -- Maybe want to pursue a better Bd load level (e.g. a zero inflated regression for example)
+## Some potentially remaining issues to be cleaned up:
+
+## 1) Maybe want to pursue a better Bd load level (e.g. a zero inflated regression for example)
   ## --> Mainly because scaled Bd makes it really weird to estimate survival when an individual is uninfected, because
    ##    with the current strategy "uninfected" doesn't really have a defined meaning as Bd is simply a continuous state
    ##    and anything greater than 2 sd from the mean in this continuous load isn't very sensible.
    ##   --> Doing a zero-inflated model would lead to more sensible estimates of what "uninfected" means
+## 2) May want to put length into detection because of the funny length effect for Rana survival
+## 3) Need to double check how I am calculating population sizes
 
 ########
 #### Code ----
@@ -47,7 +42,7 @@
 
 ## Can be false if just plotting of output is desired, which still requires the data cleaning, or plotting can also be false
  ## if saving a fit is the only desire
-fit_model  <- TRUE
+fit_model  <- FALSE
 plot_model <- TRUE
 ## Flag to determine how plotting will proceed (after fitting, or from a saved model, or from extracted chains)
 if (plot_model) {
@@ -55,8 +50,8 @@ plot_from <- {
   if (fit_model) {
     "fit"
   } else {
-   # "saved_model"
-     "saved_samples"
+     "saved_model"
+   # "saved_samples"
   }
 }
 }
@@ -73,7 +68,7 @@ if (plot_model) {
 if (plot_model) {
 if (plot_from == "saved_model" | plot_from == "saved_samples") {
   if (plot_from == "saved_model") {
-    saved_model <- "fits/stan_fit_multipop_all_2022-06-20.Rds" 
+    saved_model <- "fits/stan_fit_multipop_all_full_2022-06-23.Rds" 
    if (file.exists(saved_model)) {
      print(paste("Plotting will occur using the saved model:", saved_model, sep = " "))
    } else {
@@ -113,7 +108,7 @@ multi_spec_red <- FALSE
  ## 2) Not all populations?
 some_pops      <- TRUE
  ## 3) Fit individual-level MeHg? Be careful what populations to choose
-fit_ind_mehg   <- TRUE
+fit_ind_mehg   <- FALSE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
 red_p_model    <- TRUE
 
@@ -135,9 +130,9 @@ source("determine_model.R")
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
-# which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
+ which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
- which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
@@ -183,9 +178,9 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 600
-stan.burn     <- 300
-stan.thin     <- 1
+stan.iter     <- 3500
+stan.burn     <- 500
+stan.thin     <- 3
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1
 stan.cores    <- 1

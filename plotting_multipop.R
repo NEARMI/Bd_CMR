@@ -23,9 +23,10 @@ needed_entries <- c(
 , "beta_offseason_bd"
 , "beta_offseason_len"
 , "beta_offseason_mehg"
-, "beta_offseason_mehg_bd"
+# , "beta_offseason_mehg_bd"
 , "z_r" 
-, "beta_inseason_int"
+, "beta_inseason"
+, "inseason_pop"
 , "bd_ind"
 , "beta_p_int"
 , "p_pop"
@@ -51,55 +52,9 @@ these_pops  <- unique(capt_history.phi$pop_spec)
 these_sexes <- c("F", "M")    ## skipping U for now
 
 ## Very non-dynamic... Write out the Species and Populations in a full way for beautified plots
-spec_pop_plot_labels <- c(
-"Ambystoma cingulatum
-SMNWR East"
-, "Ambystoma cingulatum
-SMNWR West"
-, "Anaxyrus boreas
-Blackrock Complex"
-, "Anaxyrus boreas
-Blackrock H"
-, "Anaxyrus boreas
-Jones Pond"
-, "Anaxyrus boreas
-Sonoma Mountain"
-, "Anaxyrus boreas
-Two Medicine"
-, "Pseudacris maculata
-Lily Pond"
-, "Pseudacris maculata
-Matthews Pond"
-, "Notophthalmus viridescens
-Mud Lake"
-, "Notophthalmus viridescens
-Scotia Barrens"
-, "Notophthalmus viridescens
-SMNWR West"
-, "Notophthalmus viridescens
-SMNWR Springfield"
-, "Rana pretiosa
-Dilman Meadows"
-, "Rana boylii
-Fox Creek"
-, "Rana luteiventris
-Jones Pond"
-, "Rana luteiventris
-Lost Horse"
-, "Rana draytonii
-San Francisquito"
-, "Rana sierrae
-Summit Meadow"
-, "Rana cascadae
-Three Creeks"
-    )
-
-## Re-establish n_capt_per_day_sex for plotting
-## number of each sex captured each day 
-n_capt_per_day_sex <- capt_history.p %>% group_by(date_fac, Sex) %>% summarize(num_capt = sum(captured)) %>%
-    pivot_wider(., date_fac, values_from = num_capt, names_from = Sex) %>% ungroup() %>% dplyr::select(-date_fac) %>%
-    as.matrix()
-n_capt_per_day_sex[is.na(n_capt_per_day_sex)] <- 0
+ ## Use either just the population, or Species and Population
+plot_labs <- "Pop" # "Spec-Pop" 
+source("plotting_facet_names.R")
 
 ####
 ## Plotting Setup: Estimation of generated quantities
@@ -172,12 +127,16 @@ if (n_specs > 1) {
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
     (
-      (sweep(stan.fit.samples$beta_offseason_bd, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) + 
-        stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+      (sweep(stan.fit.samples$beta_offseason_bd, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()) + 
+        stan.fit.samples$z_r[, 2, spec_sex$pop[k]]
+      ) * pred.vals$bd[j] +
     (
-      (sweep(stan.fit.samples$beta_offseason_len, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) +
-        stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
-    (sweep(stan.fit.samples$beta_offseason_mehg, 2, spec_sex_mm.t[1:5], `*`) %>% rowSums()) * pred.vals$mehg[j]
+      (sweep(stan.fit.samples$beta_offseason_len, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()) +
+        stan.fit.samples$z_r[, 3, spec_sex$pop[k]]
+      ) * pred.vals$len[j] +
+    (
+      sweep(stan.fit.samples$beta_offseason_mehg, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()
+      ) * pred.vals$mehg[j]
  )
   }
 } else {
@@ -207,23 +166,15 @@ pred.vals %<>% mutate(
 , sex  = spec_sex$sex[k]
 )
 }
-pred.vals <- cbind(pred.vals, pred.est) 
-print(paste("Through", k, "population:sex", sep = " "))
 
-## stick it all together
-if (k == 1) {
-pred.vals.f <- pred.vals
-} else {
-pred.vals.f <- rbind(pred.vals.f, pred.vals)
-}
-}
+pred.vals <- cbind(pred.vals, pred.est) 
 
 if (n_specs > 1) {
-pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -spec, -sex), names_to = "iter", values_to = "est")
-pred.vals.gg <- pred.vals.f %>% group_by(bd, len, mehg, spec, pop, sex)
+pred.vals %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -spec, -sex), names_to = "iter", values_to = "est")
+pred.vals.gg <- pred.vals %>% group_by(bd, len, mehg, spec, pop, sex)
 } else {
-pred.vals.f %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
-pred.vals.gg <- pred.vals.f %>% group_by(bd, len, mehg, pop, sex)
+pred.vals %<>% pivot_longer(., c(-bd, -len, -mehg, -pop, -sex), names_to = "iter", values_to = "est")  
+pred.vals.gg <- pred.vals %>% group_by(bd, len, mehg, pop, sex)
 }
 
 pred.vals.gg %<>% summarize(
@@ -234,21 +185,43 @@ pred.vals.gg %<>% summarize(
   , upr   = quantile(est, 0.975)
   )
 
-pred.vals.gg %<>% ungroup() %>% mutate(
-  pop  = plyr::mapvalues(pop , from = unique(pred.vals.gg$pop) , to = as.character(these_pops))
-, sex  = plyr::mapvalues(sex , from = unique(pred.vals.gg$sex) , to = these_sexes)
+print(paste("Through", k, "population:sex", sep = " "))
+
+## stick it all together
+if (k == 1) {
+pred.vals.gg.f <- pred.vals.gg
+} else {
+pred.vals.gg.f <- rbind(pred.vals.gg.f, pred.vals.gg)
+}
+}
+
+pred.vals.gg.f %<>% ungroup() %>% mutate(
+  pop  = plyr::mapvalues(pop , from = unique(pred.vals.gg.f$pop) , to = as.character(these_pops))
+, sex  = plyr::mapvalues(sex , from = unique(pred.vals.gg.f$sex) , to = these_sexes)
 )
 
 if (n_specs > 1) {
-pred.vals.gg %<>% mutate(spec = plyr::mapvalues(spec, from = unique(pred.vals.gg$spec), to = as.character(these_specs)))
-pred.vals.gg %<>% mutate(pop =  as.factor(pop), spec = as.factor(spec))
+pred.vals.gg.f %<>% mutate(spec = plyr::mapvalues(spec, from = unique(pred.vals.gg.f$spec)
+  , to = as.character(these_specs)))
+pred.vals.gg.f %<>% mutate(pop =  as.factor(pop), spec = as.factor(spec))
 } else {
-pred.vals.gg %<>% mutate(pop =  as.factor(pop))
+pred.vals.gg.f %<>% mutate(pop =  as.factor(pop))
 }
+
+pred.vals.gg <- pred.vals.gg.f; rm(pred.vals.gg.f)
 
 ####
 ## Plotting
 ####
+
+facet_names <- list(
+  expression(paste(bolditalic('Aedes-'), bold("associated flaviviruses"), sep = ""))
+, expression(paste(bolditalic('Culex-'), bold("associated flaviviruses"), sep = ""))
+, expression(bold("Arthritogenic alphaviruses"))
+)
+facet_labeller <- function(variable,value){
+  return(facet_names[value])
+}
 
 gg1 <- pred.vals.gg %>% mutate(
   pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
@@ -258,15 +231,21 @@ gg1 <- pred.vals.gg %>% mutate(
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
     geom_line(aes(colour = spec), size = 1) + 
-    scale_colour_brewer(name = "Species", palette = "Dark2") +
-    scale_fill_brewer(name = "Species", palette = "Dark2") +
+    scale_colour_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
+    scale_fill_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
    # scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
-    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
+    scale_x_continuous(breaks = c(-1.40, -0.75, 0, 0.75, 1.40)) +
     facet_wrap(~pop) +
     theme(
-      strip.text.x = element_text(size = 11)
-  ,   axis.text.y = element_text(size = 12)
-  ,   axis.text.x = element_text(size = 11)
+    strip.text.x    = element_text(size = 11)
+  , axis.text.y     = element_text(size = 12)
+  , axis.text.x     = element_text(size = 11)
+  , legend.key.size = unit(0.65, "cm")
+  , legend.text     = element_text(size = 11)
+  , legend.title    = element_text(size = 13)
+  , legend.text.align = 0
     ) +
     xlab("Bd Load (scaled)") +
     ylab("Between-Season Survival")
@@ -280,16 +259,49 @@ gg2 <- pred.vals.gg %>% mutate(
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
     geom_line(aes(colour = spec), size = 1) + 
-    scale_colour_brewer(name = "Species", palette = "Dark2") +
-    scale_fill_brewer(name = "Species", palette = "Dark2") +
-    scale_x_continuous(breaks = c(-1.5, -0.75, 0, 0.75, 1.5)) +
+    scale_colour_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
+    scale_fill_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
+    scale_x_continuous(breaks = c(-1.75, -0.75, 0, 0.75, 1.75)) +
     facet_wrap(~pop) +
     theme(
-      strip.text.x = element_text(size = 11)
-  ,   axis.text.y = element_text(size = 12)
-  ,   axis.text.x = element_text(size = 11)
+    strip.text.x    = element_text(size = 11)
+  , axis.text.y     = element_text(size = 12)
+  , axis.text.x     = element_text(size = 11)
+  , legend.key.size = unit(0.65, "cm")
+  , legend.text     = element_text(size = 11)
+  , legend.title    = element_text(size = 13)
+  , legend.text.align = 0
     ) +
     xlab("Length (scaled)") +
+    ylab("Between-Season Survival")
+}
+
+gg3 <- pred.vals.gg %>% mutate(
+  pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
+  , to = spec_pop_plot_labels
+)) %>% filter(sex == "M", bd == 0, len == 0) %>% {
+  ggplot(., aes(mehg, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
+    geom_line(aes(colour = spec), size = 1) + 
+    scale_colour_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
+    scale_fill_brewer(name = "Species", palette = "Dark2"
+      , labels = spec_labs) +
+    scale_x_continuous(breaks = c(-1.75, -0.75, 0, 0.75, 1.75)) +
+    facet_wrap(~pop) +
+    theme(
+    strip.text.x    = element_text(size = 11)
+  , axis.text.y     = element_text(size = 12)
+  , axis.text.x     = element_text(size = 11)
+  , legend.key.size = unit(0.65, "cm")
+  , legend.text     = element_text(size = 11)
+  , legend.title    = element_text(size = 13)
+  , legend.text.align = 0
+    ) +
+    xlab("MeHg (scaled)") +
     ylab("Between-Season Survival")
 }
 
@@ -342,8 +354,22 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   ))
 )
 
+bd.est        <- reshape2::melt(bd.est)
+names(bd.est) <- c("Sample", "Population", "Value")
+bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
+  , "Notophthalmus viridescens", "Rana spp."
+  ))
+)
+
 ## A data frame for later to help scale the effect of Bd to the more interpretable probability scale
 int.est2 <- int.est %>% group_by(Population, Species) %>% summarize(mid   = quantile(Value, 0.500))
+## Second option of doing so
+bd.est2  <- left_join(
+  int.est %>% rename(int = Value)
+, bd.est  %>% rename(bd = Value)
+)
 
 int.est %<>% mutate(Value = plogis(Value)) %>% 
   group_by(Population, Species) %>% summarize(
@@ -358,21 +384,31 @@ int.est %<>% mutate(Value = plogis(Value)) %>%
   CI_width = upr - lwr
 )
 
-bd.est        <- reshape2::melt(bd.est)
-names(bd.est) <- c("Sample", "Population", "Value")
-bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
-  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
-  , "Notophthalmus viridescens", "Rana spp."
-  ))
-)
-
 bd.est %<>% group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
   , mid   = quantile(Value, 0.500)
   , upr_n = quantile(Value, 0.800)
   , upr   = quantile(Value, 0.975)
+) %>% ungroup() %>% mutate(
+  pop_spec = unique(capt_history$pop_spec)
+) %>% mutate(
+  CI_width = upr - lwr
+)
+
+bd.est2 %<>% mutate(
+  int.p = plogis(int)
+, bd.p  = plogis(int + bd)) %>% 
+  mutate(
+  rel_surv = bd.p / int.p
+  )
+
+bd.est2 %<>% group_by(Population, Species) %>% summarize(
+    lwr   = quantile(rel_surv, 0.025)
+  , lwr_n = quantile(rel_surv, 0.200)
+  , mid   = quantile(rel_surv, 0.500)
+  , upr_n = quantile(rel_surv, 0.800)
+  , upr   = quantile(rel_surv, 0.975)
 ) %>% ungroup() %>% mutate(
   pop_spec = unique(capt_history$pop_spec)
 ) %>% mutate(
@@ -448,44 +484,60 @@ Individuals
 Reswabbed") +
 theme(legend.key.size = unit(0.65, "cm"), legend.position = c(0.85, 0.7))
 
-int.est %>% mutate(Population = plyr::mapvalues(Population
+int.est.gg <- int.est %>% mutate(Population = plyr::mapvalues(Population
   , from = unique(Population)
   , to = spec_pop_plot_labels)
-) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
-  ggplot(., aes(mid, Population, colour = Species)) + 
-    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+) %>% arrange(desc(mid)) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+
+int.est.gg %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2, size = 0.8) +
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
-    geom_point(size = 2) +
-    scale_color_brewer(palette = "Dark2") +
-    xlab("Survival at mean Bd load") +
+    geom_point(size = 2.5) +
+    scale_color_brewer(
+      palette = "Dark2"
+    , labels = spec_labs) +
+    scale_y_discrete(labels = int.est.gg$Population) +
+    xlab("Survival at mean conditions (Bd load, Length, MeHg)") +
     ylab("Population") +
     theme(axis.text.y = element_text(size = 11)
       , legend.key.size = unit(0.6, "cm")
       , legend.text = element_text(size = 11)
-      , legend.title = element_text(size = 13))
+      , legend.title = element_text(size = 13)
+      , legend.text.align = 0)
 }
 
-bd.est %>% mutate(Population = plyr::mapvalues(Population
+bd.est.gg <- bd.est %>% mutate(Population = plyr::mapvalues(Population
   , from = unique(Population)
   , to = spec_pop_plot_labels
-)) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
-  ggplot(., aes(mid, Population, colour = Species)) + 
-    geom_vline(xintercept = 0, linetype = "dashed") +
-    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+)) %>% arrange(desc(mid)) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+
+bd.est.gg %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2, size = 0.8) +
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
-    geom_point(size = 2) +
-    scale_color_brewer(palette = "Dark2") +
-    xlab("Bd-Survival Effect") +
+    geom_point(size = 2.5) +
+    scale_color_brewer(
+      palette = "Dark2"
+    , labels = spec_labs) +
+    scale_y_discrete(labels = bd.est.gg$Population) +
+    xlab("Effect of Bd on Survival (Logit Scale)") +
+    scale_x_continuous(breaks = c(-2.5, -1.5, -0.5, 0, 0.5, 1.5, 2.5)) +
     ylab("Population") +
+    geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
     theme(axis.text.y = element_text(size = 11)
       , legend.key.size = unit(0.6, "cm")
+      , axis.text.x = element_text(size = 10)
       , legend.text = element_text(size = 11)
-      , legend.title = element_text(size = 13))
+      , legend.title = element_text(size = 13)
+      , legend.text.align = 0)
 }
 
 ## Sample plot as the above, but converting the effect to the probability scale
 
-int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
+bd.est2 <- int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
   , from = unique(Population)
   , to = spec_pop_plot_labels)
 ) %>% rename(mid_p = mid) %>% left_join(.
@@ -495,25 +547,41 @@ int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
   , to = spec_pop_plot_labels
 ))
   ) %>% mutate(
-    lwr   = plogis(mid_p - lwr)   - plogis(mid_p)
-  , lwr_n = plogis(mid_p - lwr_n) - plogis(mid_p)
-  , mid   = plogis(mid_p - mid)   - plogis(mid_p)
-  , upr_n = plogis(mid_p - upr_n) - plogis(mid_p)
-  , upr   = plogis(mid_p - upr)   - plogis(mid_p)
+    lwr   = plogis(mid_p) / plogis(mid_p - lwr)    
+  , lwr_n = plogis(mid_p) / plogis(mid_p - lwr_n)
+  , mid   = plogis(mid_p) / plogis(mid_p - mid)    
+  , upr_n = plogis(mid_p) / plogis(mid_p - upr_n)  
+  , upr   = plogis(mid_p) / plogis(mid_p - upr)    
   ) %>% arrange(desc(mid)) %>% 
-  mutate(Population = factor(Population, levels = Population)) %>% {
-  ggplot(., aes(mid, Population, colour = Species)) + 
-    geom_vline(xintercept = 0, linetype = "dashed") +
-    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
+  mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+
+bd.est2.gg <- bd.est2 %>% mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels
+)) %>% arrange(desc(mid)) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+
+bd.est2.gg %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2, size = 0.8) +
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
-    geom_point(size = 2) +
-    scale_color_brewer(palette = "Dark2") +
-    xlab("Bd-Survival Effect") +
+    geom_point(size = 2.5) +
+    scale_color_brewer(
+      palette = "Dark2"
+    , labels = spec_labs
+      ) +
+    scale_y_discrete(labels = bd.est2.gg$Population) +
+    xlab("Surival probability at one SD above the mean Bd load 
+relative to survival at  the mean Bd load") +
+    scale_x_log10(breaks = c(0.1, 0.40, 0.70, 1.0, 1.5, 3.0)) +
     ylab("Population") +
+    geom_vline(xintercept = 1, linetype = "dashed", size = 0.4) +
     theme(axis.text.y = element_text(size = 11)
       , legend.key.size = unit(0.6, "cm")
+      , axis.text.x = element_text(size = 10)
       , legend.text = element_text(size = 11)
-      , legend.title = element_text(size = 13))
+      , legend.title = element_text(size = 13)
+      , legend.text.align = 0)
 }
 
 if (fit_ind_mehg) {
@@ -603,27 +671,54 @@ beta_est.slopes <- beta_est %>% filter(
 )
 }
 
-gg3 <- beta_est.int %>% {
+gg3 <- beta_est.int %>% 
+  mutate(params = plyr::mapvalues(params
+    , from = unique(beta_est.int$params)
+    , to = c("Offseason Average Survival", "Average Detection Probability")
+    )) %>% {
     ggplot(., aes(mid, param_lev)) + geom_point() +
       geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3) +
-      facet_wrap(~params, scales = "free") +
-      ylab("Species")
+      facet_wrap(~params) +
+      ylab("Parameter Level") + 
+      scale_y_discrete(labels = c(spec_labs, "Sex: Female", "Sex: Unknown")) +
+      geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+      theme(
+        axis.text.y  = element_text(size = 12)
+      , strip.text.x   = element_text(size = 12)) +
+      xlab("Coefficient Estimate")
 }
 
 if (n_specs > 1) {
-gg4 <- beta_est.spec %>% {
+gg4 <- beta_est.spec %>%
+  mutate(params = plyr::mapvalues(params
+    , from = unique(beta_est.spec$params)
+    , to = c("Species Average Survival Between
+Primary Periods Within A Year")
+    )) %>% {
     ggplot(., aes(mid, param_lev)) + geom_point() +
       geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3) +
-      facet_wrap(~params, scales = "free") +
-      ylab("Species")
+      facet_wrap(~params) +
+      ylab("Parameter Level") +
+      scale_y_discrete(labels = c(spec_labs)) +
+      geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+      theme(axis.text.y = element_text(size = 12)) +
+      xlab("Coefficient Estimate")
 }
 }
 
-gg5 <- beta_est.slopes %>% {
+gg5 <- beta_est.slopes %>% 
+  mutate(params = plyr::mapvalues(params
+    , from = unique(beta_est.slopes$params)
+    , to = c("Coefficients Affecting Detection")
+    )) %>% {
     ggplot(., aes(mid, param_lev)) + geom_point() +
       geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3) +
-      facet_wrap(~params, scales = "free") +
-      ylab("Species")
+      facet_wrap(~params) +
+      ylab("Parameter") +
+      scale_y_discrete(labels = c("Drawdown", "Vegetation")) +
+      geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+      theme(axis.text.y = element_text(size = 12)) +
+      xlab("Coefficient Estimate")
 }
 
 ## individual bd deviates
@@ -772,8 +867,12 @@ gg9 <- each_pop_day.gg %>% {
     facet_wrap(~pop_spec, scales = "free")
 }
 
-pop_size_ests <- capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1) %>% 
-  dplyr::select(pop_spec, capture_date) %>% ungroup() %>%
+pop_size_ests <- capt_history.p %>% ungroup() %>% 
+  group_by(pop_spec, capture_date) %>%
+#  group_by(date_fac) %>%
+  slice(1) %>% 
+  dplyr::select(pop_spec, capture_date) %>% 
+  ungroup() %>%
   mutate(capt_per_day = n_capt_per_day_sex %>% rowSums()) %>%
   mutate(
     lwr   = apply(stan.fit.samples$pop_size, 2, FUN = function(x) quantile(x, 0.025))
@@ -786,26 +885,56 @@ pop_size_ests <- capt_history.p %>% ungroup() %>% group_by(date_fac) %>% slice(1
 
 pop_size_ests[pop_size_ests$capt_per_day == 0, 5:9] <- NA
 
-x_labs <- pop_size_ests %>% group_by(pop_spec) %>% filter(
-  date_fac %in% seq(min(date_fac), max(date_fac), by = 5)
+#x_labs <- pop_size_ests %>% 
+#  group_by(pop_spec) %>% 
+#  filter(ss %in% seq(min(ss), max(ss), by = 5))
+
+pop_size_ests$spec <- apply(pop_size_ests$pop_spec %>% matrix, 1, FUN = function(x) strsplit(x, "[.]")[[1]][1])
+
+pop_size_ests %<>% mutate(
+  pop = pop_spec
+) 
+pop_size_ests %<>% mutate(
+  pop  = plyr::mapvalues(pop, from = unique(pop_size_ests$pop)
+    , to = spec_pop_plot_labels
+    )
+, spec = plyr::mapvalues(spec, from = unique(pop_size_ests$spec)
+      , to = spec_names)
 )
 
-gg10 <- pop_size_ests %>% {
-    ggplot(., aes(date_fac, mid)) + 
-      geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
-      geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.2) +
-      geom_line() +
-      geom_point(aes(date_fac, capt_per_day), colour = "firebrick3", size = 3) +
+pop_size_ests %<>% unite(pop, pop, spec, sep = " - ")
+
+
+for (i in 1:(these_pops %>% length())) {
+
+gg.temp <- pop_size_ests %>% 
+  filter(pop == unique(pop)[i]) %>% {
+    ggplot(., aes(capture_date, mid)) + 
+   #   geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+   #   geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.2) +
+   #   geom_line() +
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2, size = 0.3) +
+      geom_errorbar(aes(ymin = lwr_n, ymax = upr_n), width = 0, size = 0.8, colour = "dodgerblue4") +
+      geom_point(aes(capture_date, capt_per_day), colour = "firebrick3", size = 3) +
       xlab("Date") +
       ylab("Population Estimate") +
-      scale_x_continuous(
-        breaks = x_labs$date_fac
-      , labels = x_labs$capture_date
+#      scale_x_continuous(
+#        breaks = x_labs$date_fac
+#      , labels = x_labs$capture_date
+#        ) +
+      theme(
+       # axis.text.x = element_text(angle = 300, hjust = 0, size = 10)
+        axis.text.x = element_text(size = 12)
         ) +
-      theme(axis.text.x = element_text(angle = 300, hjust = 0, size = 10)) +
-      facet_wrap(~pop_spec, scales = "free") +
+      facet_wrap(~pop, scales = "free") +
       scale_y_log10() +
       ggtitle("Red Points Show Number of Captures - Lines and Ribbons Show Population Estimates")
+  }
+  
+pdf(paste("plots/pop_sizes/", paste("pop_size", these_pops[i], sep = "_"), ".pdf", sep = ""), onefile = TRUE, width = 9, height = 8)
+get("gg.temp") %>% print()
+dev.off()
+
 }
   
 if (n_specs > 1) {
