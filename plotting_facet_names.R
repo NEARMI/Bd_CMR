@@ -64,6 +64,8 @@ Three Creeks"
 
 } else if (plot_labs == "Pop") {
 
+if (!fit_ind_mehg) {
+  
 spec_pop_plot_labels <- c(
   "FL - SMNWR East"
 , "FL - SMNWR West"
@@ -88,11 +90,31 @@ spec_pop_plot_labels <- c(
     )
 
 } else {
+  
+spec_pop_plot_labels <- c(
+  "WY - Blackrock (Heron)"
+, "MT - Jones Pond"
+, "CA - Sonoma Mountain"
+, "CO - Lily Pond"
+, "CO - Matthews Pond"
+, "OR - Dilman Meadows"
+, "CA - Fox Creek"
+, "MT - Jones Pond"
+, "MT - Lost Horse"
+, "CA - San Francisquito"
+, "OR - Three Creeks"
+    )
+  
+}
+
+} else {
   print("Not supported"); break
 }
 
+if (!fit_ind_mehg) {
+
 spec_labs <- c(
-   expression(italic("Ambystoma cingulatum"))
+   expression(italic("Ambystoma cingulatum")~"[Intercept]")
 ,  expression(italic("Anaxyrus boreas"))
 ,  expression(italic("Pseudacris maculata"))
 ,  expression(italic("Notophthalmus viridescens"))
@@ -106,6 +128,24 @@ spec_names <- c(
 , "Notophthalmus viridescens"
 , "Rana spp." 
 )
+
+} else {
+  
+spec_labs <- c(
+   expression(italic("Anaxyrus boreas"))
+,  expression(italic("Pseudacris maculata"))
+,  expression(italic("Rana")~"spp.")
+)
+
+spec_names <- c(
+  "Anaxyrus boreas"
+, "Pseudacris maculata"
+, "Rana spp." 
+) 
+  
+}
+
+if (!fit_ind_mehg) {
 
 facet_names <- list(
   
@@ -250,6 +290,91 @@ facet_names <- list(
   )
   
 )
+
+} else {
+  
+facet_names <- list(
+
+ expression(
+    atop(
+      bolditalic('Anaxyrus boreas')
+    , bold("Blackrock (Heron)")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Anaxyrus boreas')
+    , bold("Jones Pond")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Anaxyrus boreas')
+    , bold("Sonoma Mountain")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Pseudacris maculata')
+    , bold("Lily Pond")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Pseudacris maculata')
+    , bold("Matthews Pond")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana pretiosa')
+    , bold("Dilman Meadows")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana boylii')
+    , bold("Fox Creek")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana luteiventris')
+    , bold("Jones Pond")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana luteiventris')
+    , bold("Lost Horse")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana draytonii')
+    , bold("San Francisquito")
+    )
+  )
+  
+, expression(
+    atop(
+      bolditalic('Rana cascadae')
+    , bold("Three Creeks")
+    )
+  )
+  
+)
+  
+}
 
 facet_labeller <- function(variable,value){
   return(facet_names[value])

@@ -2,21 +2,15 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes July 1, 2022 ---- 
+#### Notes July 5, 2022 ---- 
 
-## 1) Recovered fit, took 7 days 6 hours. Mixed well, still a little low on effective sample size, so will want to fit a little longer
- ## for the final fit. A few notes about this fit:
-  ## -- Still weird effects of length
-  ## -- Need to recover predicted MeHg in each population to get an accurate estimate (assuming mean in each population is
-    ##  not correct because it is a population-level covariate, so using 0 may over- or under-estimate overall survival in any given pop)
-
-## 2) Worked today on plotting. Nearly complete, but still have a tiny bit more cleanup needed in "plotting_multipop.R" 
-
+## 1) Worked today on plotting of MeHg fit and writing Results on Overleaf
 
 ## Next To Do:
 
-## 1) Recover MeHg fit and go back through the plotting script with this new output
-## 2) Overleaf Results section
+## 1) Clean up Overleaf Methods section
+ ##   -- [ ] Finish off section about population sizes. Make the extra supplemental file
+ ##   -- [ ] Go over all of the supplemental figures and their captions
 ## 3) Overleaf Discussion section (mostly caveats and potential issues)
 ## 4) Some code and repo cleaning (mostly stan folders and stan files)
 
@@ -28,7 +22,11 @@
    ##    and anything greater than 2 sd from the mean in this continuous load isn't very sensible.
    ##   --> Doing a zero-inflated model would lead to more sensible estimates of what "uninfected" means
 ## 2) May want to put length into detection because of the funny length effect for Rana survival
-## 3) Need to double check how I am calculating population sizes
+## 3) Need to double check how I am calculating population sizes given the issue with 0 captures
+ ## -- > May want to estimate less frequently than every day, maybe population size using average captures at the level of the random effect
+   ##    (intersection of primary period and population)?
+## 4) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
+ ##      immediately mean it isn't enough to estimate the effect
 
 ########
 #### Code ----
@@ -50,7 +48,7 @@ plot_from <- {
   if (fit_model) {
     "fit"
   } else {
-     "saved_model"
+    "saved_model"
    # "saved_samples"
   }
 }
@@ -68,7 +66,8 @@ if (plot_model) {
 if (plot_model) {
 if (plot_from == "saved_model" | plot_from == "saved_samples") {
   if (plot_from == "saved_model") {
-    saved_model <- "fits/stan_fit_multipop_all_full_2022-06-23.Rds" 
+      saved_model <- "fits/stan_fit_multipop_all_full_2022-06-23.Rds" 
+    # saved_model <- "fits/stan_fit_multipop_mehg_2022-06-30.Rds"
    if (file.exists(saved_model)) {
      print(paste("Plotting will occur using the saved model:", saved_model, sep = " "))
    } else {
@@ -76,7 +75,8 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
      break
    }
   } else if (plot_from == "saved_samples") {
-   saved_samples <- "samples/stan_multipop_samples_all.Rds" 
+      saved_samples <- "samples/stan_multipop_samples_all.Rds" 
+    # saved_samples <- "samples/stan_multipop_mehg_cleaned.Rds"
    print(paste("Plotting will occur using the saved chains:", saved_samples, sep = " "))
   } else {
    print("Plotting will not occur because of an unknown command or a missing file")
@@ -130,7 +130,7 @@ source("determine_model.R")
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
- which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
+which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
 data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()

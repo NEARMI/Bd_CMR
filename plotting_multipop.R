@@ -23,7 +23,7 @@ needed_entries <- c(
 , "beta_offseason_bd"
 , "beta_offseason_len"
 , "beta_offseason_mehg"
-# , "beta_offseason_mehg_bd"
+, "beta_offseason_mehg_bd"
 , "z_r" 
 , "beta_inseason"
 , "inseason_pop"
@@ -123,6 +123,7 @@ if (n_specs > 1) {
     stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
  )
   } else {
+    if (!fit_ind_mehg) {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
@@ -138,7 +139,30 @@ if (n_specs > 1) {
       sweep(stan.fit.samples$beta_offseason_mehg, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()
       ) * pred.vals$mehg[j]
  )
+    } else {
+ pred.est[j, ] <- plogis(
+    (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
+    (
+      (sweep(stan.fit.samples$beta_offseason_bd, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()) + 
+        stan.fit.samples$z_r[, 2, spec_sex$pop[k]]
+      ) * pred.vals$bd[j] +
+    (
+      (sweep(stan.fit.samples$beta_offseason_len, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums()) +
+        stan.fit.samples$z_r[, 3, spec_sex$pop[k]]
+      ) * pred.vals$len[j] +
+    (
+      sweep(stan.fit.samples$beta_offseason_mehg, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums() +
+        stan.fit.samples$z_r[, 4, spec_sex$pop[k]]
+      ) * pred.vals$mehg[j] +
+    (
+      sweep(stan.fit.samples$beta_offseason_mehg_bd, 2, spec_sex_mm.t[1:n_spec], `*`) %>% rowSums() +
+        stan.fit.samples$z_r[, 5, spec_sex$pop[k]]
+      ) * pred.vals$mehg[j] * pred.vals$bd[j]
+ )
+    }
   }
+
 } else {
   ## Potentially outdated, but the goal is to never really run a single species at a time anyway. 
    ## Probably worth coming back and cleaning up at some point though
@@ -213,15 +237,6 @@ pred.vals.gg <- pred.vals.gg.f; rm(pred.vals.gg.f)
 ####
 ## Plotting
 ####
-
-facet_names <- list(
-  expression(paste(bolditalic('Aedes-'), bold("associated flaviviruses"), sep = ""))
-, expression(paste(bolditalic('Culex-'), bold("associated flaviviruses"), sep = ""))
-, expression(bold("Arthritogenic alphaviruses"))
-)
-facet_labeller <- function(variable,value){
-  return(facet_names[value])
-}
 
 gg1 <- pred.vals.gg %>% mutate(
   pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
@@ -305,6 +320,34 @@ gg3 <- pred.vals.gg %>% mutate(
     ylab("Between-Season Survival")
 }
 
+if (fit_ind_mehg) {
+  
+pred.vals.gg %>% mutate(
+  pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
+  , to = spec_pop_plot_labels
+)) %>% filter(sex == "M", len == 0, mehg %in% unique(pred.vals.gg$mehg)[c(2, 4, 6, 8, 10)]) %>% 
+  filter(pop == "MT - Jones Pond", spec == "ANBO") %>% {
+  ggplot(., aes(bd, mid)) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec), alpha = 0.3) +
+    geom_line(size = 1) + 
+    scale_x_continuous(breaks = c(-1.75, -0.75, 0, 0.75, 1.75)) +
+    facet_wrap(~mehg) +
+    theme(
+    strip.text.x    = element_text(size = 11)
+  , axis.text.y     = element_text(size = 12)
+  , axis.text.x     = element_text(size = 11)
+  , legend.key.size = unit(0.65, "cm")
+  , legend.text     = element_text(size = 11)
+  , legend.title    = element_text(size = 13)
+  , legend.text.align = 0
+    ) +
+    xlab("MeHg (scaled)") +
+    ylab("Between-Season Survival")
+}
+  
+}
+
 ### CI on Intercept and Bd effect
 
 int.est <- matrix(
@@ -340,7 +383,9 @@ for (j in 1:ncol(bd.est)) {
     stan.fit.samples$z_r[, 2, j]
   }
   if (fit_ind_mehg) {
-  bd.mehg[, j] <- stan.fit.samples$beta_offseason_mehg_bd + stan.fit.samples$z_r[, 5, j]
+    bd.mehg[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg_bd[, 1:n_spec], 2
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+      stan.fit.samples$z_r[, 5, j]
   }
 }
 
@@ -420,9 +465,14 @@ bd.mehg        <- reshape2::melt(bd.mehg)
 names(bd.mehg) <- c("Sample", "Population", "Value")
 bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Anaxyrus boreas", "Rana spp."
+    "Anaxyrus boreas"
+  , "Pseudacris maculata" 
+  , "Rana spp."
   ))
 )
+
+## save full un-summarized for some text description
+bd.mehg.full <- bd.mehg
 
 bd.mehg %<>% group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
@@ -587,41 +637,30 @@ relative to survival at  the mean Bd load") +
 if (fit_ind_mehg) {
 
 ## Different populations so the previously stored vector of pop spec names won't work
-bd.mehg %>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = c(
-  "Anaxyrus boreas
-Blackrock H"
-, "Anaxyrus boreas
-Jones Pond"
-, "Anaxyrus boreas
-Sonoma Mountain"
-, "Rana pretiosa
-Dilman Meadows"
-, "Rana boylii
-Fox Creek"
-, "Rana luteiventris
-Jones Pond"
-, "Rana luteiventris
-Lost Horse"
-, "Rana draytonii
-San Francisquito"
-, "Rana cascadae
-Three Creeks"
-    ))
-) %>% arrange(desc(mid)) %>% mutate(Population = factor(Population, levels = Population)) %>% {
-  ggplot(., aes(mid, Population, colour = Species)) + 
+bd.mehg %<>% mutate(Population = plyr::mapvalues(Population, from = unique(Population), to = spec_pop_plot_labels)) %>% 
+    arrange(desc(mid)) %>% mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+  
+bd.mehg %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
     geom_vline(xintercept = 0, linetype = "dashed") +
     geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8) +
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
     geom_point(size = 2) +
-    scale_color_brewer(palette = "Dark2") +
-    xlab("Bd-Survival Effect") +
+    scale_y_discrete(labels = bd.mehg$Population) +
+    scale_color_manual(values = c("#D95F02", "#7570B3", "#66A61E")) +
+    xlab("Bd-MeHg Interactive Effect (logit scale)") +
     ylab("Population") +
     theme(axis.text.y = element_text(size = 11)
       , legend.key.size = unit(0.6, "cm")
       , legend.text = element_text(size = 11)
       , legend.title = element_text(size = 13))
-}
+    }
   
+## quick check on posterior less than 0
+  length(which(
+    (bd.mehg.full %>% filter(Population == 8))$Value < 0
+  )) / 3000
+
 }
 
 ## Continuing with all of the other beta estimates
@@ -662,6 +701,12 @@ beta_est.spec %<>% mutate(
 beta_est.slopes <- beta_est %>% filter(
   params %in% c("beta_bd_temp", "beta_bd_len", "beta_p_slope", "beta_mehg_drawdown")
 )
+
+## Very specific few estimates for a manuscript coefficient plot
+beta_est.len_mehg <- beta_est %>% filter(
+  params %in% c("beta_offseason_len", "beta_offseason_mehg")
+)
+
 } else {
 beta_est.int <- beta_est %>% filter(
   params %in% c("beta_offseason_int", "beta_inseason_int", "beta_p_int", "beta_len", "beta_mehg_int")
@@ -718,6 +763,23 @@ gg5 <- beta_est.slopes %>%
       scale_y_discrete(labels = c("Drawdown", "Vegetation")) +
       geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
       theme(axis.text.y = element_text(size = 12)) +
+      xlab("Coefficient Estimate")
+}
+
+beta_est.len_mehg %>% 
+  mutate(params = plyr::mapvalues(params
+    , from = unique(beta_est.len_mehg$params)
+    , to = c("Length", "MeHg Concentration")
+    )) %>% {
+    ggplot(., aes(mid, param_lev)) + 
+      geom_point() +
+      geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2) +
+      facet_wrap(~params) +
+      ylab("Parameter") +
+      scale_y_discrete(labels = spec_labs) +
+      geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+      theme(axis.text.y = element_text(size = 12)
+      , axis.text.x = element_text(size = 12)) +
       xlab("Coefficient Estimate")
 }
 
