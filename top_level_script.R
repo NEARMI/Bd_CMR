@@ -2,17 +2,17 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes July 5, 2022 ---- 
+#### Notes July 6, 2022 ---- 
 
-## 1) Worked today on plotting of MeHg fit and writing Results on Overleaf
+## 1) Mostly writing of a discussion today but did make some additional figures (reflected poorly in 
+ ## manuscript figures)
 
 ## Next To Do:
 
-## 1) Clean up Overleaf Methods section
- ##   -- [ ] Finish off section about population sizes. Make the extra supplemental file
- ##   -- [ ] Go over all of the supplemental figures and their captions
-## 3) Overleaf Discussion section (mostly caveats and potential issues)
-## 4) Some code and repo cleaning (mostly stan folders and stan files)
+## 1) Finish off first draft of the Overleaf Discussion section
+## 2) Some code and repo cleaning:
+ ## -- stan folders and stan files
+ ## -- plotting script which has gotten pretty messy
 
 ## Some potentially remaining issues to be cleaned up:
 
@@ -25,8 +25,11 @@
 ## 3) Need to double check how I am calculating population sizes given the issue with 0 captures
  ## -- > May want to estimate less frequently than every day, maybe population size using average captures at the level of the random effect
    ##    (intersection of primary period and population)?
-## 4) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
+## 4) No overall time covariate included for detection could cause issues in trying to predict temporal trends in population sizes?
+## 5) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
  ##      immediately mean it isn't enough to estimate the effect
+## 6) Maybe just discussion points? but the difference in the width of the CI for the main effect of Bd between the two models makes
+ ##      me a bit nervous
 
 ########
 #### Code ----
@@ -48,8 +51,8 @@ plot_from <- {
   if (fit_model) {
     "fit"
   } else {
-    "saved_model"
-   # "saved_samples"
+   # "saved_model"
+    "saved_samples"
   }
 }
 }
@@ -75,8 +78,8 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
      break
    }
   } else if (plot_from == "saved_samples") {
-      saved_samples <- "samples/stan_multipop_samples_all.Rds" 
-    # saved_samples <- "samples/stan_multipop_mehg_cleaned.Rds"
+    # saved_samples <- "samples/stan_multipop_samples_all.Rds" 
+      saved_samples <- "samples/stan_multipop_mehg_cleaned.Rds"
    print(paste("Plotting will occur using the saved chains:", saved_samples, sep = " "))
   } else {
    print("Plotting will not occur because of an unknown command or a missing file")

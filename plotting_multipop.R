@@ -386,11 +386,20 @@ for (j in 1:ncol(bd.est)) {
     bd.mehg[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg_bd[, 1:n_spec], 2
     , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
       stan.fit.samples$z_r[, 5, j]
+    
+#    bd.mehg[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg[, 1:n_spec], 2
+#    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+#      stan.fit.samples$z_r[, 4, j]
   }
 }
 
 int.est        <- reshape2::melt(int.est)
 names(int.est) <- c("Sample", "Population", "Value")
+bd.est        <- reshape2::melt(bd.est)
+names(bd.est) <- c("Sample", "Population", "Value")
+
+if (!fit_ind_mehg) {
+
 ## Not dynamic, needs to get manually updated if the species change
 int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
@@ -399,14 +408,29 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   ))
 )
 
-bd.est        <- reshape2::melt(bd.est)
-names(bd.est) <- c("Sample", "Population", "Value")
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
     "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
   , "Notophthalmus viridescens", "Rana spp."
   ))
 )
+
+} else {
+  
+## Not dynamic, needs to get manually updated if the species change
+int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Anaxyrus boreas", "Pseudacris maculata", "Rana spp."
+  ))
+)
+
+bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = c(
+    "Anaxyrus boreas", "Pseudacris maculata", "Rana spp."
+  ))
+) 
+  
+}
 
 ## A data frame for later to help scale the effect of Bd to the more interpretable probability scale
 int.est2 <- int.est %>% group_by(Population, Species) %>% summarize(mid   = quantile(Value, 0.500))
@@ -416,7 +440,9 @@ bd.est2  <- left_join(
 , bd.est  %>% rename(bd = Value)
 )
 
-int.est %<>% mutate(Value = plogis(Value)) %>% 
+int.est %<>% mutate(
+  Value = plogis(Value)
+  ) %>% 
   group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
@@ -585,6 +611,44 @@ bd.est.gg %>% {
       , legend.text.align = 0)
 }
 
+## ****** Manually combining the estimates from the MeHg and main fit for a supplemental figure
+
+bd.est.gg.mehg_model %>% 
+  rename(lwr.m = lwr, lwr_n.m = lwr_n, mid.m = mid, upr_n.m = upr_n, upr.m = upr) %>% 
+  dplyr::select(-CI_width) %>% 
+  left_join(.
+  , bd.est.gg %>% dplyr::select(-CI_width)
+  ) %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8, linetype = "dotted"
+      , position = position_nudge(y = -0.15)) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5
+      , position = position_nudge(y = -0.15)) +
+    geom_point(size = 2
+      , position = position_nudge(y = -0.15)) +
+      
+    geom_errorbarh(aes(xmin = lwr.m, xmax = upr.m), height = 0.3, size = 0.8
+      , position = position_nudge(y = 0.15)) +
+    geom_errorbarh(aes(xmin = lwr_n.m, xmax = upr_n.m), height = 0.0, size = 1.5
+      , position = position_nudge(y = 0.15)) +
+    geom_point(aes(mid.m, pop_spec), size = 2
+      , position = position_nudge(y = 0.15)) +
+      
+    scale_y_discrete(labels = bd.est.gg.mehg_model$Population) +
+    scale_color_manual(values = c("#D95F02", "#7570B3", "#66A61E")) +
+    xlab("Bd-MeHg Interactive Effect (logit scale)") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
+  }
+
+## ******
+
+##########
+
 ## Sample plot as the above, but converting the effect to the probability scale
 
 bd.est2 <- int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
@@ -654,7 +718,38 @@ bd.mehg %>% {
       , legend.key.size = unit(0.6, "cm")
       , legend.text = element_text(size = 11)
       , legend.title = element_text(size = 13))
-    }
+}
+
+## Two side by side
+bd.mehg.main %>% rename(lwr.m = lwr, lwr_n.m = lwr_n, mid.m = mid, upr_n.m = upr_n, upr.m = upr) %>% dplyr::select(-CI_width) %>% 
+  left_join(.
+  , bd.mehg %>% dplyr::select(-CI_width)
+  ) %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.3, size = 0.8, linetype = "dotted"
+      , position = position_nudge(y = -0.15)) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5
+      , position = position_nudge(y = -0.15)) +
+    geom_point(size = 2
+      , position = position_nudge(y = -0.15)) +
+      
+    geom_errorbarh(aes(xmin = lwr.m, xmax = upr.m), height = 0.3, size = 0.8
+      , position = position_nudge(y = 0.15)) +
+    geom_errorbarh(aes(xmin = lwr_n.m, xmax = upr_n.m), height = 0.0, size = 1.5
+      , position = position_nudge(y = 0.15)) +
+    geom_point(aes(mid.m, pop_spec), size = 2
+      , position = position_nudge(y = 0.15)) +
+      
+    scale_y_discrete(labels = bd.mehg.main$Population) +
+    scale_color_manual(values = c("#D95F02", "#7570B3", "#66A61E")) +
+    xlab("Bd-MeHg Interactive Effect (logit scale)") +
+    ylab("Population") +
+    theme(axis.text.y = element_text(size = 11)
+      , legend.key.size = unit(0.6, "cm")
+      , legend.text = element_text(size = 11)
+      , legend.title = element_text(size = 13))
+  }
   
 ## quick check on posterior less than 0
   length(which(
@@ -705,6 +800,9 @@ beta_est.slopes <- beta_est %>% filter(
 ## Very specific few estimates for a manuscript coefficient plot
 beta_est.len_mehg <- beta_est %>% filter(
   params %in% c("beta_offseason_len", "beta_offseason_mehg")
+)
+beta_est.mehg <- beta_est %>% filter(
+  params %in% c("beta_offseason_mehg")
 )
 
 } else {
