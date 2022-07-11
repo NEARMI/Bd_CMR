@@ -38,7 +38,7 @@ if (n_spec > 1) {
 } else {
 fe_mm_p_int   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
 }
-fe_mm_p_slope <- model.matrix(~-1+drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
+fe_mm_p_slope <- model.matrix(~ -1 + drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
 
 ####
 ## Model matrices and other vectors for getting population size estimates

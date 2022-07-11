@@ -25,10 +25,9 @@
 ## 3) Need to double check how I am calculating population sizes given the issue with 0 captures
  ## -- > May want to estimate less frequently than every day, maybe population size using average captures at the level of the random effect
    ##    (intersection of primary period and population)?
-## 4) No overall time covariate included for detection could cause issues in trying to predict temporal trends in population sizes?
-## 5) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
+## 4) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
  ##      immediately mean it isn't enough to estimate the effect
-## 6) Maybe just discussion points? but the difference in the width of the CI for the main effect of Bd between the two models makes
+## 5) Maybe just discussion points? but the difference in the width of the CI for the main effect of Bd between the two models makes
  ##      me a bit nervous
 
 ########
@@ -43,16 +42,16 @@
 
 ## Can be false if just plotting of output is desired, which still requires the data cleaning, or plotting can also be false
  ## if saving a fit is the only desire
-fit_model  <- FALSE
+fit_model  <- TRUE
 plot_model <- TRUE
 ## Flag to determine how plotting will proceed (after fitting, or from a saved model, or from extracted chains)
 if (plot_model) {
 plot_from <- {
   if (fit_model) {
-    "fit"
+   "fit"
   } else {
-   # "saved_model"
-    "saved_samples"
+   "saved_model"
+ # "saved_samples"
   }
 }
 }
@@ -181,9 +180,9 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 3500
-stan.burn     <- 500
-stan.thin     <- 3
+stan.iter     <- 100#3500
+stan.burn     <- 50#500
+stan.thin     <- 1#3
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1
 stan.cores    <- 1

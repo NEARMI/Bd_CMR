@@ -550,15 +550,31 @@ int.est %>% {
 
 bd.est %<>% left_join(., num_samples) %>% left_join(., recaps) %>% left_join(., n_swabs)
 
-ggplot(bd.est, aes(recapt_ind, CI_width)) + 
-    geom_point(size = 2, aes(colour = reswabbed_ind)) + 
-    scale_x_log10() +
-    xlab("Number of Recaptured Individuals") +
-    ylab("95% CI Width") +
-  scale_color_continuous(name = "Total
-Individuals
-Reswabbed") +
-theme(legend.key.size = unit(0.65, "cm"), legend.position = c(0.85, 0.7))
+bd.est %<>% mutate(Population = spec_pop_plot_labels)
+
+gg.cor.1 <- ggplot(bd.est, aes(caps_per_ind, CI_width)) + 
+    geom_point(size = 3, aes(colour = pop_spec, shape = Species)) + 
+    xlab("Average Number of Captures Per Individual") +
+    ylab("Width of 95% CI for Bd Survival Effect") +
+  scale_color_manual(name = "Population"
+    , labels = bd.est$Population
+    , values = colorRampPalette(RColorBrewer::brewer.pal(name="Paired", n = 12))(20)) +
+  scale_shape_manual(values = c(2, 15, 16, 0, 17, 1)) +
+theme(legend.key.size = unit(0.65, "cm")
+ # , legend.position = "none"
+  )
+
+gg.cor.2 <- ggplot(bd.est, aes(swabs_per_ind, CI_width)) + 
+    geom_point(size = 3, aes(colour = pop_spec, shape = Species)) + 
+    xlab("Average Number of Bd Measures Per Individual") +
+    ylab("Width of 95% CI for Bd Survival Effect") +
+  scale_color_manual(name = "Population"
+    , labels = bd.est$Population
+    , values = colorRampPalette(RColorBrewer::brewer.pal(name="Paired", n = 12))(20)) +
+  scale_shape_manual(values = c(2, 15, 16, 0, 17, 1)) +
+theme(legend.position = "none")
+
+gridExtra::grid.arrange(gg.cor.1, gg.cor.2, ncol = 1)
 
 int.est.gg <- int.est %>% mutate(Population = plyr::mapvalues(Population
   , from = unique(Population)

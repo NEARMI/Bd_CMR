@@ -40,6 +40,7 @@ stan_data     <- list(
   ## Components for detection model (p) (Index vectors)
  , p_day             = capt_history.p$date_fac 
  , pop_p             = as.numeric(capt_history.p$pop_spec)
+ , ind_for_p         = capt_history.p$Mark[p_est_index]
  , fe_mm_p_int       = fe_mm_p_int
  , fe_mm_p_slope     = fe_mm_p_slope
   
@@ -165,7 +166,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    = which_stan_file
+  file    =  "stan_current/CMR_multiple_populations_alt_p_len.stan" # which_stan_file
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
@@ -183,22 +184,22 @@ stan.fit  <- stan(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.93, max_treedepth = 13)
    ## drop a few parameters to reduce the size of the saved ston object
-#, include = TRUE
-#, pars    = c(
-#  "beta_offseason_int"
-#, "beta_offseason_bd"
-#, "beta_offseason_len"
-#, "beta_offseason_mehg"
-#, "z_r" 
-#, "beta_inseason"
-#, "inseason_pop"
-#, "bd_ind"
-#, "beta_p_int"
-#, "p_pop"
-#, "p_day_dev"
-#, "beta_p_slope"
-#, "pop_size"
-#  )
+, include = TRUE
+, pars    = c(
+  "beta_offseason_int"
+, "beta_offseason_bd"
+, "beta_offseason_len"
+, "beta_offseason_mehg"
+, "z_r" 
+, "beta_inseason"
+, "inseason_pop"
+, "bd_ind"
+, "beta_p_int"
+, "p_pop"
+, "p_day_dev"
+, "beta_p_slope"
+, "pop_size"
+  )
   )
 
 saveRDS(
