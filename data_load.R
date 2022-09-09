@@ -280,8 +280,11 @@ daily_hab_covar %<>% left_join(., Oth_hab_cov) %>%
   , veg_cont      = mean(veg_cont, na.rm = T)
   )
 
-## 
-  
+## Adjust the mercury levels for tail or toe clips to calibrate for mass (frogs/toads vs sal/newt)
+MeHG %<>% mutate(
+  MeHg_conc_ppb = ifelse(CreatureType == "newt/salamander", scale_newt(MeHg_conc_ppb), scale_frog(MeHg_conc_ppb))
+)
+
 ## Data frame to look for some MeHg errors
 Me_Hg_error_check <- data.all %>% 
   ungroup() %>% 
@@ -294,7 +297,8 @@ Me_Hg_error_check <- data.all %>%
   , (MeHG %>% rename(HgSampleID = Incoming_IDCode) %>% dplyr::select(HgSampleID, MeHg_conc_ppb))
   ) %>% filter(!is.na(MeHg_conc_ppb)) %>% group_by(Site) %>% 
   droplevels() %>%
-  summarize(num_with_measured_MeHg = n()))
+  summarize(num_with_measured_MeHg = n())) %>%
+  mutate(prop_with_mehg = num_with_measured_MeHg / num_with_MeHgID)
 
 ## Add the Mercury data to the main data frame (rely on the barcode)
 data.all %<>% left_join(.
@@ -303,6 +307,14 @@ data.all %<>% left_join(.
 
 data.all %<>% relocate(c(flagged, reason, Notes), .after = MeHg_conc_ppb)
 data.all %<>% relocate(pop_spec, .after = Species)
+
+## Check for the proportion of animals with at least 1 MeHg measure
+data.all %>% group_by(Site, Mark, Species) %>% summarize(
+  has_mehg = length(which(!is.na(MeHg_conc_ppb)))
+) %>% ungroup() %>%
+  group_by(Site, Species) %>%
+  summarize(prop_mehg = length(which(has_mehg > 0)) / n()) %>% as.data.frame()
+  
 
 ## Quick check how often each covariate is measured in each population was measured 
 cov_meas <- data.all %>%
