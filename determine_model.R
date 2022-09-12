@@ -5,11 +5,9 @@
 unique(data.all$pop_spec)
 
 ## Viable pops to include in multi-pop MeHg individual-level model
- ## Total: 4, 5, 6, 15, 16, 17, 18, 19, 21
+ ## Total: 4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21
  ## ANBO: Blackrock H, Jones Pond, Sonoma Mt
  ## RANA: Dilman Meadows, Fox Creek, Jones Pond, Lost Horse, San Fransisquito, Three Creeks
-## MAYBE: 3, 8, 9
- ## ANBO: Blackrock C
  ## BCF: Lily Pond, Matthews Pond
 
 if (sing_pop) {
@@ -33,7 +31,8 @@ if (!multi_spec) {
       which_stan_file  <- "CMR_multiple_populations_red"
     } else {
       if (red_p_model) {
-       which_stan_file <- "CMR_multiple_populations_alt_p"
+      # which_stan_file <- "CMR_multiple_populations_alt_p"
+        which_stan_file <- "CMR_multiple_populations_alt_p_len"
       } else {
        which_stan_file <- "CMR_multiple_populations"
       }

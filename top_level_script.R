@@ -2,17 +2,10 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes July 6, 2022 ---- 
+#### Notes July 11, 2022 ---- 
 
-## 1) Mostly writing of a discussion today but did make some additional figures (reflected poorly in 
- ## manuscript figures)
-
-## Next To Do:
-
-## 1) Finish off first draft of the Overleaf Discussion section
-## 2) Some code and repo cleaning:
- ## -- stan folders and stan files
- ## -- plotting script which has gotten pretty messy
+## 1) Fit model with length in detection model
+## 2) Need to update plotting script which has gotten pretty messy
 
 ## Some potentially remaining issues to be cleaned up:
 
@@ -21,14 +14,12 @@
    ##    with the current strategy "uninfected" doesn't really have a defined meaning as Bd is simply a continuous state
    ##    and anything greater than 2 sd from the mean in this continuous load isn't very sensible.
    ##   --> Doing a zero-inflated model would lead to more sensible estimates of what "uninfected" means
-## 2) May want to put length into detection because of the funny length effect for Rana survival
-## 3) Need to double check how I am calculating population sizes given the issue with 0 captures
- ## -- > May want to estimate less frequently than every day, maybe population size using average captures at the level of the random effect
+## 2) Need to double check how I am calculating population sizes given the issue with 0 captures
+  ## --> May want to estimate less frequently than every day, maybe population size using average captures at the level of the random effect
    ##    (intersection of primary period and population)?
-## 4) May want to try and fit the MeHg model with the other populations as well. Just because a low proportion of individuals get measured doesn't 
- ##      immediately mean it isn't enough to estimate the effect
-## 5) Maybe just discussion points? but the difference in the width of the CI for the main effect of Bd between the two models makes
- ##      me a bit nervous
+## 3) May want to try and fit the MeHg model with the other populations as well. 
+ ##      Just because a low proportion of individuals get measured doesn't immediately mean it isn't enough to estimate the effect
+## 4) Maybe just discussion points? but the difference in the width of the CI for the main effect of Bd between the two models makes me a bit nervous
 
 ########
 #### Code ----
@@ -42,7 +33,7 @@
 
 ## Can be false if just plotting of output is desired, which still requires the data cleaning, or plotting can also be false
  ## if saving a fit is the only desire
-fit_model  <- TRUE
+fit_model  <- FALSE
 plot_model <- TRUE
 ## Flag to determine how plotting will proceed (after fitting, or from a saved model, or from extracted chains)
 if (plot_model) {
@@ -53,7 +44,7 @@ plot_from <- {
    "saved_model"
  # "saved_samples"
   }
-}
+ }
 }
 
 ## Print statements throughout to track progress if running from the command line or on an external server
@@ -126,9 +117,10 @@ print(paste("red_p_model =", sing_pop, sep = " "))
 source("determine_model.R")
 
 ## Some population choices:
- ## -10                                -- Full fit
- ## c(4, 5, 6, 15, 16, 17, 18, 19, 21) -- MeHg fit
- ## c(1:9, 11, 13, 15:21)              -- Full fit without Springfield and Scotia Barrens
+ ## -10                                      -- Full fit
+ ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21) -- MeHg fit
+  ## MAYBE: 3, 12
+ ## c(1:9, 11, 13, 15:21)                    -- Full fit without Springfield and Scotia Barrens
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
@@ -180,9 +172,9 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 100#3500
-stan.burn     <- 50#500
-stan.thin     <- 1#3
+stan.iter     <- 2500
+stan.burn     <- 500
+stan.thin     <- 2
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1
 stan.cores    <- 1

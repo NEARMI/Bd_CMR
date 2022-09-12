@@ -401,7 +401,6 @@ fe_mm_p_slope * beta_p_slope
 
 
 
-
 // -----
 // Probability of never detecting an individual again after time t
 // -----

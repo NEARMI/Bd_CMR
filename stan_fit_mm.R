@@ -2,11 +2,7 @@
 ## Run the stan model for multiple populations ##
 #################################################
 
-## Comments for all data components are given in the stan model. Data here and data in the stan model
- ## are in the same order
-
-## Note: Drastically changed on April 28, 2022. For code for non-model matrix version see GitHub commits
- ## prior to this date
+## Comments for all data components are given in the stan model. Data here and data in the stan model are in the same order
 
 stan_data     <- list(
   
