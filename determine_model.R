@@ -2,7 +2,7 @@
 ## Determine which of so many alternative models to fit
 ####
 
-unique(data.all$pop_spec)
+# unique(data.all$pop_spec)
 
 ## Viable pops to include in multi-pop MeHg individual-level model
  ## Total: 4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21
@@ -10,6 +10,7 @@ unique(data.all$pop_spec)
  ## RANA: Dilman Meadows, Fox Creek, Jones Pond, Lost Horse, San Fransisquito, Three Creeks
  ## BCF: Lily Pond, Matthews Pond
 
+if (!fit_only_mehg) {
 if (sing_pop) {
  which_model_fit <- read.csv("which_model_fit.csv")
  which_stan_file <- which_model_fit[which(which_model_fit[, 1] == unique(data.all$pop_spec) %>% as.character()), ][2]
@@ -42,6 +43,9 @@ if (!multi_spec) {
   
 }
   
+}
+} else {
+  which_stan_file <- "CMR_mehg"
 }
 
 model_name      <- paste("fits/", paste(which_stan_file, "_", sep = ""), Sys.Date(), ".Rds", sep = "")
