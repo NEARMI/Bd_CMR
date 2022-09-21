@@ -98,7 +98,7 @@ data {
 	int<lower=1> ind_bd_rep[ind_per_period_bd];	    // Index of individual for individual bd estimates (as each individual gets one estimate per year)    
 	int<lower=1> ind_in_pop_year[ind_per_period_bd];    // Index of pop*year for individual bd estimates
 	int<lower=1> pop_bd[ind_per_period_bd];             // Index of population for individual bd estimates
-	matrix[ind_per_period_bd, n_spec] spec_bd;	    // Index of species identity for individual bd estimates
+	matrix[ind_per_period_bd, n_col_mm_int] spec_bd;    // Index of species identity for individual bd estimates
 
   // Components for length imputation (Dimensions, Index vectors, covariates, and model matrices)
 	int<lower=1> n_ind_len_have;			    // Number of individuals that we have length data	  
@@ -158,7 +158,7 @@ parameters {
 // -----
 
   // fixed
-	vector[n_spec] beta_bd_spec;			 // species-level average bd level
+	vector[n_col_mm_int] beta_bd_spec;	         // species-level average bd level
 	real beta_bd_temp;				 // population-level temperature effect on bd levels
 	real beta_bd_len;				 // individual-specific length effect on bd levels
 
