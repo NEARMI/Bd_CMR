@@ -259,7 +259,9 @@ X_stat_index_covs <- capt_history.phi %>%
     ) %>%
   mutate(ind_in_pop_year = as.numeric(ind_in_pop_year)) %>%
   dplyr::select(
-    ind_in_pop_year, pop_for_bd, spec_for_bd, Mark
+    ind_in_pop_year, pop_for_bd, spec_for_bd, Mark, Sex
+  ) %>% mutate(
+    Sex = factor(Sex, levels = c("M", "F", "U"))
   )
 
 ####

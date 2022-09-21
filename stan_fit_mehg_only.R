@@ -22,7 +22,8 @@ stan_data     <- list(
  , ind_bd_rep        = X_stat_index_covs$Mark  
  , ind_in_pop_year   = X_stat_index_covs$ind_in_pop_year ## basically bd_time in the single population model
  , pop_bd            = X_stat_index_covs$pop_for_bd
- , spec_bd           = model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+ , spec_bd           = model.matrix(~spec + sex, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd)
+   , sex = as.factor(X_stat_index_covs$Sex), value = 0))[, ]
   
   ## Components for length imputation (Dimensions, Index vectors, covariates, and model matrices)
  , n_ind_len_have           = length(len.have)

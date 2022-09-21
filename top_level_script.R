@@ -2,11 +2,6 @@
 ## Fit CMR model to amphibian data ##
 #####################################
 
-#### Notes July 11, 2022 ---- 
-
-## 1) Fit model with length in detection model
-## 2) Need to update plotting script which has gotten pretty messy
-
 ## Some potentially remaining issues to be cleaned up:
 
 ## 1) Maybe want to pursue a better Bd load level (e.g. a zero inflated regression for example)
@@ -33,7 +28,7 @@
 
 ## Can be false if just plotting of output is desired, which still requires the data cleaning, or plotting can also be false
  ## if saving a fit is the only desire
-fit_model  <- FALSE
+fit_model  <- TRUE
 plot_model <- TRUE
 ## Flag to determine how plotting will proceed (after fitting, or from a saved model, or from extracted chains)
 if (plot_model) {
@@ -100,8 +95,10 @@ multi_spec     <- TRUE
 multi_spec_red <- FALSE
  ## 2) Not all populations?
 some_pops      <- TRUE
- ## 3) Fit individual-level MeHg? Be careful what populations to choose
+ ## 3.1) Fit individual-level MeHg? Be careful what populations to choose
 fit_ind_mehg   <- FALSE
+ ## 3.2) Fit a model only predicting MeHg? (no survival) Setting as TRUE invalidates many other options pertaining to survival
+fit_only_mehg  <- TRUE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
 red_p_model    <- TRUE
 
@@ -111,6 +108,7 @@ print(paste("multi_spec =", sing_pop, sep = " "))
 print(paste("multi_spec_red =", sing_pop, sep = " "))
 print(paste("some_pops =", sing_pop, sep = " "))
 print(paste("fit_ind_mehg =", sing_pop, sep = " "))
+print(paste("fit_only_mehg = ", fit_only_mehg, sep = " "))
 print(paste("red_p_model =", sing_pop, sep = " "))
 
 ## From these choices find the model to fit
@@ -118,24 +116,26 @@ source("determine_model.R")
 
 ## Some population choices:
  ## -10                                      -- Full fit
- ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21) -- MeHg fit
-  ## MAYBE: 3, 12
  ## c(1:9, 11, 13, 15:21)                    -- Full fit without Springfield and Scotia Barrens
+ ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21) -- MeHg fit (with survival)
+  ## MAYBE: 3, 12
+ ## c(5, 6, 17, 18, 21)                      -- MeHg --> Bd (no survival)
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
-which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
-data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
-sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
+ which.dataset <- unique(data.all$pop_spec)[c(5, 6, 17, 18, 21)] %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+ data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+ sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 
  ## (done randomly though a seed is set in packages_functions.R)
 red_ind    <- FALSE
 if (red_ind) {
-num_ind    <- 200
+ num_ind    <- 200
 }
 
 print(paste("From these choices, the following model will be [has been] fit:  ", which_stan_file, sep = ""))
@@ -158,13 +158,13 @@ source("stan_indices.R")
 
 ## And finally, created all of the necessary model matrices for the various linear predictors inside the model
 if (multi_spec) {
-source("establishing_mm.R")
+ source("establishing_mm.R")
 }
 
 ## Print more in-depth details about the dataset being fit, if its a single population, enough
  ## already printed to follow what is being fit if multi-pop
 if (sing_pop) {
-source("dataset_notes.R")
+ source("dataset_notes.R")
 }
 
 ## Quick look at a given population
@@ -172,27 +172,31 @@ source("dataset_notes.R")
 #source("capt_plot_multi.R")
 
 ## And finally run the stan model
-stan.iter     <- 2500
+stan.iter     <- 1500
 stan.burn     <- 500
-stan.thin     <- 2
+stan.thin     <- 1
 stan.length   <- (stan.iter - stan.burn) / stan.thin
 stan.chains   <- 1
 stan.cores    <- 1
 stan.refresh  <- 10
 if (fit_model) {
-if (length(which.dataset) == 1) {
-source("stan_fit_single.R")
-} else {
-source("stan_fit_mm.R") 
-}
+ if (!fit_only_mehg) {
+  if (length(which.dataset) == 1) {
+   source("stan_fit_single.R")
+  } else {
+   source("stan_fit_mm.R") 
+  }
+ } else {
+  source("stan_fit_mehg_only.R")
+ }
 }
 
 ## And some diagnostics and such
 if (plot_model) {
-if (length(which.dataset) == 1) {
-source("plotting.R")
-} else {
-source("multipop_plotting.R")
-}
+ if (length(which.dataset) == 1) {
+  source("plotting.R")
+ } else {
+  source("plotting_multipop.R")
+ }
 }
 

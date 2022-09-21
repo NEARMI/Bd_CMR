@@ -75,7 +75,9 @@ stan_data     <- list(
  , pop_bd            = X_stat_index_covs$pop_for_bd
  , spec_bd           = {
    if (n_spec > 1) {
-    model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+   # model.matrix(~spec, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd), value = 0))[, ]
+     model.matrix(~spec + sex, data.frame(spec = as.factor(X_stat_index_covs$spec_for_bd)
+   , sex = as.factor(X_stat_index_covs$Sex), value = 0))[, ]
    } else {
     NULL
    }
@@ -96,8 +98,8 @@ stan_data     <- list(
     model.matrix(~sex, data.frame(spec = as.factor(ind.len.spec), sex = ind.sex$Sex, value = 0))[, ]
    }
  }
-  
-  ## Components for MeHg model (Dimensions, Index vectors, covariates, and model matrices)
+
+  ## Components for MeHg model used for mean model (Dimensions, Index vectors, covariates, and model matrices)
  , n_ind_mehg        = length(ind.hg$merc[hg.have])
  , ind_mehg          = ind.hg$merc[hg.have]
  , ind_mehg_pop      = ind.hg.pop[hg.have]
@@ -150,7 +152,7 @@ stan_data     <- list(
  , which_p_ll   = which_p_ll
  , which_chi_ll = which_chi_ll
 
-  ## Components needed only for the multi-pop MeHg model
+  ## Components for MeHg model used for individual-based model
  , n_ind_mehg_have             = hg.have %>% length()
  , n_ind_mehg_mis              = hg.mis %>% length()
  , ind_mehg_which_have         = hg.have

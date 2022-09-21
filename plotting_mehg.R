@@ -11,10 +11,10 @@ beta_est <- stan.fit.summary[grep("beta_mehg", dimnames(stan.fit.summary)[[1]]),
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
   rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
 
-beta_est$param <- c("ANBO:Male", "RANA:Male", "Female", "Unknown")
+beta_est$param <- c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Length", "Drawdown")
 
 beta_est %<>% mutate(param = factor(param, levels = c(
-  rev(c("ANBO:Male", "RANA:Male", "Female", "Unknown"))
+  rev(c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Drawdown", "Length"))
 )))
 
 beta_est %>% {
@@ -34,10 +34,10 @@ beta_est <- stan.fit.summary[grep("beta_bd", dimnames(stan.fit.summary)[[1]]), ]
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
   rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
 
-beta_est$param <- c("Intercept", "RANA", "Temperature", "Length", "MeHg")
+beta_est$param <- c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Temperature", "Length", "MeHg")
 
 beta_est %<>% mutate(param = factor(param, levels = c(
-  rev(c("Intercept", "RANA", "Temperature", "Length", "MeHg"))
+  rev(c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Temperature", "Length", "MeHg"))
 )))
 
 beta_est %>% {
@@ -61,10 +61,10 @@ capt_history %>% {
 }
 
 bd.mehg <- capt_history.bd_load %>% 
-  dplyr::select(Mark, pop_spec, Species, bd_load, Year) %>%
+  dplyr::select(Mark, pop_spec, Species, bd_load, Year, Sex) %>%
   full_join(.
   , capt_history %>% 
-    group_by(Mark, pop_spec, Species, Year) %>% 
+    group_by(Mark, pop_spec, Species, Year, Sex) %>% 
     summarize(merc = mean(merc, na.rm = T))
   ) %>% distinct()
 
@@ -81,7 +81,7 @@ bd.mehg$location <- apply(bd.mehg$pop_spec %>% matrix(), 1
   , FUN = function (x) strsplit(x, "[.]")[[1]][2])
 
 bd.mehg %>% {
-    ggplot(., aes(merc, bd_load)) + geom_point(aes(colour = Species)) + 
+    ggplot(., aes(merc, bd_load)) + geom_point(aes(colour = Species, shape = Sex)) + 
       facet_wrap(~location, scales = "free") +
       scale_y_continuous(trans = "pseudo_log"
         , breaks = c(0, 10, 100, 1000, 1E4, 1E5, 1E6)) +
