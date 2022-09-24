@@ -73,10 +73,12 @@ parameters {
   // random: variance
 	vector<lower=0>[n_pop] bd_ind_sigma;		 // variation in Bd among individuals (normal random effect variance) (nested in pops)		 
 	real<lower=0> bd_pop_sigma;			 // variation in Bd among pop*year (normal random effect variance)
+	real<lower=0> bd_mehg_sigma;			 // variation in the effect of MeHg on Bd by population
 
   // random: conditional modes (hereafter deviates)
 	real bd_ind_eps[n_ind];         		 // individual specific bd load adjustment                
 	real bd_pop_eps[n_pop_year];			 // pop-by-year average adjustment
+	real bd_mehg_eps[n_pop];			 // pop bd-mehg adjustment
 
 
 // -----
@@ -135,8 +137,9 @@ transformed parameters {
 	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
 	vector[ind_per_period_bd] X_scaled;
 	
-  // population:year random effect deviates
+  // random effect deviates
 	real bd_pop_year[n_pop_year];			 // pop-by-year variation in Bd level
+	real bd_mehg_pop[n_pop];			 // population specific 
 
 
 // -----
@@ -217,6 +220,10 @@ beta_mehg_len * ind_len_scaled[ind_mehg_which_mis]
 	for (pp in 1:n_pop_year) {
 	  bd_pop_year[pp] = bd_pop_sigma * bd_pop_eps[pp];
 	} 
+	
+	for (pp in 1:n_pop) {
+	  bd_mehg_pop[pp] = beta_bd_mehg + bd_mehg_sigma * bd_mehg_eps[pp];
+	}
 
   // linear predictor for intercept for bd-response. Overall intercept + pop-specific intercept + individual random effect deviate
 	for (i in 1:n_ind) {
@@ -225,7 +232,7 @@ beta_mehg_len * ind_len_scaled[ind_mehg_which_mis]
 
   // latent bd model before obs error (species effect + pop temp effect + ind deviate + pop*year deviate)
 	for (t in 1:ind_per_period_bd) {
-	  X[t] = spec_bd[t, ] * beta_bd_spec + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd_temp * pop_temp[pop_bd[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]] + beta_bd_mehg * ind_mehg_scaled[ind_bd_rep[t]];      
+	  X[t] = spec_bd[t, ] * beta_bd_spec + bd_ind[ind_bd_rep[t]] + bd_pop_year[ind_in_pop_year[t]] + beta_bd_temp * pop_temp[pop_bd[t]] + beta_bd_len * ind_len_scaled[ind_bd_rep[t]] + bd_mehg_pop[pop_bd[t]] * ind_mehg_scaled[ind_bd_rep[t]];      
         }
 
 	X_scaled = (X - mean(X)) / sd(X);
@@ -250,11 +257,13 @@ model {
   // variances 
 	bd_pop_sigma  ~ inv_gamma(8, 15);
 	bd_ind_sigma  ~ inv_gamma(8, 15);
+	bd_mehg_sigma ~ inv_gamma(8, 15);
 	bd_obs        ~ inv_gamma(10, 4);
 
   // deviates
-	bd_pop_eps ~ normal(0, 3);
-	bd_ind_eps ~ normal(0, 3);
+	bd_pop_eps  ~ normal(0, 3);
+	bd_ind_eps  ~ normal(0, 3);
+	bd_mehg_eps ~ normal(0, 3);
 
 
   // Imputed Covariates Priors: length

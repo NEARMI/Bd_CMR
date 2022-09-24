@@ -2,6 +2,8 @@
 ## Plot diagnostics for MeHg/Bd only fit (no survival) ##
 #########################################################
 
+# stan.fit <- readRDS("fits/CMR_mehg_2022-09-21.Rds")
+
 stan.fit.summary <- summary(stan.fit)[[1]]
 stan.fit.samples <- extract(stan.fit)
 
@@ -11,11 +13,8 @@ beta_est <- stan.fit.summary[grep("beta_mehg", dimnames(stan.fit.summary)[[1]]),
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
   rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
 
-beta_est$param <- c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Length", "Drawdown")
-
-beta_est %<>% mutate(param = factor(param, levels = c(
-  rev(c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Drawdown", "Length"))
-)))
+beta_est$param <- c(c(capt_history$Species %>% unique() %>% as.character(), "Female", "Unknown"), "Length", "Drawdown")
+beta_est       %<>% mutate(param = factor(param, levels = rev(beta_est$param)))
 
 beta_est %>% {
     ggplot(., aes(mid, param)) + geom_point() +
@@ -34,11 +33,8 @@ beta_est <- stan.fit.summary[grep("beta_bd", dimnames(stan.fit.summary)[[1]]), ]
   pivot_wider(names_from = "Var2", values_from = "value") %>% 
   rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
 
-beta_est$param <- c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Temperature", "Length", "MeHg")
-
-beta_est %<>% mutate(param = factor(param, levels = c(
-  rev(c("ANBO:Male", "RANA:Male", "Female", "Unknown", "Temperature", "Length", "MeHg"))
-)))
+beta_est$param <- c(c(capt_history$Species %>% unique() %>% as.character(), "Female", "Unknown"), "Temperature", "Length", "MeHg")
+beta_est       %<>% mutate(param = factor(param, levels = rev(beta_est$param)))
 
 beta_est %>% {
     ggplot(., aes(mid, param)) + geom_point() +
@@ -51,7 +47,7 @@ beta_est %>% {
       xlab("Coefficient Estimate")
 }
 
-capt_history %>% {
+capt_history %>% filter(len < 400) %>% {
   ggplot(., aes(len, merc)) + 
       geom_point(aes(colour = Species, shape = Sex)) + 
       facet_wrap(~Site, scales = "free") +
@@ -90,7 +86,9 @@ bd.mehg %>% {
       scale_colour_brewer(palette = "Dark2")
   }
 
-bd.mehg %>% filter(merc > 30) %>% group_by(Mark) %>% 
+bd.mehg %>%
+  # filter(merc > 30) %>%
+  group_by(Mark) %>% 
   mutate(num_entry = n()) %>% 
 filter(
   num_entry > 1
@@ -99,6 +97,30 @@ filter(
     ggplot(., aes(merc, bd_load)) + 
     geom_line(aes(group = Mark), alpha = 0.4, size = 0.4) +
     geom_point(aes(colour = as.factor(Year))) + 
+      facet_wrap(~pop_spec, scales = "free") +
+      scale_y_continuous(trans = "pseudo_log"
+        , breaks = c(0, 10, 100, 1000, 1E4, 1E5, 1E6)) +
+     scale_x_log10() +
+      xlab("MeHg Concentration") +
+      ylab("Bd Load") +
+    scale_colour_brewer(palette = "Dark2", name = "Year")
+}
+
+capt_history.bd_load %>% 
+  dplyr::select(Mark, pop_spec, Species, bd_load, Sex) %>%
+  full_join(.
+  , capt_history %>% 
+    group_by(Mark, pop_spec, Species, Sex) %>% 
+    summarize(merc = mean(merc, na.rm = T))) %>% 
+  distinct() %>%
+  group_by(Mark) %>% 
+  mutate(num_entry = n()) %>% 
+  ungroup() %>%
+  filter(num_entry > 1) %>%
+  left_join(., bd.mehg %>% dplyr::select(Mark, bd_load, Year)) %>% {
+    ggplot(., aes(merc, bd_load)) + 
+    geom_line(aes(group = Mark), alpha = 0.4, size = 0.4) +
+    geom_point(aes(colour = as.factor(Year), shape = Sex)) + 
       facet_wrap(~pop_spec, scales = "free") +
       scale_y_continuous(trans = "pseudo_log"
         , breaks = c(0, 10, 100, 1000, 1E4, 1E5, 1E6)) +
@@ -125,7 +147,6 @@ filter(
     scale_colour_brewer(palette = "Dark2", name = "Year")
 }
 
-
 pred_frame <- data.frame(stan.fit.summary[grep("ind_len", dimnames(stan.fit.summary)[[1]]), c(4, 6, 8)]) %>%
   rename(lwr_len = `X2.5.`, mid_len = `X50.`, upr_len = `X97.5.`) %>% 
   cbind(.
@@ -143,7 +164,7 @@ pred_frame <- data.frame(stan.fit.summary[grep("ind_len", dimnames(stan.fit.summ
   ., capt_history %>% dplyr::select(Mark, Sex) %>% group_by(Mark) %>% slice(1)
 )
 
-pred_frame  %>% {
+pred_frame %>% {
   ggplot(., aes(mid_len, mid_mehg)) + 
     geom_errorbar(aes(ymin = lwr_mehg, ymax = upr_mehg), size = 0.4, alpha = 0.4) +
     geom_errorbarh(aes(xmin = lwr_len, xmax = upr_len), size = 0.4, alpha = 0.4) +

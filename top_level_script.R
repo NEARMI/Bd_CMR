@@ -102,6 +102,7 @@ fit_only_mehg  <- TRUE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
 red_p_model    <- TRUE
 
+## More printing to better track specific fit when using slurm
 print("Fitting choices are:")
 print(paste("sing_pop =", sing_pop, sep = " "))
 print(paste("multi_spec =", sing_pop, sep = " "))
@@ -115,20 +116,32 @@ print(paste("red_p_model =", sing_pop, sep = " "))
 source("determine_model.R")
 
 ## Some population choices:
- ## -10                                      -- Full fit
- ## c(1:9, 11, 13, 15:21)                    -- Full fit without Springfield and Scotia Barrens
- ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21) -- MeHg fit (with survival)
-  ## MAYBE: 3, 12
- ## c(5, 6, 17, 18, 21)                      -- MeHg --> Bd (no survival)
+ ## Full fit (no EmmaCarlin)
+   ## -10 
+ ## Full fit without the biggest populations (Springfield and Scotia Barrens)
+   ## c(1:9, 11, 13, 15:21) 
+ ## MeHg fit (with survival)
+   ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)
+ ## MeHg --> Bd (no survival)
+   ## Very best data
+     ## c(5, 6, 17, 18, 21) 
+   ## All but the very worst populations and the very large populations
+     ## c(3, 4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)
+   ## All but just the very worst populations
+     ## c(3, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 21)
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
- # which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()
- which.dataset <- unique(data.all$pop_spec)[c(5, 6, 17, 18, 21)] %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[-10] %>% droplevels()     
+ # which.dataset <- unique(data.all$pop_spec)[c(5, 6, 17, 18, 21)] %>% droplevels()
  # which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
  # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
- data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
- sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+   which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+   data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+   sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
+} else {
+   which.dataset <- unique(data.all$pop_spec) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 
