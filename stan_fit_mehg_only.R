@@ -75,7 +75,7 @@ stan.fit  <- stan(
   "beta_bd_spec", "beta_bd_temp", "beta_bd_len", "beta_bd_mehg"
 , "beta_len", "beta_mehg", "beta_mehg_len", "beta_mehg_drawdown"
 , "ind_len", "ind_mehg", "X"
-, "bd_ind"
+, "bd_ind", "bd_mehg_pop", "bd_mehg_eps"
   )
   )
 

@@ -300,16 +300,16 @@ capt_history.p %<>%
 ## And finally finally, create a few vectors for the stan model
 ####
 
-spec_pop         <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
-spec_which_pop <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric() 
+spec_pop            <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+spec_which_pop      <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric() 
 
 if (red_p_model) {
- day_which_pop    <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
- day_which_pop_rand  <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
- p_rand_which_day <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$date_fac %>% as.numeric()
- spec_which_pop   <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
+ day_which_pop      <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
+ day_which_pop_rand <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
+ p_rand_which_day   <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$date_fac %>% as.numeric()
+ spec_which_pop     <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
 } else {
- spec_pop       <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
- day_which_pop  <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
+ spec_pop           <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
+ day_which_pop      <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
 }
 

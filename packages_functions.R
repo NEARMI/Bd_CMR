@@ -8,6 +8,12 @@ lapply(needed_packages, require, character.only = TRUE)
 set.seed(10002)
 '%notin%' <- Negate('%in%')
 
+## Function to scale Bd from Ct to load
+
+ct_to_load <- function(x) {
+  ((10^((x-38.74861)/-3.366983))*(125/5))   ## Or maybe 140 and not 125 per Dan's code?
+}
+
 ## Functions to scale MeHg
 
 scale_newt <- function(x) {

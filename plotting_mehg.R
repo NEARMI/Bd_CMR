@@ -2,10 +2,10 @@
 ## Plot diagnostics for MeHg/Bd only fit (no survival) ##
 #########################################################
 
-# stan.fit <- readRDS("fits/CMR_mehg_2022-09-21.Rds")
+# stan.fit <- readRDS("fits/CMR_mehg_2022-10-01.Rds")
 
-stan.fit.summary <- summary(stan.fit)[[1]]
-stan.fit.samples <- extract(stan.fit)
+stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+stan.fit.samples <- extract(stan.fit[[1]])
 
 beta_est <- stan.fit.summary[grep("beta_mehg", dimnames(stan.fit.summary)[[1]]), ] %>%
   reshape2::melt() %>%
@@ -34,6 +34,29 @@ beta_est <- stan.fit.summary[grep("beta_bd", dimnames(stan.fit.summary)[[1]]), ]
   rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
 
 beta_est$param <- c(c(capt_history$Species %>% unique() %>% as.character(), "Female", "Unknown"), "Temperature", "Length", "MeHg")
+beta_est       %<>% mutate(param = factor(param, levels = rev(beta_est$param)))
+
+beta_est %>% {
+    ggplot(., aes(mid, param)) + geom_point() +
+      geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2) +
+      ylab("Parameter") + 
+      geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+      theme(
+        axis.text.y  = element_text(size = 12)
+      , strip.text.x   = element_text(size = 12)) +
+      xlab("Coefficient Estimate")
+}
+
+beta_est <- stan.fit.summary[grep("bd_mehg_pop", dimnames(stan.fit.summary)[[1]]), ] %>% 
+  reshape2::melt() %>%
+  filter(Var2 %in% c('2.5%', '50%', '97.5%')) %>% 
+  pivot_wider(names_from = "Var2", values_from = "value") %>% 
+  rename(lwr = '2.5%', mid = '50%', upr = '97.5%', param = "Var1")
+
+beta_est$param <- capt_history$pop_spec %>% unique()
+
+beta_est %<>% arrange(desc(mid))
+
 beta_est       %<>% mutate(param = factor(param, levels = rev(beta_est$param)))
 
 beta_est %>% {
@@ -76,9 +99,10 @@ bd.mehg %<>% left_join(
 bd.mehg$location <- apply(bd.mehg$pop_spec %>% matrix(), 1
   , FUN = function (x) strsplit(x, "[.]")[[1]][2])
 
-bd.mehg %>% {
-    ggplot(., aes(merc, bd_load)) + geom_point(aes(colour = Species, shape = Sex)) + 
-      facet_wrap(~location, scales = "free") +
+bd.mehg %>% mutate(pop_spec = factor(pop_spec
+  , levels = beta_est$param)) %>% {
+    ggplot(., aes(merc, bd_load)) + geom_jitter(aes(colour = Species, shape = Sex)) + 
+      facet_wrap(~pop_spec, scales = "free") +
       scale_y_continuous(trans = "pseudo_log"
         , breaks = c(0, 10, 100, 1000, 1E4, 1E5, 1E6)) +
       xlab("MeHg Concentration") +

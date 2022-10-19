@@ -74,7 +74,7 @@ sites_for_cov <- data.frame(
 )
 )
 
-## categorical covariates
+## categorical covariates, averaged over all SubSites
 site_covar.cat <- Oth_hab_cov %>% 
   group_by(Site) %>% 
   summarize(
@@ -122,6 +122,7 @@ site_covar.con %<>% left_join(sampled_years, .)
 site_covar.con %<>% 
   group_by(pop_spec) %>% 
   mutate(
+    ## For 2022 take mean for now until data is available
     Precip_Mean = ifelse(is.na(Precip_Mean), mean(Precip_Mean, na.rm = T), Precip_Mean)
   , Precip_SD   = ifelse(is.na(Precip_SD), mean(Precip_SD, na.rm = T), Precip_SD)
   , Temp_Mean   = ifelse(is.na(Temp_Mean), mean(Temp_Mean, na.rm = T), Temp_Mean)
@@ -170,10 +171,10 @@ capt_history.p %<>% left_join(., daily_hab_covar) %>% mutate(
 ## Finally, continuous temperature instead of binned temp by year
 ####
 
-source("data_temp.R")
+source("data_temp_all.R")
 
 capt_history.p %<>% left_join(.
-  , temp_data.all %>% rename(capture_date = Date) %>%
+  , data.temp.all %>% rename(capture_date = Date) %>%
     dplyr::select(Site, yday, capture_date
       , cumtemp_m, days_in_opt_m
       , cumtemp_m_s, days_in_opt_m_s

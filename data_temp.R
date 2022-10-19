@@ -21,6 +21,19 @@ data.temp  <- read.csv(data.files[i]) %>% mutate(
   filter(Year %in% (capt_history %>% filter(Site == data.locs[i]) %>%
       summarize(Year = unique(Year)))$Year)
 
+## Create some average data for 2022 for now
+data.temp <- rbind(
+  data.temp
+,  data.frame(
+  Year  = rep(2022, unique(data.temp$yday) %>% length())
+, yday  = unique(data.temp$yday)
+, Site  = rep(data.temp$Site[1], unique(data.temp$yday) %>% length())
+, tmean = (data.temp %>% group_by(yday) %>% summarize(tmean = mean(tmean)))$tmean
+, tmin  = (data.temp %>% group_by(yday) %>% summarize(tmin  = mean(tmin)))$tmin
+, tmax  = (data.temp %>% group_by(yday) %>% summarize(tmax  = mean(tmax)))$tmax
+)
+)
+
 data.temp %<>% mutate(Date = as.Date(as.character(paste(Year, 01, 01, sep = "-"))) + yday - 1)
 
 data.month <- apply(matrix(as.character(data.temp$Date)), 1
@@ -49,7 +62,6 @@ data.temp %<>% group_by(Year) %>%
   , days_in_opt_l = cumsum(in_opt_l)
   , days_in_opt_u = cumsum(in_opt_u)
     )
-
 
 if (i == 1) {
 temp_data.all <- data.temp

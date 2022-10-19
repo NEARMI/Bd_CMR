@@ -80,7 +80,8 @@ source("packages_functions.R")
 source("../ggplot_theme.R")
 
 ## Read in data
-source("data_load.R")
+  source("complete_data.R")
+# source("data_load.R")      ## data through 2021 to check 
 
 ## Some choices to determine what model will be fit. 
  ## Can't be perfectly dynamic because populations are manually chosen
@@ -98,7 +99,7 @@ some_pops      <- TRUE
  ## 3.1) Fit individual-level MeHg? Be careful what populations to choose
 fit_ind_mehg   <- FALSE
  ## 3.2) Fit a model only predicting MeHg? (no survival) Setting as TRUE invalidates many other options pertaining to survival
-fit_only_mehg  <- TRUE
+fit_only_mehg  <- FALSE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
 red_p_model    <- TRUE
 
@@ -115,11 +116,33 @@ print(paste("red_p_model =", sing_pop, sep = " "))
 ## From these choices find the model to fit
 source("determine_model.R")
 
+## Pop*spec
+ # 1  - AMCI.SMNWR_E
+ # 2  - AMCI.SMNWR_W
+ # 3  - ANBO.Blackrock  
+ # 4  - ANBO.JonesPond
+ # 5  - ANBO.SonomaMountain
+ # 6  - ANBO.TwoMedicine
+ # 7  - NOVI.KettleMoraine
+ # 8  - NOVI.MudLake
+ # 9  - NOVI.ScotiaBarrens
+ # 10 - NOVI.SMNWR_W
+ # 11 - NOVI.Springfield
+ # 12 - PSMA.LilyPond
+ # 13 - PSMA.MatthewsPond
+ # 14 - RANA.DilmanMeadows
+ # 15 - RANA.FoxCreek
+ # 16 - RANA.JonesPond
+ # 17 - RANA.LittleThreeCreeks
+ # 18 - RANA.LostHorse
+ # 19 - RANA.SanFrancisquito
+ # 20 - RANA.SummitMeadow
+
 ## Some population choices:
- ## Full fit (no EmmaCarlin)
-   ## -10 
- ## Full fit without the biggest populations (Springfield and Scotia Barrens)
-   ## c(1:9, 11, 13, 15:21) 
+ ## Full fit (no EmmaCarlin [KettleMoraine])
+   ## -7
+ ## Full fit without the biggest populations (KettleMoraine, Springfield, and Scotia Barrens)
+   ## -c(7, 9, 11) 
  ## MeHg fit (with survival)
    ## c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)
  ## MeHg --> Bd (no survival)
@@ -137,11 +160,12 @@ if (some_pops) {
  # which.dataset <- unique(data.all$pop_spec)[c(1:9, 11, 13, 15:21)] %>% droplevels()
  # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
  # which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 8, 9, 15, 16, 17, 18, 19, 21)] %>% droplevels()
-   which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+ # which.dataset <- unique(data.all$pop_spec)[c(3, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 21)] %>% droplevels()
+   which.dataset <- unique(data.all$pop_spec)[c(3, 13, 16)] %>% droplevels() 
    data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
    sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
 } else {
-   which.dataset <- unique(data.all$pop_spec) %>% droplevels()
+  which.dataset <- unique(data.all$pop_spec) %>% droplevels()
 }
 
 ## For dev and debug purposes also can subset total number of individuals 

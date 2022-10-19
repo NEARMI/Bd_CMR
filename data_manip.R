@@ -70,7 +70,7 @@ expand.grid(
     log_bd_load = log(bd_load + 1)
   ## Just because NA are not allowed. This doesn't actually do anything because swabbed == 1 is a logical gate
   , log_bd_load = ifelse(is.na(log_bd_load), 0, log_bd_load)
-  )
+  ) %>% arrange(Mark, CaptureDate)
 
 ## And calculate the duration between each sampling day for each individual
 capt_history.t %<>% group_by(Mark) %>% 
@@ -78,9 +78,13 @@ capt_history.t %<>% group_by(Mark) %>%
     ## In reality the 0 should be an NA, but with the way the model is set up the 0 isn't used (and stan cant have NA)
   mutate(capture_gap = c(as.numeric((capture_date - lag(capture_date, 1))[-1]), 0)) 
 
+# nrow(capt_history.t)
+
 ## *** There are some duplicate entries. Rare but does happen. Probably either poor QA/QC or possibly individuals caught more than once in a day.
- ## Mostly these are identical entries duplicated so just take the first
-capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(1)
+ ## Mostly these are identical entries duplicated, but maybe an animal that was captured and then thrown back and recaptured in the same day
+capt_history.t %<>% group_by(Mark, SecNumConsec) %>% slice(n())
+
+# nrow(capt_history.t)
 
 ## If using less than the full population for debug purposes take those random individuals here
 #if (red_ind_PA_debug) {
@@ -96,10 +100,11 @@ if (red_ind) {
 ## Before converting Mark to a numeric, find the individual specific covariates to be used later
 ind_cov <- data.i %>% group_by(Mark) %>% 
   summarize(
-    merc = mean(MeHg_conc_ppb, na.rm = T)
+    merc = mean(merc, na.rm = T)
+   # merc = mean(MeHg_conc_ppb, na.rm = T)
     ## returns the one value or a mean if caught multiple times in one primary period
   , len  = mean(as.numeric(SVLmm), na.rm = T)
-  , inj  = ifelse(any(potential_injury_effect == 1), 1, 0)
+#  , inj  = ifelse(any(potential_injury_effect == 1), 1, 0)
   ) %>% distinct()
 
 capt_history.t %<>% left_join(., ind_cov)
@@ -108,7 +113,7 @@ capt_history.t %<>% left_join(., ind_cov)
  ## a whole extra complication in the model itself (misidentification) so doing some pre-processing here to settle on a sex for each individual
 ind_sex          <- data.i %>% group_by(Mark) %>% summarize(all_sex = unique(Sex))
 
-## only enter in the loop to assing a single sex for those individuals with more than one sex given
+## only enter in the loop to assign a single sex for those individuals with more than one sex given
 sex_to_fix <- ind_sex %>% group_by(Mark) %>% summarize(nsex = n()) %>% filter(nsex > 1) %>% left_join(., ind_sex)
 ind_sex    <- ind_sex %>% filter(Mark %notin% unique(sex_to_fix$Mark))
 
@@ -194,8 +199,7 @@ capt_history.t %<>% ungroup() %>%
    month_year  = interaction(Month, Year)
  , month_year  = as.factor(month_year)
  , month_year  = as.numeric(month_year)
-) %>% relocate(month_year, .after = Year) %>% 
-  dplyr::select(-Notes)
+) %>% relocate(month_year, .after = Year) 
 
 if (i == 1) {
 capt_history <- capt_history.t
