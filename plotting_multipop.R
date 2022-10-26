@@ -8,40 +8,40 @@
 
 if (plot_from == "fit" | plot_from == "saved_model") {
 
-  if (plot_from == "fit") {
-    stan.fit.summary <- summary(stan.fit)[[1]]
-    stan.fit.samples <- extract(stan.fit)
-  } else if (plot_from == "saved_model") {
-    stan.fit         <- readRDS(saved_model)
-    stan.fit.summary <- summary(stan.fit[[1]])[[1]]
-    stan.fit.samples <- extract(stan.fit[[1]])
-  }
+ if (plot_from == "fit") {
+  stan.fit.summary <- summary(stan.fit)[[1]]
+  stan.fit.samples <- extract(stan.fit)
+ } else if (plot_from == "saved_model") {
+  stan.fit         <- readRDS(saved_model)
+  stan.fit.summary <- summary(stan.fit[[1]])[[1]]
+  stan.fit.samples <- extract(stan.fit[[1]])
+ }
   
 ## Can easily have problems with memory, so subset to just the parameters needed for plotting
 needed_entries <- c(
-  "beta_offseason_int"
-, "beta_offseason_bd"
-, "beta_offseason_len"
-, "beta_offseason_mehg"
-, "beta_offseason_mehg_bd"
-, "z_r" 
-, "beta_inseason"
-, "inseason_pop"
-, "bd_ind"
-, "beta_p_int"
-, "p_pop"
-, "p_day_dev"
-, "beta_p_slope"
-, "pop_size"
+   "beta_offseason_int"
+ , "beta_offseason_bd"
+ , "beta_offseason_len"
+ , "beta_offseason_mehg"
+ , "beta_offseason_mehg_bd"
+ , "z_r" 
+ , "beta_inseason"
+ , "inseason_pop"
+ , "bd_ind"
+ , "beta_p_int"
+ , "p_pop"
+ , "p_day_dev"
+ , "beta_p_slope"
+ , "pop_size"
 )
 
 stan.fit.samples <- stan.fit.samples[needed_entries]
   
-  } else if (plot_from == "saved_samples") {
+} else if (plot_from == "saved_samples") {
   
-cleaned_output.temp <- readRDS(saved_samples)
-stan.fit.summary    <- cleaned_output.temp[[1]]
-stan.fit.samples    <- cleaned_output.temp[[2]]
+ cleaned_output.temp <- readRDS(saved_samples)
+ stan.fit.summary    <- cleaned_output.temp[[1]]
+ stan.fit.samples    <- cleaned_output.temp[[2]]
   
 }
 
@@ -54,7 +54,8 @@ these_sexes <- c("F", "M")    ## skipping U for now
 ## Very non-dynamic... Write out the Species and Populations in a full way for beautified plots
  ## Use either just the population, or Species and Population
 plot_labs <- "Pop" # "Spec-Pop" 
-source("plotting_facet_names.R")
+# source("plotting_facet_names.R")
+# source("scr_facet_names.R")
 
 ####
 ## Plotting Setup: Estimation of generated quantities
@@ -403,15 +404,21 @@ if (!fit_ind_mehg) {
 ## Not dynamic, needs to get manually updated if the species change
 int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
-  , "Notophthalmus viridescens", "Rana spp."
+ #   "Ambystoma cingulatum"
+    "Anaxyrus boreas"
+  , "Pseudacris maculata"
+  #, "Notophthalmus viridescens"
+  , "Rana spp."
   ))
 )
 
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Ambystoma cingulatum", "Anaxyrus boreas", "Pseudacris maculata"
-  , "Notophthalmus viridescens", "Rana spp."
+#    "Ambystoma cingulatum"
+    "Anaxyrus boreas"
+  , "Pseudacris maculata"
+#  , "Notophthalmus viridescens"
+  , "Rana spp."
   ))
 )
 
@@ -807,7 +814,9 @@ beta_est.spec <- beta_est %>% filter(
   params %in% c("beta_bd_spec", "beta_inseason", "beta_mehg_spec")
 )
 beta_est.spec %<>% mutate(
-  param_lev = plyr::mapvalues(param_lev, from = unique(beta_est.spec$param_lev), to = these_specs)
+  param_lev = plyr::mapvalues(param_lev, from = unique(beta_est.spec$param_lev)
+    , to = c(these_specs, "F", "U")
+    )
 )
 beta_est.slopes <- beta_est %>% filter(
   params %in% c("beta_bd_temp", "beta_bd_len", "beta_p_slope", "beta_mehg_drawdown")
@@ -823,7 +832,9 @@ beta_est.mehg <- beta_est %>% filter(
 
 } else {
 beta_est.int <- beta_est %>% filter(
-  params %in% c("beta_offseason_int", "beta_inseason_int", "beta_p_int", "beta_len", "beta_mehg_int")
+  params %in% c("beta_offseason_int", "beta_inseason_int", "beta_p_int"
+  #  , "beta_len"
+    , "beta_mehg_int")
 ) 
 beta_est.slopes <- beta_est %>% filter(
   params %in% c("beta_bd_temp", "beta_bd_len", "beta_p_slope", "beta_mehg_drawdown")

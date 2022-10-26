@@ -11,7 +11,7 @@ data.sum <- capt_history %>% group_by(Mark) %>% filter(captured == 1) %>%
 
 print("-------------------------")
 print(unique(capt_history$pop_spec) %>% as.character())
-print(paste("Will fit:" , this_model_fit, sep = " "))
+print(paste("Will fit with:" , which_stan_file, sep = " "))
 print(paste("Dataset has -", nrow(data.sum), "- total captured individuals", sep = " "))
 print(paste("Dataset has -", sum(data.sum$swab), "- total -Bd swabs- across all individuals", sep = " "))
 print(paste("Dataset has -", length(which(data.sum$swab > 1)), "- total individuals that were -swabbed- at least once", sep = " "))

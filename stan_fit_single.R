@@ -6,9 +6,6 @@
  ## are in the same general order (different single population stan models use slightly different data
   ## so there will not be perfect correspondence)
 
-## Note: Drastically changed on April 28, 2022. For code for non-model matrix version see GitHub commits
- ## prior to this date
-
 stan_data     <- list(
   
   ## dimensional indexes 
@@ -16,7 +13,7 @@ stan_data     <- list(
  , ind_per_period_bd = max(capt_history.phi$X_stat_index)
  , ind_occ           = nrow(capt_history.p)
  , ind_occ_min1      = nrow(capt_history.phi)
- , n_days            = length(unique(capt_history.p$date_fac))
+ , n_days            = p_rand_which_day %>% length() #length(unique(capt_history.p$date_fac))
  , n_sex             = n_sex
  , n_pop_year        = nrow(sampled_years)
   
@@ -105,12 +102,11 @@ stan.fit  <- try(
   {
  stan(
   file    = this_model_fit
-# file    = "stan_current/CMR_single_population_nli_p.stan"
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
 , refresh = stan.refresh
-, init    =   rep(
+, init    = rep(
   list(
   list(
      ind_len_mis  = rep(mean(ind.len$len, na.rm = T), length(len.mis)) %>% as.array()
@@ -124,11 +120,11 @@ stan.fit  <- try(
 , thin    = stan.thin
 , control = list(adapt_delta = 0.94, max_treedepth = 13)
    ## drop a few parameters to reduce the size of the saved ston object
-#, include = FALSE
-#, pars    = c(
-#  "chi", "phi", "p", "X",
-#  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
-#, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
+, include = FALSE
+, pars    = c(
+  "chi", "phi", "p", "X",
+  "bd_ind_eps", "bd_delta_eps", "p_day_delta_eps"
+, "ind_len_scaled", "ind_len", "bd_ind", "ind_len_mis", "p_delta_eps")
   )
   }
 , silent = TRUE
@@ -140,6 +136,5 @@ saveRDS(
 , capt_history.p   = capt_history.p
 , capt_history.phi = capt_history.phi
   )
-  , paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = ".")
-  )
+  , model_name)
 

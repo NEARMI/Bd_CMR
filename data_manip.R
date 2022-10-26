@@ -236,3 +236,42 @@ capture_range  <- capt_history %>%
   ## Remove all individuals in the data set that were never captured (in case there are any left over for w/e reason,
    ## but they should all have been removed already)
   filter(!is.infinite(first) | !is.infinite(final))
+
+
+#####
+## Some last adjustments in case of fitting one population 
+#####
+
+if (sing_pop) {
+  if (which.dataset == "ANBO.SonomaMountain") {
+  ## One individual with no length, just give it the average of all ANBO with U for Sex (calculated separately)
+  capt_history[capt_history$Sex == "U", ]$len <- 66.56388
+  }
+}
+
+#####
+## A bit of summary information
+#####
+
+## Check for proportion of animals with MeHg measures
+capt_history %>% 
+  group_by(pop_spec) %>% 
+  summarize(n_ind = n_distinct(Mark)) %>%
+  left_join(.
+    , 
+    capt_history %>% filter(!is.na(merc)) %>% droplevels() %>%
+      group_by(pop_spec) %>% summarize(n_ind_merc = n_distinct(Mark))
+    ) %>% mutate(n_ind_merc = ifelse(is.na(n_ind_merc), 0, n_ind_merc)) %>%
+  mutate(prop_merc = n_ind_merc / n_ind)
+  
+## Check for proportion of animals with lengths measured
+capt_history %>% 
+  group_by(pop_spec, Sex) %>% 
+  summarize(n_ind = n_distinct(Mark)) %>%
+  left_join(.
+    , 
+    capt_history %>% filter(!is.na(len)) %>% droplevels() %>%
+     group_by(pop_spec, Sex) %>% summarize(n_ind_len = n_distinct(Mark))
+  ) %>% mutate(n_ind_len = ifelse(is.na(n_ind_len), 0, n_ind_len)) %>%
+  mutate(prop_len = n_ind_len / n_ind) %>% as.data.frame()
+  

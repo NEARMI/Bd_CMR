@@ -142,8 +142,8 @@ sampling %>% left_join(
 ####
 
 ## Load and subset to the sites that I have data for so far
-Oth_hab_cov     <- read.csv("data/final/cleaned_cov_csv_2022/Hab_Cov.csv") %>% filter(Site %in% unique(data.all$Site))
-temp_precip_hab <- read.csv("data/final/cleaned_cov_csv_2022/Temp_Precip.csv") %>% filter(Site %in% unique(data.all$Site))
+Oth_hab_cov     <- read.csv("data/final/Hab_Cov.csv") %>% filter(Site %in% unique(data.all$Site))
+temp_precip_hab <- read.csv("data/final/Temp_Precip.csv") %>% filter(Site %in% unique(data.all$Site))
 
 ## Add some columns converting binned quantiative values into continuous metrics
 Oth_hab_cov %<>% mutate(

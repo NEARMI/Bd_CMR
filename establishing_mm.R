@@ -2,11 +2,10 @@
 ## Building the complete model matrices for the joint model ##
 ##############################################################
 
-## NOTE: This is ``non-dynamic'' in the sense that it needs to be changed manually to match
+## NOTE: This script is ``non-dynamic'' in the sense that it needs to be changed manually to match
  ## whatever the linear predictors look like in the stan model
-
-## See bottom of script for current linear predictors (again, non-dynamic, code must be updated
- ## whenever these linear predictors change)
+  ## See bottom of script for current linear predictors (again, non-dynamic, code must be updated
+   ## whenever these linear predictors change)
 
 ####
 ## Model matrices for the survival part of the model
@@ -53,8 +52,9 @@ fe_mm_p_int.uni <- fe_mm_p_int %>% as.data.frame() %>% distinct()
   } else {
     fe_mm_p_int.uni %<>% dplyr::select(-SexF, -SexU) %>% mutate(SexF = rep(c(0, 1, 0), n_spec), SexU = rep(c(0, 0, 1), n_spec))
   }
+
 } else {
-fe_mm_p_uni_sex <- matrix(data = c(
+fe_mm_p_int.uni <- matrix(data = c(
   1, 0, 0
 , 1, 1, 0
 , 1, 0, 1

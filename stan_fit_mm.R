@@ -164,7 +164,7 @@ stan_data     <- list(
   )
 
 stan.fit  <- stan(
-  file    =  "stan_current/CMR_multiple_populations_alt_p_len.stan" # which_stan_file
+  file    = which_stan_file
 , data    = stan_data
 , chains  = stan.chains
 , cores   = stan.cores
@@ -207,3 +207,4 @@ saveRDS(
 , capt_history.phi = capt_history.phi
   )
   , model_name)
+

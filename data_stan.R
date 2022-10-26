@@ -313,3 +313,8 @@ if (red_p_model) {
  day_which_pop      <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
 }
 
+## Check for gaps long enough within-season to estimate within-year survival
+capt_history.phi %>% group_by(pop_spec) %>%
+  summarize(
+    length(which(offseason == 0 & phi_ones == 0))
+  )
