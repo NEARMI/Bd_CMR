@@ -276,7 +276,7 @@ transformed parameters {
 
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates
-	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
+	vector[n_days_for_p] p_day_dev;			 // day (nested in population) level detection deviates
 
   // Long-form containers for estimates from t to t+1
 	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
