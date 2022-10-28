@@ -276,7 +276,7 @@ transformed parameters {
 
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates
-	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
+	vector[n_days_for_p] p_day_dev;			 // day (nested in population) level detection deviates
 
   // Long-form containers for estimates from t to t+1
 	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
@@ -377,10 +377,10 @@ beta_mehg_len * ind_len_scaled[ind_mehg_which_mis]
 	phi[phi_off_index]  = inv_logit(
 fe_mm_phi_int * beta_phi[1:n_col_mm_int]  +
 to_vector(z_r[1, pop_phi[phi_off_index]]) +
-beta_phi[n_col_mm_int + 1] * ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]]                                     + 
-(beta_phi[n_col_mm_int + 2] + to_vector(z_r[2, pop_phi[phi_off_index]])) .* X_scaled[phi_bd_index[phi_off_index]] +
-(beta_phi[n_col_mm_int + 3] + to_vector(z_r[3, pop_phi[phi_off_index]])) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
-(beta_phi[n_col_mm_int + 4] + to_vector(z_r[4, pop_phi[phi_off_index]])) .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]] .* X_scaled[phi_bd_index[phi_off_index]]
+(beta_phi[n_col_mm_int + 1] + to_vector(z_r[2, pop_phi[phi_off_index]])) .* X_scaled[phi_bd_index[phi_off_index]] +
+(beta_phi[n_col_mm_int + 2] + to_vector(z_r[3, pop_phi[phi_off_index]])) .* ind_len_scaled[ind_occ_min1_rep[phi_off_index]] +
+(beta_phi[n_col_mm_int + 3] + to_vector(z_r[4, pop_phi[phi_off_index]])) .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]] +
+(beta_phi[n_col_mm_int + 4] + to_vector(z_r[5, pop_phi[phi_off_index]])) .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]] .* X_scaled[phi_bd_index[phi_off_index]]
 );
 
 

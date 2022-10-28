@@ -6,6 +6,8 @@
 ## Data loading, sample and summary extraction
 ####
 
+## stan.fit.samples <- readRDS("fits/CMR_multiple_populations_mehg_ssp_alt_p_len_RANA_2022-10-26_samples.Rds")
+
 if (plot_from == "fit" | plot_from == "saved_model") {
 
  if (plot_from == "fit") {
@@ -19,13 +21,14 @@ if (plot_from == "fit" | plot_from == "saved_model") {
   
 ## Can easily have problems with memory, so subset to just the parameters needed for plotting
 needed_entries <- c(
-   "beta_offseason_int"
- , "beta_offseason_bd"
- , "beta_offseason_len"
- , "beta_offseason_mehg"
- , "beta_offseason_mehg_bd"
+#   "beta_offseason_int"
+# , "beta_offseason_bd"
+# , "beta_offseason_len"
+# , "beta_offseason_mehg"
+# , "beta_offseason_mehg_bd"
+   "beta_phi"
  , "z_r" 
- , "beta_inseason"
+ , "beta_inseason_int"
  , "inseason_pop"
  , "bd_ind"
  , "beta_p_int"
@@ -44,6 +47,13 @@ stan.fit.samples <- stan.fit.samples[needed_entries]
  stan.fit.samples    <- cleaned_output.temp[[2]]
   
 }
+
+## Add some list entries so I don't have to change all of the code below
+stan.fit.samples$beta_offseason_int     <- stan.fit.samples$beta_phi[, 1:3]
+stan.fit.samples$beta_offseason_bd      <- stan.fit.samples$beta_phi[, 4]
+stan.fit.samples$beta_offseason_len     <- stan.fit.samples$beta_phi[, 5]
+stan.fit.samples$beta_offseason_mehg    <- stan.fit.samples$beta_phi[, 6]
+stan.fit.samples$beta_offseason_mehg_bd <- stan.fit.samples$beta_phi[, 7]
 
 ## extract the species and population names for this fit
 these_specs <- unique(capt_history.phi$Species)
@@ -82,7 +92,7 @@ spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF !=
 spec_sex_mm %<>% mutate(spec = rep(seq(n_specs), each = 3))
   }
 } else {
-spec_sex_mm <- model.matrix(~Sex + pop_spec, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
+spec_sex_mm <- model.matrix(~Sex, capt_history.phi)[, ] %>% as.data.frame() %>% distinct()
 spec_sex_mm %<>% mutate(sex = ifelse(SexF == 1 & SexU != 1, "F", (ifelse(SexF != 1 & SexU == 1, "U", "M"))))
 }
 
@@ -165,15 +175,24 @@ if (n_specs > 1) {
   }
 
 } else {
-  ## Potentially outdated, but the goal is to never really run a single species at a time anyway. 
-   ## Probably worth coming back and cleaning up at some point though
+    if (!fit_ind_mehg) {
  pred.est[j, ] <- plogis(
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
-    (stan.fit.samples$beta_offseason_bd  + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+    (stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
     (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
-    stan.fit.samples$beta_offseason_mehg * pred.vals$mehg[j]
+    (stan.fit.samples$beta_offseason_mehg + stan.fit.samples$z_r[, 4, spec_sex$pop[k]]) * pred.vals$mehg[j]
  )
+  } else {
+ pred.est[j, ] <- plogis(
+    (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
+    (stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
+    (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
+    (stan.fit.samples$beta_offseason_mehg + stan.fit.samples$z_r[, 4, spec_sex$pop[k]]) * pred.vals$mehg[j] +
+    (stan.fit.samples$beta_offseason_mehg_bd + stan.fit.samples$z_r[, 5, spec_sex$pop[k]]) * pred.vals$mehg[j] * pred.vals$bd[j]
+ )
+  }
 }
   
 }
@@ -244,13 +263,17 @@ gg1 <- pred.vals.gg %>% mutate(
   , to = spec_pop_plot_labels
 )) %>% filter(sex == "M", len == 0, mehg == 0) %>% {
   ggplot(., aes(bd, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
-    geom_line(aes(colour = spec), size = 1) + 
-    scale_colour_brewer(name = "Species", palette = "Dark2"
-      , labels = spec_labs) +
-    scale_fill_brewer(name = "Species", palette = "Dark2"
-      , labels = spec_labs) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr
+    #  , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
+    #  , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_line(aes(
+    #  colour = spec
+      ), size = 1) + 
+#    scale_colour_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
+ #   scale_fill_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
    # scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
     scale_x_continuous(breaks = c(-1.40, -0.75, 0, 0.75, 1.40)) +
     facet_wrap(~pop) +
@@ -272,9 +295,15 @@ gg2 <- pred.vals.gg %>% mutate(
   , to = spec_pop_plot_labels
 )) %>% filter(sex == "M", bd == 0, mehg == 0) %>% {
   ggplot(., aes(len, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
-    geom_line(aes(colour = spec), size = 1) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr
+    #  , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
+     # , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_line(aes(
+    #  colour = spec
+      ), size = 1) + 
     scale_colour_brewer(name = "Species", palette = "Dark2"
       , labels = spec_labs) +
     scale_fill_brewer(name = "Species", palette = "Dark2"
@@ -299,9 +328,15 @@ gg3 <- pred.vals.gg %>% mutate(
   , to = spec_pop_plot_labels
 )) %>% filter(sex == "M", bd == 0, len == 0) %>% {
   ggplot(., aes(mehg, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec, colour = spec), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec, colour = spec), alpha = 0.3) +
-    geom_line(aes(colour = spec), size = 1) + 
+    geom_ribbon(aes(ymin = lwr, ymax = upr
+     # , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
+     # , fill = spec, colour = spec
+      ), alpha = 0.3) +
+    geom_line(aes(
+    #  colour = spec
+      ), size = 1) + 
     scale_colour_brewer(name = "Species", palette = "Dark2"
       , labels = spec_labs) +
     scale_fill_brewer(name = "Species", palette = "Dark2"
@@ -327,10 +362,15 @@ pred.vals.gg %>% mutate(
   pop = plyr::mapvalues(pop, from = unique(pred.vals.gg$pop)
   , to = spec_pop_plot_labels
 )) %>% filter(sex == "M", len == 0, mehg %in% unique(pred.vals.gg$mehg)[c(2, 4, 6, 8, 10)]) %>% 
-  filter(pop == "MT - Jones Pond", spec == "ANBO") %>% {
+ # filter(pop == "MT - Jones Pond", spec == "ANBO") %>% 
+    {
   ggplot(., aes(bd, mid)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = spec), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n, fill = spec), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr
+      , fill = pop
+      ), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
+      , fill = pop
+      ), alpha = 0.3) +
     geom_line(size = 1) + 
     scale_x_continuous(breaks = c(-1.75, -0.75, 0, 0.75, 1.75)) +
     facet_wrap(~mehg) +
@@ -372,6 +412,7 @@ bd.mehg <- matrix(
 ## Derived quantities here being average survival at the mean of all continuous predictors and
  ## the effect of Bd
 for (j in 1:ncol(bd.est)) {
+  if (n_spec > 1) {
   if (multi_spec_red) {
    int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
    bd.est[, j]  <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j]
@@ -387,10 +428,14 @@ for (j in 1:ncol(bd.est)) {
     bd.mehg[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg_bd[, 1:n_spec], 2
     , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
       stan.fit.samples$z_r[, 5, j]
+  }
+  } else {
+   int.est[, j] <- stan.fit.samples$beta_offseason_int[, 1] + stan.fit.samples$z_r[, 1, j]
+   bd.est[, j]  <- stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, j] 
+  if (fit_ind_mehg) {
+   bd.mehg[, j] <- stan.fit.samples$beta_offseason_mehg_bd + stan.fit.samples$z_r[, 5, j]
+  }
     
-#    bd.mehg[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg[, 1:n_spec], 2
-#    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_spec] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
-#      stan.fit.samples$z_r[, 4, j]
   }
 }
 
@@ -415,10 +460,10 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
 #    "Ambystoma cingulatum"
-    "Anaxyrus boreas"
-  , "Pseudacris maculata"
+ #   "Anaxyrus boreas"
+#  , "Pseudacris maculata"
 #  , "Notophthalmus viridescens"
-  , "Rana spp."
+    "Rana spp."
   ))
 )
 
@@ -427,13 +472,17 @@ bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
 ## Not dynamic, needs to get manually updated if the species change
 int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Anaxyrus boreas", "Pseudacris maculata", "Rana spp."
+ #   "Anaxyrus boreas"
+ # , "Pseudacris maculata"
+    "Rana spp."
   ))
 )
 
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Anaxyrus boreas", "Pseudacris maculata", "Rana spp."
+#    "Anaxyrus boreas"
+#  , "Pseudacris maculata"
+    "Rana spp."
   ))
 ) 
   
@@ -498,9 +547,9 @@ bd.mehg        <- reshape2::melt(bd.mehg)
 names(bd.mehg) <- c("Sample", "Population", "Value")
 bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-    "Anaxyrus boreas"
-  , "Pseudacris maculata" 
-  , "Rana spp."
+ #   "Anaxyrus boreas"
+ # , "Pseudacris maculata" 
+    "Rana spp."
   ))
 )
 

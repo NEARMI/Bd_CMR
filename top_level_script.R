@@ -62,7 +62,7 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
 
 ## Packages and Functions
 source("packages_functions.R")
-source("../ggplot_theme.R")
+source("../../ggplot_theme.R")
 
 ## Read in data
 source("complete_data.R") 
@@ -136,8 +136,9 @@ source("determine_model.R")
 ## If a subset of populations, pick which ones
 if (some_pops) {
 # which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[11] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[grep("ANBO", unique(data.all$pop_spec))] %>% droplevels()
-  which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
+ which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(3, 13, 16)] %>% droplevels() 
   data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
   sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
