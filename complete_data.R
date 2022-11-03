@@ -39,7 +39,7 @@ cmr %<>% dplyr::select(-Species) %>%
   rename(Site = MasterSite, SubSite = FriendlySiteName, Species = SPEC
     , Mark = AnimalMark.ID, BdSample = Swab_barcode, BdResult = Bd
     , SVLmm = BodyLength, bd_load = Ct_Bd, merc = TissueMeHg) %>%
-  dplyr::select(Site, SubSite, CaptureDate, Species, Mark, BdSample, multi_swab, BdResult, Sex, SVLmm, bd_load, merc)
+  dplyr::select(Site, SubSite, CaptureDate, Species, Mark, BdSample, BdResult, Sex, SVLmm, bd_load, merc)
 
 ## Break up date into component pieces
 cmr %<>% mutate(
@@ -53,10 +53,6 @@ sampling %<>% mutate(
 , Month  = apply(matrix(as.character(CaptureDate)), 1, FUN = function (x) strsplit(x, "[-]")[[1]][2]) %>% as.numeric()
 , julian = as.POSIXlt(CaptureDate)$yday
 ) %>% relocate(c(Year, Month, julian), .after = CaptureDate)
-  
-## Subset out the individuals swabbed multiple times, need to deal with these entries in a slightly different way
-cmr.multiswab <- cmr %>% filter(multi_swab == 1)
-cmr           %<>% filter(is.na(multi_swab))
 
 ## Tidy up a number of data columns
 cmr %<>% mutate(
@@ -68,6 +64,9 @@ cmr %<>% mutate(
 , Sex = plyr::mapvalues(Sex, from = c("Unknown", "Male", "Female", ""), to = c("U", "M", "F", "U"))
   ## Convert Tissue MeHg to full body MeHg
 , merc = ifelse(Species %in% c("NOVI", "AMCI"), scale_newt(merc), scale_frog(merc))
+  ) %>% mutate(
+  ## if negative add 0 load
+  bd_load = ifelse(BdResult == "neg", 0, bd_load)
   )
 
 sex_entries <- unique(cmr$Sex)
