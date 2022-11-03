@@ -174,6 +174,7 @@ transformed parameters {
 
 	real bd_ind[n_ind];				 // individual random effect deviates
 	vector[ind_per_period_bd] X;		         // each individual's estimated bd per year
+	vector[ind_per_period_bd] X_scaled;
 
 
 	// Survival and detection processes
@@ -219,6 +220,8 @@ transformed parameters {
 	  X[t] = beta_bd_year[bd_time[t]] + bd_ind[ind_bd_rep[t]] + beta_bd_len * ind_len_have[ind_bd_rep[t]];      
         }
 
+	X_scaled = (X - mean(X))/sd(X);
+
 // -----
 // Survival probability over the whole period
 // -----
@@ -229,10 +232,10 @@ transformed parameters {
 
 	phi[phi_off_index]  = inv_logit(
 ind_sex[ind_occ_min1_rep[phi_off_index], ] * beta_offseason_sex + 
-beta_offseason[1] * X[phi_bd_index[phi_off_index]] +
+beta_offseason[1] * X_scaled[phi_bd_index[phi_off_index]] +
 beta_offseason[2] * ind_len_have[ind_occ_min1_rep[phi_off_index]] +
 beta_offseason[3] * ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]] +
-beta_offseason[4] * X[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]]
+beta_offseason[4] * X_scaled[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind_occ_min1_rep[phi_off_index]]
 );
 
 
