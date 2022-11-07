@@ -275,3 +275,11 @@ capt_history %>%
   ) %>% mutate(n_ind_len = ifelse(is.na(n_ind_len), 0, n_ind_len)) %>%
   mutate(prop_len = n_ind_len / n_ind) %>% as.data.frame()
   
+## for w/e reason cannot get the length imputation to work for FL AMCI W so just filling in the length for the
+ ## single missing individual
+if (sing_pop) {
+  if (which.dataset == "AMCI.SMNWR_W") {
+    capt_history[is.na(capt_history$len), ]$len <- (capt_history %>% filter(Sex == "U"))$len %>% mean(na.rm = T)
+  }
+}
+
