@@ -69,6 +69,7 @@ data {
 
 	int<lower=1> p_day[ind_occ];			    // Individual day identifier to try and estimate detection by day
 	int<lower=1> pop_p[ind_occ];			    // Population index for detection predictors
+	int<lower=1> ind_for_p[n_p_est];		    // Repeated individual for length for p predict
 	matrix[n_p_est, n_col_mm_int] fe_mm_p_int;	    // Intercept component of the model matrix
 	matrix[n_p_est, 2] fe_mm_p_slope;		    // Slope component of the model matrix
 
@@ -211,6 +212,7 @@ parameters {
   // fixed
 	vector[n_col_mm_int] beta_p_int;		 // species-level average detection
 	vector[2] beta_p_slope; 			 // daily detection probably as a function of drawdown and vegetation
+	real beta_p_len;
 
   // random: variance
 	real<lower=0> p_pop_sigma;			 // variation in detection by population
@@ -286,7 +288,7 @@ transformed parameters {
 
   // Detection 
 	vector[n_pop] p_pop;   				 // population-level detection deviates
-	vector[n_days] p_day_dev;			 // day (nested in population) level detection deviates
+	vector[n_days_for_p] p_day_dev;			 // day (nested in population) level detection deviates
 
   // Long-form containers for estimates from t to t+1
 	vector<lower=0,upper=1>[ind_occ_min1] phi;       // survival from t to t+1, each individual repeated the number of times its population was measured
@@ -431,7 +433,8 @@ to_vector(z_r[1, pop_phi[phi_off_index]]) +
 fe_mm_p_int * beta_p_int      + 
 p_pop[pop_p[p_est_index]]     + 
 p_day_dev[p_day[p_est_index]] +
-fe_mm_p_slope * beta_p_slope  
+fe_mm_p_slope * beta_p_slope  +
+beta_p_len * ind_len_scaled[ind_for_p]
 );
 
 
@@ -493,8 +496,9 @@ model {
   // Detection Priors
 
   // fixed
-	beta_p_int   ~ normal(0, 0.85);
-	beta_p_slope ~ normal(0, 0.85);
+	beta_p_int   ~ normal(0, 0.65);
+	beta_p_slope ~ normal(0, 0.65);
+	beta_p_len   ~ normal(0, 0.65);
 
   // variances and deviates
 	p_pop_sigma       ~ inv_gamma(8, 15);
