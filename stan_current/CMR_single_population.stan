@@ -54,6 +54,9 @@ data {
 	matrix[n_sex, n_sex] uni_sex;			    // model matrix of just the unique sexes (to recover the actual beta_p for each sex)
 	
   // long vector indices for observation model (p)
+	int<lower=1> n_p_zero;
+	int<lower=1> n_p_est;
+
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
 	int<lower=1> ind_for_p[n_p_est];		    // Repeated individual for length for p predict
@@ -94,8 +97,6 @@ data {
 	int<lower=1> phi_in_index[n_phi_in];
 	int<lower=1> phi_off_index[n_phi_off]; 
 
-	int<lower=1> n_p_zero;
-	int<lower=1> n_p_est;
 	int<lower=1> p_zero_index[n_p_zero];
 	int<lower=1> p_est_index[n_p_est];
 
@@ -187,7 +188,7 @@ transformed parameters {
   	rate_len_have = rep_vector(inverse_phi_len, n_ind_len_have) ./ mu_len_have;	// gamma parameter from mean
 
   	mu_len_mis    = exp(ind_sex[ind_len_which_mis, ] * beta_len_sex);   		// predict for missing using estimated coefficients 	
-  	rate_len_mis = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;	// gamma parameter from mean
+  	rate_len_mis  = rep_vector(inverse_phi_len, n_ind_len_mis) ./ mu_len_mis;	// gamma parameter from mean
 		
 	ind_len[ind_len_which_have] = ind_len_have;				 	// filling in the complete vector of ind_mehg with the data
 	ind_len[ind_len_which_mis]  = ind_len_mis;       				// filling in the complete vector of ind_mehg with the imputed values
