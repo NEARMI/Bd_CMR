@@ -62,7 +62,7 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
 
 ## Packages and Functions
 source("packages_functions.R")
-source("../../ggplot_theme.R")
+source("../ggplot_theme.R")
 
 ## Read in data
 source("complete_data.R") 
@@ -81,7 +81,7 @@ multi_spec_red <- FALSE
  ## 2) Not all populations?
 some_pops      <- TRUE
  ## 3.1) Fit individual-level MeHg? Be careful what populations to choose
-fit_ind_mehg   <- TRUE
+fit_ind_mehg   <- FALSE
  ## 3.2) Fit a model only predicting MeHg? (no survival) Setting as TRUE invalidates many other options pertaining to survival
 fit_only_mehg  <- FALSE
  ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
@@ -90,12 +90,12 @@ red_p_model    <- TRUE
 ## More printing to better track specific fit when using slurm
 print("Fitting choices are:")
 print(paste("sing_pop =", sing_pop, sep = " "))
-print(paste("multi_spec =", sing_pop, sep = " "))
-print(paste("multi_spec_red =", sing_pop, sep = " "))
-print(paste("some_pops =", sing_pop, sep = " "))
-print(paste("fit_ind_mehg =", sing_pop, sep = " "))
+print(paste("multi_spec =", multi_spec, sep = " "))
+print(paste("multi_spec_red =", multi_spec_red, sep = " "))
+print(paste("some_pops =", some_pops, sep = " "))
+print(paste("fit_ind_mehg =", fit_ind_mehg, sep = " "))
 print(paste("fit_only_mehg = ", fit_only_mehg, sep = " "))
-print(paste("red_p_model =", sing_pop, sep = " "))
+print(paste("red_p_model =", red_p_model, sep = " "))
 
 ## From these choices find the model to fit
 source("determine_model.R")
@@ -135,11 +135,13 @@ source("determine_model.R")
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
-# which.dataset <- unique(data.all$pop_spec)[3] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[10] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[2] %>% droplevels() 
 # which.dataset <- unique(data.all$pop_spec)[11] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[grep("ANBO", unique(data.all$pop_spec))] %>% droplevels()
- which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
+ which.dataset <- unique(data.all$pop_spec)[grep("ANBO", unique(data.all$pop_spec))] %>% droplevels()
+# which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(3, 13, 16)] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[c(4, 5, 12, 13, 14, 15, 16, 17, 18, 19)] %>% droplevels()
   data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
   sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
   
