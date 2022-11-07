@@ -1,6 +1,6 @@
 pop_spec,model
 AMCI.SMNWR_E,CMR_single_population
-AMCI.SMNWR_W,CMR_single_population
+AMCI.SMNWR_W,CMR_single_population_nli
 ANBO.Blackrock,CMR_single_population
 ANBO.JonesPond,CMR_single_population_mehg
 ANBO.SonomaMountain,CMR_single_population_mehg_no_in
