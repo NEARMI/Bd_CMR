@@ -168,8 +168,7 @@ transformed parameters {
 	vector[n_ind] ind_mehg;				 // all individual mehg (combining data and imputed values)
 	vector[n_ind] ind_mehg_scaled;			 // all individual mehg scaled
 	real ind_mehg_mean;				 // mean of ind_mehg
-	real ind_mehg_sd;				 // sd of ind_mehg	
-
+	real ind_mehg_sd;				 // sd of ind_mehg		
 
 	// bd
 
@@ -252,7 +251,7 @@ beta_offseason[4] * X_scaled[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind
 	p[p_est_index]  = inv_logit(
 ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + 
 p_day_dev[p_day[p_est_index]] + 
-beta_p_len * ind_len_scaled[ind_for_p]
+beta_p_len * ind_len_have[ind_for_p]
 );
 
 	

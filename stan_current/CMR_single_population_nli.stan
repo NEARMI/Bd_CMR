@@ -198,7 +198,7 @@ beta_offseason[2] * ind_len_have[ind_occ_min1_rep[phi_off_index]]
 	p[p_est_index]  = inv_logit(
 ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + 
 p_day_dev[p_day[p_est_index]] +
-beta_p_len * ind_len_scaled[ind_for_p]
+beta_p_len * ind_len_have[ind_for_p]
 );
 	 
 	
