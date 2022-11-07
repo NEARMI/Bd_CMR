@@ -56,6 +56,7 @@ data {
   // long vector indices for observation model (p)
 	int<lower=0> ind_occ_rep[ind_occ];		    // Index vector of all individuals (each individual repeated the number of sampling occasions)
 	int<lower=0> p_day[ind_occ];			    // individual day identifier to try and estimate detection by day
+	int<lower=1> ind_for_p[n_p_est];		    // Repeated individual for length for p predict
   
   // long vector indices for survival model (phi)
 	int<lower=0> ind_occ_min1_rep[ind_occ_min1];	    // Index vector of all individuals (each individual repeated the number of sampling occasions -1)
@@ -138,7 +139,7 @@ parameters {
 // -----
 	
 	vector[n_sex] beta_p_sex;
-	
+	real beta_p_len;
 	real<lower=0> p_day_delta_sigma;
 	real p_day_delta_eps[n_days];
 	
@@ -248,7 +249,11 @@ beta_offseason[4] * X_scaled[phi_bd_index[phi_off_index]] .* ind_mehg_scaled[ind
 	}
 
 	p[p_zero_index] = rep_vector(0, n_p_zero);
-	p[p_est_index]  = inv_logit(ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + p_day_dev[p_day[p_est_index]]);
+	p[p_est_index]  = inv_logit(
+ind_sex[ind_occ_rep[p_est_index], ] * beta_p_sex + 
+p_day_dev[p_day[p_est_index]] + 
+beta_p_len * ind_len_scaled[ind_for_p]
+);
 
 	
 // -----
@@ -291,6 +296,7 @@ model {
 // Detection Priors
 
 	beta_p_sex        ~ normal(0, 1.45);
+	beta_p_len	  ~ normal(0, 1.45);
 	p_day_delta_sigma ~ inv_gamma(8, 15);
 	p_day_delta_eps  ~ normal(0, 1.45);
 

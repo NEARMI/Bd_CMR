@@ -29,6 +29,7 @@ stan_data     <- list(
  , ind_occ_rep       = capt_history.p$Mark
  , p_day             = capt_history.p$date_fac
  , p_bd_index        = capt_history.p$X_stat_index
+ , ind_for_p         = capt_history.p$Mark[p_est_index]
 
   ## long vector indexes: survival stuff (phi)
  , ind_occ_min1_rep  = capt_history.phi$Mark
