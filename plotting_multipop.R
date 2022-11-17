@@ -6,8 +6,6 @@
 ## Data loading, sample and summary extraction
 ####
 
-## stan.fit.samples <- readRDS("fits/CMR_multiple_populations_mehg_ssp_alt_p_len_RANA_2022-10-26_samples.Rds")
-
 if (plot_from == "fit" | plot_from == "saved_model") {
 
  if (plot_from == "fit") {
@@ -42,6 +40,7 @@ stan.fit.samples <- stan.fit.samples[needed_entries]
   
 } else if (plot_from == "saved_samples") {
   
+## stan.fit.samples <- readRDS("fits/exported_samples/CMR_multiple_populations_mehg_ssp_alt_p_len_RANA_2022-11-06_samples.Rds")
  cleaned_output.temp <- readRDS(saved_samples)
  stan.fit.summary    <- cleaned_output.temp[[1]]
  stan.fit.samples    <- cleaned_output.temp[[2]]
@@ -180,8 +179,7 @@ if (n_specs > 1) {
     (sweep(stan.fit.samples$beta_offseason_int, 2, spec_sex_mm.t, `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 1, spec_sex$pop[k]] + 
     (stan.fit.samples$beta_offseason_bd + stan.fit.samples$z_r[, 2, spec_sex$pop[k]]) * pred.vals$bd[j] +
-    (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j] +
-    (stan.fit.samples$beta_offseason_mehg + stan.fit.samples$z_r[, 4, spec_sex$pop[k]]) * pred.vals$mehg[j]
+    (stan.fit.samples$beta_offseason_len + stan.fit.samples$z_r[, 3, spec_sex$pop[k]]) * pred.vals$len[j]
  )
   } else {
  pred.est[j, ] <- plogis(
@@ -264,16 +262,16 @@ gg1 <- pred.vals.gg %>% mutate(
 )) %>% filter(sex == "M", len == 0, mehg == 0) %>% {
   ggplot(., aes(bd, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr
-    #  , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
-    #  , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_line(aes(
-    #  colour = spec
+      colour = spec
       ), size = 1) + 
-#    scale_colour_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
- #   scale_fill_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
+    scale_colour_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
+    scale_fill_brewer(name = "Species", palette = "Dark2", labels = spec_labs) +
    # scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
     scale_x_continuous(breaks = c(-1.40, -0.75, 0, 0.75, 1.40)) +
     facet_wrap(~pop) +
@@ -296,13 +294,13 @@ gg2 <- pred.vals.gg %>% mutate(
 )) %>% filter(sex == "M", bd == 0, mehg == 0) %>% {
   ggplot(., aes(len, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr
-    #  , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
-     # , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_line(aes(
-    #  colour = spec
+      colour = spec
       ), size = 1) + 
     scale_colour_brewer(name = "Species", palette = "Dark2"
       , labels = spec_labs) +
@@ -329,13 +327,13 @@ gg3 <- pred.vals.gg %>% mutate(
 )) %>% filter(sex == "M", bd == 0, len == 0) %>% {
   ggplot(., aes(mehg, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr
-     # , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_ribbon(aes(ymin = lwr_n, ymax = upr_n
-     # , fill = spec, colour = spec
+      , fill = spec, colour = spec
       ), alpha = 0.3) +
     geom_line(aes(
-    #  colour = spec
+      colour = spec
       ), size = 1) + 
     scale_colour_brewer(name = "Species", palette = "Dark2"
       , labels = spec_labs) +
@@ -451,19 +449,19 @@ int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
  #   "Ambystoma cingulatum"
     "Anaxyrus boreas"
-  , "Pseudacris maculata"
+ # , "Pseudacris maculata"
   #, "Notophthalmus viridescens"
-  , "Rana spp."
+ # , "Rana spp."
   ))
 )
 
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
 #    "Ambystoma cingulatum"
- #   "Anaxyrus boreas"
+    "Anaxyrus boreas"
 #  , "Pseudacris maculata"
 #  , "Notophthalmus viridescens"
-    "Rana spp."
+ #   "Rana spp."
   ))
 )
 
@@ -472,17 +470,17 @@ bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
 ## Not dynamic, needs to get manually updated if the species change
 int.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
- #   "Anaxyrus boreas"
- # , "Pseudacris maculata"
-    "Rana spp."
+    "Anaxyrus boreas"
+  , "Pseudacris maculata"
+  , "Rana spp."
   ))
 )
 
 bd.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
-#    "Anaxyrus boreas"
-#  , "Pseudacris maculata"
-    "Rana spp."
+    "Anaxyrus boreas"
+  , "Pseudacris maculata"
+  , "Rana spp."
   ))
 ) 
   
@@ -547,9 +545,9 @@ bd.mehg        <- reshape2::melt(bd.mehg)
 names(bd.mehg) <- c("Sample", "Population", "Value")
 bd.mehg        %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
   Species = plyr::mapvalues(Species, from = unique(Species), to = c(
- #   "Anaxyrus boreas"
- # , "Pseudacris maculata" 
-    "Rana spp."
+    "Anaxyrus boreas"
+  , "Pseudacris maculata" 
+  , "Rana spp."
   ))
 )
 
@@ -656,10 +654,7 @@ int.est.gg %>% {
       , legend.text.align = 0)
 }
 
-bd.est.gg <- bd.est %>% mutate(Population = plyr::mapvalues(Population
-  , from = unique(Population)
-  , to = spec_pop_plot_labels
-)) %>% arrange(desc(mid)) %>% 
+bd.est.gg <- bd.est %>% arrange(desc(mid)) %>% 
   mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
 
 bd.est.gg %>% {
@@ -723,15 +718,17 @@ bd.est.gg.mehg_model %>%
 
 ## Sample plot as the above, but converting the effect to the probability scale
 
-bd.est2 <- int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Population
+bd.est2 <- int.est2 %>% ungroup() %>% 
+  mutate(Population = plyr::mapvalues(Population
   , from = unique(Population)
   , to = spec_pop_plot_labels)
 ) %>% rename(mid_p = mid) %>% left_join(.
   , 
-  bd.est %>% mutate(Population = plyr::mapvalues(Population
-  , from = unique(Population)
-  , to = spec_pop_plot_labels
-))
+  bd.est # %>% mutate(Population = plyr::mapvalues(Population
+#  , from = unique(Population)
+#  , to = spec_pop_plot_labels
+#)
+# )
   ) %>% mutate(
     lwr   = plogis(mid_p) / plogis(mid_p - lwr)    
   , lwr_n = plogis(mid_p) / plogis(mid_p - lwr_n)
@@ -741,10 +738,12 @@ bd.est2 <- int.est2 %>% ungroup() %>% mutate(Population = plyr::mapvalues(Popula
   ) %>% arrange(desc(mid)) %>% 
   mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
 
-bd.est2.gg <- bd.est2 %>% mutate(Population = plyr::mapvalues(Population
-  , from = unique(Population)
-  , to = spec_pop_plot_labels
-)) %>% arrange(desc(mid)) %>% 
+bd.est2.gg <- bd.est2 %>% 
+#  mutate(Population = plyr::mapvalues(Population
+#  , from = unique(Population)
+#  , to = spec_pop_plot_labels
+#)) %>% 
+  arrange(desc(mid)) %>% 
   mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
 
 bd.est2.gg %>% {
@@ -829,6 +828,20 @@ bd.mehg.main %>% rename(lwr.m = lwr, lwr_n.m = lwr_n, mid.m = mid, upr_n.m = upr
   )) / 3000
 
 }
+
+#########################################
+
+saveRDS(
+  list(
+  pred.vals.gg
+, int.est.gg
+, bd.est.gg
+, bd.est2.gg
+  )
+, "ANBO_cleaned.Rds"
+)
+
+#########################################
 
 ## Continuing with all of the other beta estimates
 

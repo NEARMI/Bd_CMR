@@ -73,7 +73,8 @@ capt_history %>%
   )
 
 # 3, 5, 7
-capt_history %>% group_by(pop_spec, Mark) %>% 
+pops_info <- capt_history %>% 
+  group_by(pop_spec, Mark) %>% 
   filter(captured == 1) %>%
   summarize(
     recaps = sum(captured)
@@ -87,7 +88,9 @@ capt_history %>% group_by(pop_spec, Mark) %>%
     inds_capt   = n_distinct(Mark)
   , recapt_ind  = sum(recaptured)
   , swabbed_ind = sum(swabbs)
-  , merced_ind  = length(which(mehg != 0))) %>% 
+  , merced_ind  = length(which(mehg != 0))
+  , avg_caps    = mean(recaps)
+  , avg_swabs   = mean(swabs)) %>% 
   ungroup() %>% 
   mutate(
     prop_recap = recapt_ind / inds_capt
@@ -109,7 +112,15 @@ capt_history %>% group_by(pop_spec, Mark) %>%
   summarize(tot_capt_then_swabbed = sum(capt_then_swabbed))
   ) %>% mutate(
     prop_capt_then_swabbed = tot_capt_then_swabbed / inds_capt
+  ) %>% left_join(
+    .
+  , capt_history %>% 
+  group_by(pop_spec) %>%
+  summarize(
+    tot_ind = n_distinct(Mark)
+  , tot_cap = sum(captured)
+  , tot_swa = sum(swabbed)
+  , 
   )
+ )
 
-
-  

@@ -25,10 +25,13 @@ cmr        %<>% mutate(
 
 ## Drop all abandoned sites and those with far too few captures as well as any dates in any sites where ALL CAPTURED animals were not marked
  ## (one other dates SOME animals were not marked, these removed separately)
-cmr %<>% left_join(., sites) %>% relocate(c(MasterSite, SPEC), .before = SiteName) %>% filter(!is.na(MasterSite)) %>% dplyr::select(-Model)
+cmr %<>% left_join(., sites) %>% 
+  relocate(c(MasterSite, SPEC), .before = SiteName) %>% 
+  filter(!is.na(MasterSite)) %>% dplyr::select(-Model)
 
 ## Drop all animals that were not marked
-cmr %<>% filter(AnimalMark.ID %notin% c("notMarked")) %>% filter(!is.na(AnimalMark.ID)) %>% droplevels()
+cmr %<>% filter(AnimalMark.ID %notin% c("notMarked")) %>% 
+  filter(!is.na(AnimalMark.ID)) %>% droplevels()
 
 ## Remove columns not needed for analysis and rename columns to match what I used to develop the code and model
 sampling %<>% dplyr::select(-Species) %>% 
@@ -46,13 +49,19 @@ cmr %<>% mutate(
   Year   = apply(matrix(as.character(CaptureDate)), 1, FUN = function (x) strsplit(x, "[-]")[[1]][1]) %>% as.numeric()
 , Month  = apply(matrix(as.character(CaptureDate)), 1, FUN = function (x) strsplit(x, "[-]")[[1]][2]) %>% as.numeric()
 , julian = as.POSIXlt(CaptureDate)$yday
-) %>% relocate(c(Year, Month, julian), .after = CaptureDate)
+) %>% mutate(
+  Week = ceiling(julian/7)
+) %>%
+  relocate(c(Year, Month, Week, julian), .after = CaptureDate)
 
 sampling %<>% mutate(
   Year   = apply(matrix(as.character(CaptureDate)), 1, FUN = function (x) strsplit(x, "[-]")[[1]][1]) %>% as.numeric()
 , Month  = apply(matrix(as.character(CaptureDate)), 1, FUN = function (x) strsplit(x, "[-]")[[1]][2]) %>% as.numeric()
 , julian = as.POSIXlt(CaptureDate)$yday
-) %>% relocate(c(Year, Month, julian), .after = CaptureDate)
+) %>% mutate(
+  Week = ceiling(julian/7)
+) %>%
+  relocate(c(Year, Month, Week, julian), .after = CaptureDate)
 
 ## Tidy up a number of data columns
 cmr %<>% mutate(

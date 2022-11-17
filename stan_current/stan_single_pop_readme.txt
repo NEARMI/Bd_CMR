@@ -27,7 +27,7 @@ CMR_single_population_no_in.stan
 	-- [1] but also with individual-level MeHg imputation
 
 CMR_single_population_mehg_nli.stan
-	-- [2] with lo length imputation because all animals had lengths measured
+	-- [2] with no length imputation because all animals had lengths measured
 
 
 

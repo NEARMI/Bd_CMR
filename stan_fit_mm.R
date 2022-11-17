@@ -29,6 +29,8 @@ stan_data     <- list(
  , ind_in_pop        = ind_in_pop
  
   ## Index vectors with length ``n_days'' or 
+   ## NOTE: these are poorly named here and in the model. Despite referring to "day" still, the model has changed to not use
+    ## day but instead use primary periods -by- unique collection of subsites sampled. Names simply were not updated
  , day_which_pop      = day_which_pop
  , p_rand_which_day   = {if(red_p_model){p_rand_which_day}else{NULL}}
  , day_which_pop_rand = {if(red_p_model){day_which_pop_rand}else{NULL}}

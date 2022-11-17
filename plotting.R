@@ -6,14 +6,11 @@ print("---------------------")
 print("Model Finished and Saved, Extracting samples and starting plotting")
 print("---------------------")
 
-# stan.fit <- readRDS("fits/stan_fit_ANBO.Blackrock-C.Rds")
+# stan.fit.samples <- readRDS("fits/exported_samples/CMR_single_population_nli_FL_N_2022-11-06_samples.Rds")
 
 stan.fit <- readRDS(paste(paste("fits/stan_fit", which.dataset, sep = "_"), "Rds", sep = "."))
 stan.fit.summary <- summary(stan.fit[[1]])
 stan.fit.samples <- extract(stan.fit[[1]])
-
-# stan.fit.summary <- summary(stan.fit)
-# stan.fit.samples <- readRDS("stan.fit.samples_SPR.Rds")
 
 this_pop  <- capt_history$pop_spec[1] %>% as.character()
 this_loc  <- capt_history$Site[1]     %>% as.character()
@@ -25,6 +22,7 @@ nparms <- 2
 stan.fit.samples$beta_offseason <- matrix(stan.fit.samples$beta_offseason, ncol = 1)
 }
 p_sex   <- "beta_p_sex" %in% names(stan.fit.samples)
+p_len   <- "beta_p_len" %in% names(stan.fit.samples)
 p_bd    <- "beta_p_bd" %in% names(stan.fit.samples)
 inseas  <- "beta_phi" %in% names(stan.fit.samples)
 
@@ -88,7 +86,7 @@ out.pred.in <- out.pred %>%
 }
 
 pred.vals <- expand.grid(
-  bd   = seq(0, 14, by = 1)
+  bd   = scale(seq(0, 14, by = 1))[, 1]
 , len  = seq(-3, 3, by = 0.5)
 , mehg = seq(-3, 3, by = 0.5)
 )

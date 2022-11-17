@@ -20,7 +20,7 @@ if (n_spec > 1) {
   }
 fe_mm_phi_slope <- model.matrix(~Species, capt_history.phi)[phi_off_index, ]
 } else {
-fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]
+   fe_mm_phi_int   <- model.matrix(~Sex, capt_history.phi)[phi_off_index, ]   
 }
 
 ####
@@ -35,7 +35,7 @@ if (n_spec > 1) {
     fe_mm_p_int   <- model.matrix(~Species + Sex, capt_history.p)[p_est_index, ] 
   }
 } else {
-fe_mm_p_int   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
+  fe_mm_p_int   <- model.matrix(~Sex, capt_history.p)[p_est_index, ]
 }
 fe_mm_p_slope <- model.matrix(~ -1 + drawdown_cont + veg_cont, capt_history.p)[p_est_index, ]
 

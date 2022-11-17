@@ -4,47 +4,22 @@
 
 #### Supplemental Newt Quadratic Figure ----
 
-Bd_Newts_AllSites   <- read.csv("data/cleaned_cmr_csv/SB_NOVI.csv")
-
-## Stupid dates in R
-if (length(grep("/", Bd_Newts_AllSites$CaptureDate[1])) > 0) {
-
-date_convert <- apply(matrix(Bd_Newts_AllSites$CaptureDate), 1, FUN = function (x) {
-  a <- strsplit(x, split = "/")[[1]]
-  b <- a[3]
-  b <- strsplit(b, "")[[1]][c(3, 4)] %>% paste(collapse = "")
-  paste(c(a[c(1, 2)], b), collapse = "/")
-})
-
-Bd_Newts_AllSites$CaptureDate <- date_convert
-Bd_Newts_AllSites      %<>% mutate(CaptureDate = as.Date(CaptureDate, "%m/%d/%y"))
-
-} else {
-  
-Bd_Newts_AllSites      %<>% mutate(CaptureDate = as.Date(CaptureDate))
-  
-}
-
-Bd_Newts_AllSites$Year   <- apply(matrix(as.character(Bd_Newts_AllSites$CaptureDate)), 1, FUN = function (x) strsplit(x, "-")[[1]][1]) %>% as.numeric()
-Bd_Newts_AllSites$Month  <- apply(matrix(as.character(Bd_Newts_AllSites$CaptureDate)), 1, FUN = function (x) strsplit(x, "-")[[1]][2]) %>% as.numeric()
-Bd_Newts_AllSites$Julian <- as.POSIXlt(Bd_Newts_AllSites$CaptureDate)$yday
-
-ggplot(
-  Bd_Newts_AllSites %>% filter(BdSample == "Y") %>% droplevels()
-  , aes(Julian, TargetCopies.swab)) + 
-  geom_line(aes(group = IndividualID, colour = as.factor(Year))) +
-  facet_wrap(~Year) +
+capt_history.bd_load %>% filter(pop_spec == "NOVI.ScotiaBarrens") %>% {
+ggplot(., aes(julian, bd_load)) + 
+  geom_point(alpha = 0.1) +
+  geom_line(aes(group = Mark), alpha = 0.3) +
+  facet_wrap(~Year, ncol = 1) +
   scale_y_log10() +
-  scale_colour_brewer(palette = "Dark2", name = "Year") +
   xlab("Julian Day") +
-  ylab("Bd Load (Copies/Swab)") + 
+  ylab("Bd Load (Copies/Swab)") +
   theme(legend.key.size = unit(0.8, "cm"))
+}
 
 #### Checking gaps between sampling occasions in all populations ----
 
 ## Note: Run after data_manip.R
 
-expand.grid(
+gg.ppsp1 <- expand.grid(
   pop_spec   = unique(capt_history$pop_spec)
 , capt_gaps  = seq(365)
 ) %>% left_join(
@@ -55,18 +30,19 @@ expand.grid(
   mutate(gap_exists = 1) 
 ) %>% filter(!is.na(gap_exists)) %>% {
   ggplot(., aes(capt_gaps, pop_spec)) + geom_point(aes(colour = as.factor(Year)), size = 3, alpha = 0.7) +
-    scale_color_brewer(palette = "Dark2", name = "Year") +
+    scale_color_brewer(palette = "Dark2", name = "Year", guide = 'none') +
     geom_hline(yintercept = 2.5, linetype = "dashed", size = 0.5) +
     geom_hline(yintercept = 7.5, linetype = "dashed", size = 0.5) +
     geom_hline(yintercept = 9.5, linetype = "dashed", size = 0.5) + 
     geom_hline(yintercept = 14.5, linetype = "dashed", size = 0.5) +
     geom_vline(xintercept = 82, size = 0.75, colour = "dodgerblue4", linetype = "dashed") +
     geom_vline(xintercept = 135, size = 0.75, colour = "firebrick4") +
+    theme(plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm")) +
     xlab("Days Bewtween Sampling Occasions") +
     ylab("Population")
 }
 
-expand.grid(
+gg.ppsp2 <- expand.grid(
   pop_spec   = unique(capt_history$pop_spec)
 , capt_gaps  = seq(365)
 ) %>% left_join(
@@ -84,29 +60,26 @@ expand.grid(
     geom_hline(yintercept = 14.5, linetype = "dashed", size = 0.5) +
     geom_vline(xintercept = 9, size = 0.5, colour = "firebrick2") +
     xlab("Days Bewtween Sampling Occasions") +
-    ylab("Population")
+    theme(
+      axis.text.y = element_blank()
+    , plot.margin = unit(c(0.2, 4, 0.2, 0.2), "cm")) + 
+    ylab("")
 }
 
+gridExtra::grid.arrange(gg.ppsp1, gg.ppsp2, ncol = 2)
 
 #### Exploring sampling schemes in specific populations ----
 
-samp_days <- capt_history %>% group_by(pop_spec, capture_date) %>% slice(1) %>% 
-  mutate(J_date = as.POSIXlt(capture_date)$yday) %>%
-  dplyr::select(pop_spec, sampled, capture_date, Year, Month, J_date)
-all_days  <- expand.grid(
-  pop_spec = unique(samp_days$pop_spec)
-, Year     = unique(samp_days$Year)
-, J_date   = seq(365)
-)
-samp_days <- left_join(all_days, samp_days) %>%
-  mutate(
-    sampled    = ifelse(is.na(sampled), 0, sampled)
-  , J_date.deg = (360 / 365) * J_date
-  , y_coord    = 1) %>% filter(sampled == 1) %>%
-  mutate(y_coord = y_coord * as.numeric(as.factor(Year)))
+samp_days <- sampling %>% ungroup()
 
+samp_days %<>% 
+  rename(J_date = julian) %>% 
+  dplyr::select(pop_spec, Species, CaptureDate, Year, Month, J_date) %>%
+  mutate(J_date.deg     = (360 / 365) * J_date) %>% 
+  mutate(y_coord = (Year - min(Year))) 
 
-between_season_segment <- capt_history.phi %>% filter(offseason == 1) %>% 
+between_season_segment <- capt_history.phi %>% 
+  filter(offseason == 1) %>% 
   group_by(pop_spec, capture_date) %>%
   slice(1) %>% as.data.frame() %>% 
   mutate(J_date = as.POSIXlt(capture_date)$yday) %>%
@@ -117,7 +90,7 @@ between_season_segment <- capt_history.phi %>% filter(offseason == 1) %>%
   , J_date_end.deg = (360 / 365) * J_date_end
   ) %>% 
   mutate(
-    y_coord = (Year - min(samp_days$Year)) + 1
+    y_coord = (Year - min(samp_days$Year))
   ) %>%
   mutate(
     y_end = ifelse(J_date_end.deg > 360, y_coord + 1, y_coord)
@@ -147,7 +120,19 @@ between_season_segment <- rbind(between_season_segment.n, temp_entry.f)
 
 }
 
-within_season_segment <- capt_history.phi %>% filter(phi_ones == 0 & offseason == 0) %>% 
+## Quick manual special consideration for ANBO.SonomaMountain which wasn't sampled in 2021 but was in 2022
+between_season_segment.sm <- between_season_segment %>% filter(pop_spec == "ANBO.SonomaMountain")
+between_season_segment    <- between_season_segment %>% filter(pop_spec != "ANBO.SonomaMountain")
+between_season_segment.sm <- rbind(between_season_segment.sm, between_season_segment.sm[6, ])
+between_season_segment.sm[6, ]$J_date_end.deg <- 360
+between_season_segment.sm[6, ]$y_end <- between_season_segment.sm[6, ]$y_end + 1
+between_season_segment.sm[7, ]$y_coord <- between_season_segment.sm[7, ]$y_coord + 1
+between_season_segment.sm[7, ]$y_end <- between_season_segment.sm[7, ]$y_end + 1
+between_season_segment.sm[7, ]$J_date_end.deg <- between_season_segment.sm[7, ]$J_date_end.deg - 360
+between_season_segment <- rbind(between_season_segment, between_season_segment.sm)
+
+within_season_segment <- capt_history.phi %>% 
+  filter(phi_ones == 0 & offseason == 0) %>% 
   group_by(pop_spec, capture_date) %>%
   slice(1) %>% as.data.frame() %>% 
   mutate(J_date = as.POSIXlt(capture_date)$yday) %>%
@@ -158,7 +143,7 @@ within_season_segment <- capt_history.phi %>% filter(phi_ones == 0 & offseason =
   , J_date_end.deg = (360 / 365) * J_date_end
   ) %>% 
   mutate(
-    y_coord = (Year - min(samp_days$Year)) + 1
+    y_coord = (Year - min(samp_days$Year))
   ) %>%
   mutate(
     y_end = ifelse(J_date_end.deg > 360, y_coord + 1, y_coord)
@@ -188,7 +173,8 @@ within_season_segment <- rbind(within_season_segment.n, temp_entry.f)
 
 }
 
-closed_season_segment <- capt_history.phi %>% filter(phi_ones == 1) %>% 
+closed_season_segment <- capt_history.phi %>% 
+  filter(phi_ones == 1) %>% 
   group_by(pop_spec, capture_date) %>%
   slice(1) %>% as.data.frame() %>% 
   mutate(J_date = as.POSIXlt(capture_date)$yday) %>%
@@ -199,7 +185,7 @@ closed_season_segment <- capt_history.phi %>% filter(phi_ones == 1) %>%
   , J_date_end.deg = (360 / 365) * J_date_end
   ) %>% 
   mutate(
-    y_coord = (Year - min(samp_days$Year)) + 1
+    y_coord = (Year - min(samp_days$Year)) 
   ) %>%
   mutate(
     y_end = ifelse(J_date_end.deg > 360, y_coord + 1, y_coord)
@@ -229,17 +215,19 @@ closed_season_segment <- rbind(closed_season_segment.n, temp_entry.f)
 
 }
 
-which_pops_to_plot <- unique(data.all$pop_spec)[c(15:21)]
+which_pops_to_plot <- unique(data.all$pop_spec)
 
-samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
+samp_days %>% 
+  filter(pop_spec %in% which_pops_to_plot) %>% {
   ggplot(., aes(J_date.deg, y_coord)) + 
-    geom_point(size = 1.5, alpha = 0.5) + 
+    geom_point(size = 1.0, alpha = 0.5) + 
     coord_polar() + 
     xlab("") + 
     ylab("") + 
     scale_y_continuous(
       lim    = c(0.5, 5.1)
-    , breaks = unique((samp_days %>% filter(pop_spec %in% which_pops_to_plot))$Year) %>% length() %>% seq()
+     , breaks = unique((samp_days %>% 
+         filter(pop_spec %in% which_pops_to_plot))$Year) %>% length() %>% seq()
     , labels = c(
         unique((samp_days %>% filter(pop_spec %in% which_pops_to_plot))$Year) %>%
         sort()
@@ -251,7 +239,6 @@ samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
       "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"
     , "Sep", "Oct", "Nov", "Dec"
      )) +
-    facet_wrap(~pop_spec, nrow = 2) +
     geom_segment(
       data = between_season_segment %>% filter(pop_spec %in% which_pops_to_plot)
     , aes(
@@ -282,14 +269,15 @@ samp_days %>% filter(pop_spec %in% which_pops_to_plot) %>% {
       )
       , colour = "springgreen2" 
     ) +
-    theme(
+    facet_wrap(~pop_spec, nrow = 4) +
+      theme(
       axis.text.x = element_text(size = 10)
-    , axis.text.y = element_text(size = 13)
+    , axis.text.y = element_text(size = 11)
     , axis.ticks  = element_blank()
-    , strip.text = element_text(size = 13)
+    , strip.text.x = element_text(size = 10)
     , plot.margin = unit(c(.1,.1,.1,.1), "cm")
-    ) 
-}
+    )
+  }
 
 
 #### Bd over time and temperature ----
@@ -363,68 +351,110 @@ capt_history.p %>% filter(swabbed == 1) %>%
   ggtitle("Rana Species")
   }
 
+## FIGURE S4
+
 ## and also proportion infected 
-capt_history.p %>% filter(swabbed == 1) %>%
-  mutate(infected = ifelse(log_bd_load > 0, 1, 0)) %>%
+capt_history.bd_load %>% filter(swabbed == 1) %>%
+  mutate(infected = ifelse(bd_load > 0, 1, 0)) %>%
   group_by(pop_spec, capture_date
-    , Year, Site, Species, yday) %>%
+    , Year, Site, Species, julian) %>%
   summarize(prop_inf = sum(infected) / n()) %>%
-  filter(Species == "RANA") %>% {
-  ggplot(., aes(yday, prop_inf)) +
-    geom_point(aes(colour = as.factor(Year)), size = 3) +
+  filter(
+    pop_spec %in% c(
+      "RANA.LostHorse", "RANA.SanFrancisquito"
+    , "NOVI.KettleMoraine", "NOVI.Springfield"
+    , "AMCI.SMNWR_W", "PSMA.MatthewsPond"
+    , "ANBO.JonesPond", "ANBO.Blackrock"
+    )
+  ) %>% mutate(
+    pop_spec = plyr::mapvalues(pop_spec
+      , from = c(
+      "RANA.LostHorse", "RANA.SanFrancisquito"
+    , "NOVI.KettleMoraine", "NOVI.Springfield"
+    , "AMCI.SMNWR_W", "PSMA.MatthewsPond"
+    , "ANBO.JonesPond", "ANBO.Blackrock"
+    )
+    , to = c(
+      "RALU
+Lost Horse"
+    , "RADR
+San Francisquito"
+    , "NOVI
+Kettle Moraine"
+    , "NOVI
+Springfield"
+    , "AMCI
+SMNWR W"
+    , "PSMA
+Matthews Pond"
+    , "ANBO
+Jones Pond"
+    , "ANBO
+Blackrock"
+    )
+    )
+  ) %>% {
+  ggplot(., aes(julian, prop_inf)) +
+    geom_point(aes(colour = as.factor(Year)), size = 2) +
+    geom_line() +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
     theme(
       axis.text.x = element_text(
         size = 10
       , angle = 300, hjust = 0)
     , axis.text.y = element_text(size = 10)
+    , strip.text.x = element_text(size = 11)
     ) +
-    facet_grid(Year~Site) +
+  # facet_wrap(~pop_spec, scales = "free", nrow = 1) +
+    facet_grid(Year~pop_spec, scales = "free") +
     xlab("Julian Day") +
-    ylab("Proportion Infected") +
-  ggtitle("Rana species")
+    ylab("Proportion Infected")
   }
 
+### FIGURE S2 and FIGURE S3
+
 ## Checking Rana loads vs dates and temps
-RANAgg1 <- capt_history.p %>% 
+RANAgg1 <- capt_history.bd_load %>% 
   filter(swabbed == 1) %>%
- # filter(Species == "RANA") %>% 
-  filter(Site %in% c("SanFrancisquito", "ScotiaBarrens")) %>% {
+  filter(Species == "ANBO") %>% {
   ggplot(., aes(
-      yday
-    , log_bd_load)) +
+      julian
+    , bd_load)) +
     geom_point(aes(colour = as.factor(Year)), alpha = 0.4) +
     scale_colour_brewer(palette = "Dark2", name = "Year") +
+    scale_y_log10() +
     theme(
       axis.text.y = element_text(size = 12)
-    , axis.text.x = element_blank()
-    , axis.title.x = element_blank()
+    , axis.text.x = element_text(size = 10)
+    , axis.title.x = element_text(size = 12)
+    , strip.text.x = element_text(size = 10)
+    , plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm")
     ) +
     scale_x_continuous(lim = c(0, 365)) +
     facet_wrap(~Site, nrow = 1) +
     xlab("Julian Day") +
-    ylab("Log Bd Load")# + ggtitle("Rana spp.")
-  }
+    ylab("Log Bd Load")
+  }; RANAgg1
 
 ## and temperature of each of these populations 
-RANAgg2 <- temp_data.all %>%
+RANAgg2 <- temp.all %>%
   filter(Site %in% 
 #  c(
 #    "DilmanMeadows", "FoxCreek", "JonesPond"
 #  , "LostHorse", "SanFrancisquito", "SummitMeadow"
 #  , "ThreeCreeks"
 #  )
-#  c(
-#    "Blackrock-C", "Blackrock-H", "JonesPond"
-#  , "SonomaMountain", "TwoMedicine"
-#  )
+  c(
+    "Blackrock", "JonesPond"
+  , "SonomaMountain", "TwoMedicine"
+  )
 #  c(
 #    "EmmaCarlin", "MudLake", "ScotiaBarrens"
 #  , "SMNWR_W", "SPR"
 #  )
-  c(
-    "SanFrancisquito", "ScotiaBarrens"
-  )
+#  c(
+#   "SanFrancisquito", "ScotiaBarrens"
+# )
     ) %>% filter(Year != 2017) %>% {
   ggplot(., aes(yday, tmax)) +
     geom_line(aes(colour = as.factor(Year)), alpha = 0.5) +
@@ -433,13 +463,14 @@ RANAgg2 <- temp_data.all %>%
       axis.text.x = element_text(size = 10)
     , axis.text.y = element_text(size = 10)
     , strip.text.x = element_blank()
+    , plot.margin = unit(c(0.2, 0.2, 0.2, 0.84), "cm")
     ) +
     facet_wrap(~Site, nrow = 1) +
     geom_hline(yintercept = 17, linetype = "dashed", colour = "firebrick3") +
     geom_hline(yintercept = 25, linetype = "dashed", colour = "firebrick3") +
     xlab("Julian Day") +
-    ylab("Mean Daily Temperature") 
-}
+    ylab("Mean Daily Temperature")
+}; RANAgg2
 
 gridExtra::grid.arrange(RANAgg1, RANAgg2, ncol = 1)
 
@@ -471,6 +502,7 @@ SBgg.1 <- capt_history.p %>% filter(swabbed == 1) %>%
     theme(
       axis.text.x = element_text(size = 12)
     , axis.text.y = element_text(size = 12)
+    , plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm")
       ) +
     xlab("Cumulative Temperature") +
     ylab("Log Bd Load") +
@@ -488,6 +520,7 @@ SBgg.2 <- capt_history.p %>% filter(swabbed == 1) %>%
     theme(
       axis.text.x = element_text(size = 12)
     , axis.text.y = element_text(size = 12)
+    , plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm")
       ) +
     xlab("Julian Day") +
     ylab("Log Bd Load") 
@@ -529,6 +562,29 @@ SBgg.4 <- temp_data.all %>%
 
 gridExtra::grid.arrange(SBgg.1, SBgg.2, ncol = 1)
 
+####
+## Bd vs MeHg in 10 populations
+####
+
+## FIGURE S5
+
+capt_history.bd_load %>% filter(pop_spec %in% 
+    unique(data.all$pop_spec)[c(4, 5, 12, 13, 14, 15, 16, 17, 18, 19)]) %>%
+  filter(!is.na(merc)) %>% droplevels() %>% {
+  ggplot(., aes(merc, bd_load)) + 
+    geom_point(aes(shape = Sex), alpha = 0.5) +
+    geom_line(aes(group = Mark), alpha = 0.3) +
+    scale_y_log10() + 
+    scale_x_log10() +
+    facet_wrap(~pop_spec, ncol = 3) +
+    xlab("Methyl Mercury") +
+    ylab("Bd Load") +
+    theme(
+      strip.text.x = element_text(size = 12)
+    , axis.text.y = element_text(size = 12)
+    , axis.text.x = element_text(size = 12)
+    )
+}
 
 ####
 ## Some temp exploration

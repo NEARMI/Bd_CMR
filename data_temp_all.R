@@ -15,9 +15,9 @@ data.temp <- rbind(
   Site  = rep(temp_sites[i], unique(data.temp$yday) %>% length())
 , Year  = rep(2022, unique(data.temp$yday) %>% length())
 , yday  = unique(data.temp$yday)
-, tmean = (data.temp %>% group_by(yday) %>% summarize(tmean = mean(tmean)))$tmean
-, tmin  = (data.temp %>% group_by(yday) %>% summarize(tmin  = mean(tmin)))$tmin
-, tmax  = (data.temp %>% group_by(yday) %>% summarize(tmax  = mean(tmax)))$tmax
+, tmean = (data.temp %>% group_by(yday) %>% summarize(tmean = mean(tmean), .groups = "drop"))$tmean
+, tmin  = (data.temp %>% group_by(yday) %>% summarize(tmin  = mean(tmin), .groups = "drop"))$tmin
+, tmax  = (data.temp %>% group_by(yday) %>% summarize(tmax  = mean(tmax), .groups = "drop"))$tmax
 )
 )
 

@@ -219,7 +219,7 @@ parameters {
 	real<lower=0> p_day_delta_sigma[n_pop];	         // variation in detection by day (nested within each population)
 
   // random: deviates
-	real p_day_delta_eps[n_days];			 // day to day variation
+	real p_day_delta_eps[n_days_for_p];		 // day to day variation
 	vector[n_pop] p_pop_eps;			 // pop differences 
 
 

@@ -41,7 +41,7 @@ if (plot_model) {
 if (plot_model) {
 if (plot_from == "saved_model" | plot_from == "saved_samples") {
   if (plot_from == "saved_model") {
-      saved_model <- "fits/stan_fit_multipop_all_full_2022-06-23.Rds" 
+      saved_model <- "fits/XXXX.Rds" 
    if (file.exists(saved_model)) {
      print(paste("Plotting will occur using the saved model:", saved_model, sep = " "))
    } else {
@@ -49,7 +49,7 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
      break
    }
   } else if (plot_from == "saved_samples") {
-      saved_samples <- "samples/stan_multipop_mehg_cleaned.Rds"
+      saved_samples <- "samples/XXXX.Rds"
    print(paste("Plotting will occur using the saved chains:", saved_samples, sep = " "))
   } else {
    print("Plotting will not occur because of an unknown command or a missing file")
@@ -62,7 +62,7 @@ if (plot_from == "saved_model" | plot_from == "saved_samples") {
 
 ## Packages and Functions
 source("packages_functions.R")
-source("../ggplot_theme.R")
+source("ggplot_theme.R")
 
 ## Read in data
 source("complete_data.R") 
@@ -72,30 +72,54 @@ source("complete_data.R")
   ## and some choices won't work with certain models, so will need to double check. Mismatches will lead to errors
    ## List of populations that can be fit with individual-level mercury listed in "determine_model.R"
 
- ## 0) Single population?
-sing_pop       <- FALSE
- ## 1) Multiple species?
-multi_spec     <- FALSE
- ## 1.2) If multiple species, fit a reduced model with no species-specific fixed effects?
-multi_spec_red <- FALSE
- ## 2) Not all populations?
-some_pops      <- TRUE
- ## 3.1) Fit individual-level MeHg? Be careful what populations to choose
-fit_ind_mehg   <- FALSE
- ## 3.2) Fit a model only predicting MeHg? (no survival) Setting as TRUE invalidates many other options pertaining to survival
-fit_only_mehg  <- FALSE
- ## 4) Reduced detection model? (if FALSE fits a random effect level for every day in every population)
-red_p_model    <- TRUE
+## Primary considerations are: one pop or more, then if more, is there only one species or multiple? AND fitting individual-level MeHg or not
+
+## For the publication:
+ ## 1) multiple populations with multiple species, fit_ind_mehg == T
+ ## 2) multiple populations with multiple species, fit_ind_mehg == F 
+
+## If sing_pop == TRUE, only one fitting option allowed (the one that conforms to the strcuture of sampling in that population)
+ ## The models are listed in a csv file in the repo and pulled depending on the population name being fit
+
+ ## Single population?
+sing_pop         <- TRUE
+ ## Multiple species?
+multi_spec       <- FALSE
+  ## If multiple species, fit a reduced model with no species-specific fixed effects?
+  multi_spec_red <- FALSE
+ ## Not all populations?
+some_pops        <- TRUE
+ ## Fit individual-level MeHg? Be careful what populations to choose
+fit_ind_mehg     <- FALSE
+ ## Fit a model only predicting MeHg? (no survival) Setting as TRUE invalidates many other options pertaining to survival
+fit_only_mehg    <- FALSE
+ ## Reduced detection model? (if FALSE fits a random effect level for every day in every population)
+red_p_model      <- TRUE
 
 ## More printing to better track specific fit when using slurm
 print("Fitting choices are:")
-print(paste("sing_pop =", sing_pop, sep = " "))
-print(paste("multi_spec =", multi_spec, sep = " "))
-print(paste("multi_spec_red =", multi_spec_red, sep = " "))
-print(paste("some_pops =", some_pops, sep = " "))
-print(paste("fit_ind_mehg =", fit_ind_mehg, sep = " "))
-print(paste("fit_only_mehg = ", fit_only_mehg, sep = " "))
-print(paste("red_p_model =", red_p_model, sep = " "))
+print(
+  data.frame(
+    option = c(
+      "sing_pop"
+    , "multi_spec"
+    , "multi_spec_red"
+    , "some_pops"
+    , "fit_ind_mehg"
+    , "fit_only_mehg"
+    , "red_p_model"
+    )
+  , choice = c(
+    sing_pop
+  , multi_spec
+  , multi_spec_red
+  , some_pops
+  , fit_ind_mehg
+  , fit_only_mehg
+  , red_p_model
+  )
+  )
+)
 
 ## From these choices find the model to fit
 source("determine_model.R")
@@ -122,32 +146,31 @@ source("determine_model.R")
  # 19 - RANA.SanFrancisquito
  # 20 - RANA.SummitMeadow
 
-## Some population choices:
- ## Full fit without the biggest populations (KettleMoraine, Springfield, and Scotia Barrens)
-   ## -c(7, 9, 11) 
- ## MeHg fit (with survival)
-   ## c(4, 5, 6, 14:19)
- ## MeHg --> Bd (no survival)
-   ## Very best data
-     ## c(4, 5, 14, 16, 17, 18) 
-   ## All but the very worst populations and the very large populations
-     ## c(3, 4, 5, 6, 14:19)
+## Main fits for the paper: 
+ ## Individual level MeHg
+  ## c(4, 5, 12, 13, 14, 15, 16, 17, 18, 19)
+ ## No Individual level MeHg
+  ## -c(4, 5, 12, 13, 14, 15, 16, 17, 18, 19)
 
 ## If a subset of populations, pick which ones
 if (some_pops) {
-# which.dataset <- unique(data.all$pop_spec)[10] %>% droplevels() 
-# which.dataset <- unique(data.all$pop_spec)[2] %>% droplevels() 
-# which.dataset <- unique(data.all$pop_spec)[11] %>% droplevels()
- which.dataset <- unique(data.all$pop_spec)[grep("ANBO", unique(data.all$pop_spec))] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
-# which.dataset <- unique(data.all$pop_spec)[c(3, 13, 16)] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[4] %>% droplevels() 
+# which.dataset <- unique(data.all$pop_spec)[grep("ANBO", unique(data.all$pop_spec))] %>% droplevels()
+  which.dataset <- unique(data.all$pop_spec)[grep("RANA", unique(data.all$pop_spec))] %>% droplevels()
 # which.dataset <- unique(data.all$pop_spec)[c(4, 5, 12, 13, 14, 15, 16, 17, 18, 19)] %>% droplevels()
+  
+  
   data.all      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
   sampling      %<>% filter(pop_spec %in% which.dataset) %>% droplevels()
   
 if (sing_pop) {
   which_stan_file <- (which_model_fit %>% filter(pop_spec == which.dataset %>% as.character()))$model
   this_model_fit  <- paste("stan_current/", which_stan_file, ".stan", sep = "")
+  model_name      <- paste(
+    paste("fits/", which_stan_file, sep = "")
+    , Sys.Date(), sep = "_") %>% paste(
+      ., which.dataset %>% as.character(), sep = "_"
+    ) %>% paste(., ".Rds", sep = "")
 }
   
 } else {

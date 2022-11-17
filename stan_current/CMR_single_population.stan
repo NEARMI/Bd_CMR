@@ -268,10 +268,10 @@ model {
 	bd_obs          ~ inv_gamma(10, 4);
 	bd_delta_eps    ~ normal(0, 3);
 	beta_bd_len     ~ normal(0, 3);
+	beta_bd_year    ~ normal(0, 3);
 
 // Survival Priors
 
-	beta_bd_year        ~ normal(0, 3);
 	beta_phi            ~ normal(0, 1.95);
 	beta_offseason[1]   ~ normal(0, 1.45);
 	beta_offseason[2]   ~ normal(0, 1.45);
