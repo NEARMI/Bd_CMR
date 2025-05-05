@@ -5,7 +5,7 @@
 source("packages_functions.R")
 source("ggplot_theme.R")
 
-extract_estimates <- function(saved_model, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg, fit_ind_mehg, multi_spec_red = F, which_fit, ...) {
+extract_estimates <- function(saved_model, sampling, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg, fit_ind_mehg, multi_spec_red = F, which_fit, ...) {
   
 stan.fit         <- readRDS(saved_model)
 if (which_fit == "pop_mehg") {
@@ -14,10 +14,11 @@ if (which_fit == "pop_mehg") {
   capt_history.p   <- stan.fit$capt_history.p
   sampling         <- stan.fit$sampling
 } else {
-  stan.fit.samples <- stan.fit[[4]]
-  capt_history.phi <- stan.fit[[1]]
-  capt_history.p   <- stan.fit[[2]]
-  sampling         <- stan.fit[[3]]
+ # stan.fit.samples  <- stan.fit$fitted_model %>% extract()
+  stan.fit.samples  <- stan.fit[[4]]
+  capt_history.phi  <- stan.fit[[1]]
+  capt_history.p    <- stan.fit[[2]]
+  sampling          <- stan.fit[[3]]
 }
 
 these_specs <- unique(capt_history.phi$Species)
@@ -63,6 +64,7 @@ pred.vals.gg <- get_envelopes(stan.fit.samples, spec_sex, spec_sex_mm, spec_in_p
                             , these_pops, these_sexes, these_specs
                             , spec_pop_plot_labels, spec_names)
 
+
 return(
   list(
     list_of_CI
@@ -84,6 +86,12 @@ bd.est <- matrix(
   data = 0
 , nrow = dim(stan.fit.samples$z_r)[1]
 , ncol = dim(stan.fit.samples$z_r)[3]
+)
+
+len.est <- matrix(
+  data = 0
+  , nrow = dim(stan.fit.samples$z_r)[1]
+  , ncol = dim(stan.fit.samples$z_r)[3]
 )
 
 if (fit_mehg) {
@@ -120,6 +128,9 @@ for (j in 1:ncol(bd.est)) {
    bd.est[, j] <- (sweep(stan.fit.samples$beta_offseason_bd, 2
     , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_specs] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
     stan.fit.samples$z_r[, 2, j]
+   len.est[, j] <- (sweep(stan.fit.samples$beta_offseason_len, 2
+    , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_specs] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
+    stan.fit.samples$z_r[, 3, j]
   }
   if (fit_mehg) {
     if (which_fit == "ind_mehg") {
@@ -127,7 +138,7 @@ for (j in 1:ncol(bd.est)) {
     , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_specs] %>% as.matrix() %>% c(), `*`) %>% rowSums()) +
       stan.fit.samples$z_r[, 4, j]
     } else {
-      (sweep(stan.fit.samples$beta_offseason_mehg[, 1:n_specs], 2
+    mehg.est[, j] <- (sweep(stan.fit.samples$beta_offseason_mehg[, 1:n_specs], 2
     , spec_sex_mm[spec_sex_mm$spec == spec_in_pop[j] & spec_sex_mm$sex == "M", 1:n_specs] %>% as.matrix() %>% c(), `*`) %>% rowSums())
     }
   }
@@ -155,6 +166,7 @@ list(
 , bd.est
 , {if(fit_mehg){mehg.est}else{NULL}}
 , {if(fit_ind_mehg){bd.mehg.est}else{NULL}}
+, len.est
 )
 )
  
@@ -356,6 +368,13 @@ bd.mehg.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate
   Species = plyr::mapvalues(Species, from = unique(Species), to = spec_names)
 )
 }
+
+len.est <- list_of_CI[[5]]
+len.est <- reshape2::melt(len.est)
+names(len.est) <- c("Sample", "Population", "Value")
+len.est %<>% mutate(Species = as.factor(spec_in_pop[Population])) %>% mutate(
+  Species = plyr::mapvalues(Species, from = unique(Species), to = spec_names)
+)
   
 ## A data frame for later to help scale the effect of Bd to the more interpretable probability scale
 int.est2 <- int.est %>% group_by(Population, Species) %>% summarize(mid   = quantile(Value, 0.500))
@@ -382,6 +401,18 @@ int.est %<>% mutate(
 
 bd.est %<>% group_by(Population, Species) %>% summarize(
     lwr   = quantile(Value, 0.025)
+  , lwr_n = quantile(Value, 0.200)
+  , mid   = quantile(Value, 0.500)
+  , upr_n = quantile(Value, 0.800)
+  , upr   = quantile(Value, 0.975)
+) %>% ungroup() %>% mutate(
+  pop_spec = unique(capt_history.p$pop_spec)
+) %>% mutate(
+  CI_width = upr - lwr
+)
+
+len.est %<>% group_by(Population, Species) %>% summarize(
+  lwr   = quantile(Value, 0.025)
   , lwr_n = quantile(Value, 0.200)
   , mid   = quantile(Value, 0.500)
   , upr_n = quantile(Value, 0.800)
@@ -480,6 +511,14 @@ int.est.gg <- int.est %>% mutate(Population = plyr::mapvalues(Population
 ) %>% arrange(desc(mid)) %>% 
   mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
 
+len.est.gg <- len.est %>%
+  left_join(., num_samples) %>% left_join(., recaps) %>% 
+  mutate(Population = plyr::mapvalues(Population
+  , from = unique(Population)
+  , to = spec_pop_plot_labels)
+) %>% arrange(desc(mid)) %>% 
+  mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
+
 bd.est.gg <- bd.est %>% arrange(desc(mid)) %>% 
   mutate(pop_spec = factor(pop_spec, levels = pop_spec)) 
 
@@ -544,6 +583,10 @@ list(
 , mehg.est.gg    = {if(fit_mehg){mehg.est.gg %>% mutate(which_fit = which_fit)}else{NULL}}
 , bd.mehg.est    = {if(fit_ind_mehg){bd.mehg.est %>% mutate(which_fit = which_fit)}else{NULL}}
 , bd.mehg.est.gg = {if(fit_ind_mehg){bd.mehg.est.gg %>% mutate(which_fit = which_fit)}else{NULL}}
+, len.est        = len.est %>% mutate(which_fit = which_fit)
+, len.est.gg     = len.est.gg %>% mutate(which_fit = which_fit)
+, recaps         = recaps
+, nswabs         = n_swabs
 )
 )
 
@@ -583,7 +626,7 @@ spec_names <- c(
 , "Rana spp."
 )
 
-pop_mehg_preds <- extract_estimates(saved_model, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg = T, fit_ind_mehg = F
+pop_mehg_preds <- extract_estimates(saved_model, NULL, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg = T, fit_ind_mehg = F
                                   , multi_spec_red = F, which_fit)
 
 
@@ -593,6 +636,7 @@ pop_mehg_preds <- extract_estimates(saved_model, spec_pop_plot_labels, spec_labs
 
 which_fit   <- "ind_mehg"
 saved_model <- "fits/ind_mehg_full.Rds"
+#saved_model <- "fits/full_stan_fit.Rds"
 
 spec_pop_plot_labels <- c(
   "MT - Jones Pond"
@@ -619,9 +663,8 @@ spec_names <- c(
 , "Rana spp."
 )
 
-ind_mehg_preds <- extract_estimates(saved_model, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg = T
+ind_mehg_preds <- extract_estimates(saved_model, sampling = sampling, spec_pop_plot_labels, spec_labs, spec_names, fit_mehg = T
                                   , multi_spec_red = F, fit_ind_mehg = T, which_fit)
-
 
 ####--------
 ## Plots with these fits
@@ -654,12 +697,13 @@ bd.est.gg %>% {
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
     geom_point(size = 2.5) +
     scale_color_manual(
-      values = brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
+      values = RColorBrewer::brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
     , labels  = spec_labs
     ) +
     scale_y_discrete(labels = bd.est.gg$Population) +
     xlab("Effect of Bd on Survival (Logit Scale)") +
-    scale_x_continuous(breaks = c(-2.5, -1.5, -0.5, 0, 0.5, 1.5, 2.5)) +
+    scale_x_continuous(breaks = c(-2.5, -1.5, -0.75, 0, 0.75, 1.5, 2.5)
+                       , lim = c(-4.4, 4.9)) +
     ylab("Population") +
     geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
     theme(axis.text.y = element_text(size = 11)
@@ -675,12 +719,23 @@ bd.est.gg %>% {
   ## -- ind_mehg_preds[[3]] (bd)
 
 pred.vals.gg <- rbind(
-  ind_mehg_preds[[3]]
-, pop_mehg_preds[[3]]
+  ind_mehg_preds[[3]] %>% mutate(
+    bd_raw = (bd * 4.187317 + 5.332455) %>% exp()
+  )
+, pop_mehg_preds[[3]] %>% mutate(
+    bd_raw = (bd * 4.289586 + 6.24991) %>% exp()
+  )
 ) 
 
-pred.vals.gg %>% filter(sex == "M", len == 0, mehg == 0) %>% {
-  ggplot(., aes(bd, mid)) + 
+pred.vals.gg %<>% mutate(
+  spec = factor(spec, levels = c(
+    unique(pred.vals.gg$spec) %>% as.character() %>% sort()
+  ))
+)
+
+pred.vals.gg %>% 
+  filter(sex == "M", len == 0, mehg == 0) %>% {
+  ggplot(., aes(bd_raw, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr
       , fill = spec, colour = spec
       ), alpha = 0.3) +
@@ -699,7 +754,8 @@ pred.vals.gg %>% filter(sex == "M", len == 0, mehg == 0) %>% {
       name   = "Species"
     , values = brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
     , labels = spec_labs) +
-    scale_x_continuous(breaks = c(-1.40, -0.75, 0, 0.75, 1.40)) +
+      scale_x_log10() +
+    #scale_x_continuous(breaks = c(-1.40, -0.75, 0, 0.75, 1.40)) +
     facet_wrap(~pop) +
     theme(
     strip.text.x    = element_text(size = 11)
@@ -710,7 +766,8 @@ pred.vals.gg %>% filter(sex == "M", len == 0, mehg == 0) %>% {
   , legend.title    = element_text(size = 13)
   , legend.text.align = 0
     ) +
-    xlab("Bd Load (scaled)") +
+   # xlab("Bd Load (scaled)") +
+    xlab("Bd Load (log10 Copy Number)") +
     ylab("Between-Season Survival")
 }
 
@@ -729,24 +786,30 @@ mehg.est.gg <- rbind(
 , ind_mehg_preds[[2]]$bd.mehg.est.gg %>% mutate(coef = "MeHg-Bd Interaction")
 )
 
+mehg.est.gg %<>% mutate(
+  Species = factor(Species, levels = c(
+    unique(mehg.est.gg$Species) %>% as.character() %>% sort()
+  ))
+, Population = factor(Population, levels = c(
+  unique(bd.est.gg$Population)
+))
+)
+
 mehg.est.gg %>% {
   ggplot(., aes(mid, pop_spec, colour = Species)) + 
     geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2, size = 0.8) +
     geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
     geom_point(size = 2.5) +
-    scale_color_manual(
-      values = brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
-    , labels  = spec_labs
-    ) +
-    scale_y_discrete(labels = bd.est.gg$Population) +
+    scale_color_manual(values = brewer.pal(8,"Dark2")[c(6,7,3,4,1)]) +
+    scale_y_discrete(labels = mehg.est.gg$Population) +
     xlab("Effect of MeHg on Survival (Logit Scale)") +
-    scale_x_continuous(breaks = c(-2.5, -1.5, -0.5, 0, 0.5, 1.5, 2.5)) +
+    scale_x_continuous(breaks = c(-2.5, -1.5, -0.75, 0, 0.75, 1.5, 2.5)) +
     ylab("Population") +
     geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
     facet_wrap(~coef) +
     theme(axis.text.y = element_text(size = 11)
       , legend.key.size = unit(0.6, "cm")
-      , axis.text.x = element_text(size = 10)
+      , axis.text.x = element_text(size = 9)
       , legend.text = element_text(size = 11)
       , legend.title = element_text(size = 13)
       , legend.text.align = 0)
@@ -848,6 +911,12 @@ pred.vals.gg <- rbind(
 , pop_mehg_preds[[3]]
 ) 
 
+pred.vals.gg %<>% mutate(
+  spec = factor(spec, levels = c(
+    unique(pred.vals.gg$spec) %>% as.character() %>% sort()
+  ))
+)
+
 pred.vals.gg %>% filter(sex == "M", bd == 0, mehg == 0) %>% {
   ggplot(., aes(len, mid)) + 
     geom_ribbon(aes(ymin = lwr, ymax = upr
@@ -883,10 +952,216 @@ pred.vals.gg %>% filter(sex == "M", bd == 0, mehg == 0) %>% {
     ylab("Between-Season Survival")
 }
 
+#### Figure SX -----
+## Duplicated from above but for length and not bd
+
+len.est.gg <- rbind(
+  ind_mehg_preds[[2]]$len.est.gg
+  , pop_mehg_preds[[2]]$len.est.gg
+) %>% arrange(desc(mid)) %>% 
+  mutate(
+    pop_spec = factor(pop_spec, levels = unique(pop_spec))
+    , Species  = factor(Species, levels = unique(Species) %>% as.character() %>% sort())
+  )
+
+spec_labs <- c(
+  expression(italic("Ambystoma cingulatum"))
+  , expression(italic("Anaxyrus boreas"))
+  , expression(italic("Notophthalmus viridescens"))
+  , expression(italic("Pseudacris maculata"))
+  , expression(italic("Rana spp."))
+)
+
+len.est.gg %>% {
+  ggplot(., aes(mid, pop_spec, colour = Species)) + 
+    geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2, size = 0.8) +
+    geom_errorbarh(aes(xmin = lwr_n, xmax = upr_n), height = 0.0, size = 1.5) +
+    geom_point(size = 2.5) +
+    scale_color_manual(
+      values = RColorBrewer::brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
+      , labels  = spec_labs
+    ) +
+    scale_y_discrete(labels = bd.est.gg$Population) +
+    xlab("Effect of SVL on Survival (Logit Scale)") +
+    #    scale_x_continuous(breaks = c(-2.5, -1.5, -0.75, 0, 0.75, 1.5, 2.5)
+    #                       , lim = c(-4.4, 4.9)) +
+    ylab("Population") +
+    geom_vline(xintercept = 0, linetype = "dashed", size = 0.4) +
+    theme(axis.text.y = element_text(size = 11)
+          , legend.key.size = unit(0.6, "cm")
+          , axis.text.x = element_text(size = 10)
+          , legend.text = element_text(size = 11)
+          , legend.title = element_text(size = 13)
+          , legend.text.align = 0)
+}
+
 #### Figure S12 ------
  ## Figure S12: Within-year survival
   ## -- STILL TO DO
 
 
+#### Figure SX-SY ------
+  ## Population sizes
 
+pop_size_ests <- capt_history.p %>% 
+  ungroup() %>% 
+  group_by(pop_spec, capture_date) %>%
+  slice(1) %>% 
+  dplyr::select(pop_spec, capture_date) %>% 
+  ungroup() %>%
+  mutate(
+      lwr   = apply(pop_size, 2, FUN = function(x) quantile(x, 0.025))
+    , lwr_n = apply(pop_size, 2, FUN = function(x) quantile(x, 0.200))
+    , mid   = apply(pop_size, 2, FUN = function(x) quantile(x, 0.500))
+    , upr_n = apply(pop_size, 2, FUN = function(x) quantile(x, 0.800))
+    , upr   = apply(pop_size, 2, FUN = function(x) quantile(x, 0.975))
+  ) %>% ungroup() %>% 
+  group_by(pop_spec) %>% 
+  mutate(ss = seq(n())) %>% 
+  filter(ss != min(ss)) %>% ungroup()
+
+#pop_size_ests[pop_size_ests$capt_per_day == 0, 5:9] <- NA
+
+#x_labs <- pop_size_ests %>% 
+#  group_by(pop_spec) %>% 
+#  filter(ss %in% seq(min(ss), max(ss), by = 5))
+
+pop_size_ests$spec <- apply(pop_size_ests$pop_spec %>% matrix, 1, FUN = function(x) strsplit(x, "[.]")[[1]][1])
+
+pop_size_ests %<>% mutate(pop = pop_spec) 
+pop_size_ests %<>% mutate(
+  pop  = plyr::mapvalues(pop, from = unique(pop_size_ests$pop)
+                         , to = spec_pop_plot_labels
+  )
+  , spec = plyr::mapvalues(spec, from = unique(pop_size_ests$spec)
+                           , to = spec_names)
+)
+
+pop_size_ests %<>% unite(pop, pop, spec, sep = " - ")
+
+pop_size_ests1 <- pop_size_ests
+pop_size_ests2 <- pop_size_ests
+
+pop_size_ests.f <- rbind(pop_size_ests1, pop_size_ests2)
+
+pop_size_ests.f$spec <- apply(pop_size_ests.f$pop %>% matrix, 1, FUN = function(x) strsplit(x, " - ")[[1]][3])
+pop_size_ests.f$ppop <- apply(pop_size_ests.f$pop %>% matrix, 1, FUN = function(x) {
+  tt <- strsplit(x, " - ")[[1]][1:2]
+  paste(tt, collapse = " - ")
+  })
+
+first_specs  <- unique(pop_size_ests.f$spec)[c(1, 2, 3)]
+second_specs <- unique(pop_size_ests.f$spec)[c(4, 5)]
+
+# "#E6AB02" "#A6761D" "#7570B3" "#E7298A" "#1B9E77"
+
+pop_size_ests.f %>% 
+  filter(spec %in% c(
+    unique(pop_size_ests.f$spec)[c(4, 5)]
+  )) %>% {
+    ggplot(., aes(capture_date, mid)) + 
+      geom_errorbar(aes(ymin = lwr, ymax = upr, colour = spec), width = 0.2, size = 0.3) +
+      geom_errorbar(aes(ymin = lwr_n, ymax = upr_n, colour = spec), width = 0, size = 0.8) +
+      scale_color_manual(
+      # values  = RColorBrewer::brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
+        values  = RColorBrewer::brewer.pal(8,"Dark2")[c(4,1)]
+      , labels  = spec_labs[c(4, 5)]
+      , name    = "Species"
+      ) +
+      xlab("Date") +
+      ylab("Population Estimate") +
+      theme(
+        axis.text.x = element_text(size = 10)
+      , axis.text.y = element_text(size = 10)
+      , strip.text.x = element_text(size = 10)
+      , ) +
+      facet_wrap(~ppop, scales = "free", ncol = 2) +
+      scale_y_log10()
+  }
+
+#   geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+#   geom_ribbon(aes(ymin = lwr_n, ymax = upr_n), alpha = 0.2) +
+#   geom_line() +
+#   geom_point(aes(capture_date, capt_per_day), colour = "firebrick3", size = 3) +
+#      scale_x_continuous(
+#        breaks = x_labs$date_fac
+#      , labels = x_labs$capture_date
+#        ) +
+# axis.text.x = element_text(angle = 300, hjust = 0, size = 10)
+
+
+#### Figure SX ------
+## Figure SX: 
+ ## Width of CI for Average Survival against Caps per ind
+ ## Width of CI for Bd effect Swabs per individual
+
+spec_labs <- c(
+  expression(italic("Ambystoma cingulatum"))
+  , expression(italic("Anaxyrus boreas"))
+  , expression(italic("Notophthalmus viridescens"))
+  , expression(italic("Pseudacris maculata"))
+  , expression(italic("Rana spp."))
+)
+
+ggs.1 <- bd.est.gg %>% {
+  ggplot(., aes(swabs_per_ind, CI_width, colour = Species)) + 
+    geom_point(aes(size = caps_per_ind)) +
+    scale_size_continuous(name = "Average Number
+of Captures
+Per Individual") +
+    scale_color_manual(
+      values = RColorBrewer::brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
+      , labels  = spec_labs
+    ) +
+    xlab("Average Number of Swabs Per Individual") +
+    ylab("Width of 95% CI for 
+Bd Effect (logit scale)") +
+    theme(axis.text.y = element_text(size = 11)
+          , legend.key.size = unit(0.3, "cm")
+          , axis.text.x = element_text(size = 11)
+          , axis.title.x = element_text(size = 13)
+          , axis.title.y = element_text(size = 13)
+          , legend.text = element_text(size = 9)
+          , legend.title = element_text(size = 10)
+          , legend.text.align = 0)
+}
+
+int.est.gg <- rbind(
+  ind_mehg_preds[[2]]$int.est.gg
+  , pop_mehg_preds[[2]]$int.est.gg
+) %>% arrange(desc(mid)) %>% 
+  mutate(
+    pop_spec = factor(pop_spec, levels = unique(pop_spec))
+    , Species  = factor(Species, levels = unique(Species) %>% as.character() %>% sort())
+  )
+
+spec_labs <- c(
+  expression(italic("Ambystoma cingulatum"))
+  , expression(italic("Anaxyrus boreas"))
+  , expression(italic("Notophthalmus viridescens"))
+  , expression(italic("Pseudacris maculata"))
+  , expression(italic("Rana spp."))
+)
+
+ggs.2 <- int.est.gg %>% {
+  ggplot(., aes(caps_per_ind, CI_width, colour = Species)) + 
+    geom_point(size = 2.5) +
+    scale_color_manual(
+      values = RColorBrewer::brewer.pal(8,"Dark2")[c(6,7,3,4,1)]
+      , labels  = spec_labs
+    ) +
+    xlab("Average Number of Captures Per Individual") +
+    ylab("Width of 95% CI for Average 
+Survival (probability scale)") +
+    theme(axis.text.y = element_text(size = 11)
+          , legend.key.size = unit(0.3, "cm")
+          , axis.text.x = element_text(size = 11)
+          , axis.title.x = element_text(size = 13)
+          , axis.title.y = element_text(size = 13)
+          , legend.text = element_text(size = 9)
+          , legend.title = element_text(size = 10)
+          , legend.text.align = 0)
+}
+
+grid.arrange(ggs.1, ggs.2, ncol = 1)
 
