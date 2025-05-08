@@ -1,1 +1,0 @@
-temporary housing place for older models in the older form that I know are working

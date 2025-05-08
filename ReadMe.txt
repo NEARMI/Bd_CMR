@@ -1,7 +1,7 @@
 CMR models with a latent disease process. Only files relevant to the models fit for the publication in Scientific Reports.
 
-All project development scripts are found in the main branch of the repository or in the Preprublication_project_development folder on this branch
-The files in this folder include, but are not limited to, code for many alternative models and code for simulating CMR data and fitting to simulated data (for model dev)
+All project development scripts are found in the main branch of the repository.
+The files in this branch include, but are not limited to, code for many alternative models and code for simulating CMR data and fitting to simulated data (for model dev)
 ReadMe provided in the subfolder
 
 
