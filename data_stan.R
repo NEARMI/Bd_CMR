@@ -4,6 +4,10 @@
 ## in sampling among populations                                        ##
 ##########################################################################
 
+## NOTE: This somewhat opaque form is not actually needed for this analysis of one population,
+ ## but works perfectly fine so we chose to not change anything. For some notes on this
+  ## indexing structure see the text below
+
 ####
 ## NOTE: The way the "long-form / database-form" model works is to have a single long vector for each piece of data
 ## paired with index vectors that give details about the individuals/populations/days etc. associated with each
@@ -22,24 +26,24 @@ capt_history %<>% mutate(Sex = factor(Sex, levels = c("M", "F", "U")))
 n_ind     <- length(unique(capt_history$Mark))
 
 ## individuals per population
-n_ind.per <- capt_history %>% group_by(pop_spec) %>%
+n_ind.per <- capt_history %>% group_by(Site) %>%
   summarize(n_ind = length(unique(Mark))) %>% 
-  dplyr::select(-pop_spec) %>% as.matrix()
+  dplyr::select(-Site) %>% as.matrix()
 
 ## total number of sampling occasions (primary and secondary) per population per year
 n_occ     <- sampled_periods %>% 
-  group_by(Year, pop_spec) %>%
+  group_by(Year, Site) %>%
   summarize(n_occ = length(unique(SecNumConsec))) %>% 
-  mutate(pop_spec = factor(pop_spec, levels = u_sites)) %>%
-  arrange(pop_spec) %>%
-  pivot_wider(values_from = n_occ, names_from = pop_spec) %>% 
+  mutate(Site = factor(Site, levels = u_sites)) %>%
+  arrange(Site) %>%
+  pivot_wider(values_from = n_occ, names_from = Site) %>% 
   arrange(Year) %>%
   ungroup() %>%
   dplyr::select(-Year) %>% as.matrix()
 n_occ[is.na(n_occ)] <- 0
 
 ####
-## Data for detection ("XXXX.p" for detection)
+## Data for detection (objects named "XXXX.p" for detection)
 ####
 
 capt_history.p   <- capt_history %>% filter(sampled == 1) %>% ungroup()
@@ -53,7 +57,7 @@ p_first_index <- (capt_history.p %>% mutate(index = seq(n())) %>%
 ## determine the _first primary period_ in which each individual was captured, and thus _known_ to be present
  ## (under the assumption of a closed population in the secondary periods within primary period)
 first_capt <- capt_history.p %>% 
-  group_by(Mark, Year, Month, pop_spec) %>% 
+  group_by(Mark, Year, Month) %>% 
   summarize(capt = sum(captured)) %>% 
   ungroup(Year, Month) %>%
 ## And then in all future times from the current time these individuals _could_ be here but not captured
@@ -64,7 +68,7 @@ first_capt <- capt_history.p %>%
  ## (all periods in advance of first capturing them)
 capt_history.p %<>% 
   ungroup() %>% 
-  group_by(Mark, Month, Year,  capture_date) %>% 
+  group_by(Mark, Month, Year, capture_date) %>% 
   mutate(p_zeros = ifelse(any(captured == 1), 1, 0)) %>%
   ungroup() %>%
   group_by(Mark) %>%
@@ -74,31 +78,13 @@ capt_history.p %<>%
 ## Mutate gets __really__ slow with very large data frames, so instead pull out the column, adjust it along, and stick it back into the data frame
  ## There may be a better way to do this, but for speed considerations I am not aware of any
 
-## These p_zeros are used to set up a scaling factor on detection probability (one scaling factor for each
- ## individual in each primary period) that could _maybe_ be used to try and scale detection in periods
-  ## prior to an individual being captured for the first time. Call this gamma_index.
-   ## *** Not currently actually used (As of March 25), but leaving it for now
-capt_history.p %<>% mutate(gamma_index = paste(interaction(Mark, Year
-  #, Month
-  ), "a", sep = "_"))
-uni_gamma_index <- unique(capt_history.p$gamma_index)
-gamma_index     <- factor(capt_history.p$gamma_index, levels = uni_gamma_index) %>% as.numeric()
-
-capt_history.p   %<>% mutate(X_stat_index = paste(interaction(Mark, Year), "a", sep = "_"))
-uni_X_stat_index <- unique(capt_history.p$X_stat_index)
-X_stat_index     <- factor(capt_history.p$X_stat_index, levels = uni_X_stat_index) %>% as.numeric()
-
-capt_history.p$gamma_index  <- gamma_index
-capt_history.p$X_stat_index <- X_stat_index
-
-
 ####
 ## Data for survival ("XXXX.phi" for survival)
 ####
 
 ## phi not calculable on the last time step so drop it
 last_period <- capt_history %>% 
-  group_by(pop_spec) %>% 
+  group_by(Site) %>% 
   filter(sampled == 1) %>% 
   summarize(last_period = max(SecNumConsec))
 
@@ -107,22 +93,10 @@ capt_history.phi <- capt_history %>%
   filter(SecNumConsec != last_period, sampled == 1) %>% 
   ungroup()
 
-## The second of the survival processes concerns survival between years. Designated with "offseason"
-
-## Old version of "offseason" defined by the transition between calendar year. However, this doesn't
- ## work for all populations, thus the new version is to pick a threshold length of time between
-  ## sampling occasions and use this for both offseason and inseason. 
-#capt_history.phi %<>% 
-#  group_by(pop_spec, Mark) %>%
-#  mutate(offseason = Year - lag(Year, 1)) %>% 
-#  mutate(offseason = ifelse(is.na(offseason), 0, offseason)) %>%
-#  mutate(offseason = c(offseason[-1], 0)) %>% 
-#  ungroup()
-
-## So, determine off and on season periods
+## Determine off and on season periods
 capt_history.phi %<>% mutate(
-  ## choices seem to be 82 or around 135 which result in somewhat different on and offseasons for FL but
-    ## for no other populations
+  ## choice of 82 days was made for the larger CMR analysis looking across all 20 populations
+   ## but works perfectly here to separate within- from between-year sampling gaps so keeping it
   offseason = ifelse(capture_gap >= 82, 1, 0) 
 , phi_ones  = ifelse(capture_gap >= 9, 0, 1)
   )
@@ -148,9 +122,6 @@ X_stat_index     <- factor(capt_history.phi$X_stat_index, levels = uni_X_stat_in
 
 capt_history.phi$X_stat_index <- X_stat_index
 
-## The third and last survival process being that we assume survival is guaranteed between secondary samples
-# capt_history.phi %<>% mutate(phi_ones = ifelse(capture_gap >= 9  | offseason == 1, 0, 1))
-
 ####
 ## One final adjustment to capt.history
 ####
@@ -172,10 +143,10 @@ capt_history$X_stat_index <- X_stat_index
 
 ## Index for summaries of latent bd for between season survival
 bd_first_index <- (capt_history %>% mutate(index = seq(n())) %>% 
-  group_by(Mark, Year, pop_spec) %>% 
+  group_by(Mark, Year, Site) %>% 
   summarize(first_index = min(index)))$first_index
 bd_last_index  <- (capt_history %>% mutate(index = seq(n())) %>% 
-  group_by(Mark, Year, pop_spec) %>% 
+  group_by(Mark, Year, Site) %>% 
   summarize(last_index = max(index)))$last_index
 
 ## Index for every entry of bd (all time points)
@@ -184,35 +155,39 @@ capt_history %<>% mutate(index = seq(n()))
 ## Determine which of the latent bd entries matches each of the phi and p estimates.
  ## To put it another way, the phi_bd_index of the latent bd vector is the bd associated with the nth row of capt_history.phi
 phi_bd_index <- (left_join(
-  capt_history.phi %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
-, capt_history     %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
+  capt_history.phi %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history     %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
   ))$index
 
-capt_history.phi %<>% ungroup() %>% mutate(phi_bd_index = phi_bd_index)
+capt_history.phi %<>% ungroup() %>% 
+  mutate(phi_bd_index = phi_bd_index)
 
 ## same thing for p
 p_bd_index       <- (left_join(
-  capt_history.p %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
-, capt_history   %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
+  capt_history.p %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history   %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
   ))$index
 
 capt_history.p %<>% ungroup() %>% mutate(p_bd_index = p_bd_index)
 
 ## And finally, what actual measured bd values inform the latent bd process?
 x_bd_index             <- (left_join(
-  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec)
-, capt_history         %>% dplyr::select(Mark, Month, Year, pop_spec, SecNumConsec, index)
+  capt_history.bd_load %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec)
+, capt_history         %>% dplyr::select(Mark, Month, Year, Site, SecNumConsec, index)
   ))$index
 
 capt_history.bd_load %<>% mutate(x_bd_index = x_bd_index)
 
 capt_history.bd_load %<>% left_join(
   .
-, capt_history %>% dplyr::select(Month, Year, pop_spec, Mark, X_stat_index, swabbed) %>% filter(swabbed == 1) %>% distinct()
+, capt_history %>% dplyr::select(Month, Year, Site, Mark, X_stat_index, swabbed) %>% 
+  filter(swabbed == 1) %>% distinct()
 )
 
-## Determine which population each individual is associated with
-ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% dplyr::select(pop_spec))$pop_spec %>% as.numeric()
+## Determine which population each individual is associated with. 
+ ## Note: More code from old paper, will just be 1 for all of these individuals, but that is fine
+ind_in_pop <- (capt_history %>% group_by(Mark) %>% slice(1) %>% 
+                 dplyr::select(Site))$Site %>% as.factor() %>% as.numeric()
 
 ## Get the species and sites to be factors in the order that they appear in the data frames. 
 capt_history.phi     %<>% mutate(
@@ -237,13 +212,13 @@ capt_history.bd_load %<>% mutate(
 ####
 
 phi_pop_year <- (capt_history.phi %>% 
-    mutate(pop_year = interaction(pop_spec, Year)) %>%
+    mutate(pop_year = interaction(Site, Year)) %>%
     dplyr::select(pop_year) %>%
     mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>%
     mutate(pop_year = as.numeric(pop_year)))$pop_year
 
 capt_history.phi %<>% 
-    mutate(pop_year = interaction(pop_spec, Year)) %>%
+    mutate(pop_year = interaction(Site, Year)) %>%
     mutate(pop_year = factor(pop_year, levels = unique(pop_year))) %>%
     mutate(pop_year = as.numeric(pop_year))
 
@@ -254,7 +229,7 @@ X_stat_index_covs <- capt_history.phi %>%
   ungroup() %>%
   mutate(
     ind_in_pop_year = factor(pop_year, levels = unique(pop_year))
-  , pop_for_bd      = as.numeric(pop_spec)
+  , pop_for_bd      = as.numeric(Site)
   , spec_for_bd     = as.numeric(Species)
     ) %>%
   mutate(ind_in_pop_year = as.numeric(ind_in_pop_year)) %>%
@@ -268,53 +243,23 @@ X_stat_index_covs <- capt_history.phi %>%
 ## Finally, create an index vector for unique sampling dates for a date-level random effect for detection
 ####
 
-if (red_p_model) {
-  
-### *** Establish "unique" sampling days (based on combinations of SubSites sampled, Month, and Year) that 
+### *** Establish "unique" sampling days (based on combinations of SubSites sampled, Month, and Year)
 sampling_for_p2 <- left_join(
   sampling
 , sampling_for_p %>% dplyr::select(Site, CaptureDate, Species, SubSite)
-) %>% group_by(pop_spec, CaptureDate, Month, Year) %>%
-  summarize(uni_site = unique(SubSite)) %>% mutate(site_str = paste(unique(uni_site), collapse = "-")) %>% 
-  mutate(date_fac = interaction(pop_spec, site_str, Year, Month)) %>%
-  dplyr::select(pop_spec, CaptureDate, Month, Year, date_fac) %>% distinct() %>% 
+) %>% group_by(Site, CaptureDate, Month, Year) %>%
+  summarize(uni_site = unique(SubSite)) %>% 
+  mutate(site_str = paste(unique(uni_site), collapse = "-")) %>% 
+  mutate(date_fac = interaction(Site, site_str, Year, Month)) %>%
+  dplyr::select(Site, CaptureDate, Month, Year, date_fac) %>% distinct() %>% 
   ungroup()
   
 ## add to the p data frame
 capt_history.p %<>% left_join(.
- , sampling_for_p2 %>% dplyr::select(pop_spec, CaptureDate, date_fac) %>% rename(capture_date = CaptureDate)
+ , sampling_for_p2 %>% dplyr::select(Site, CaptureDate, date_fac) %>% 
+   rename(capture_date = CaptureDate)
   ) %>% mutate(date_fac = as.factor(as.character(date_fac))) %>%
   mutate(date_fac = as.numeric(date_fac))
   
-} else {
-  
-capt_history.p %<>% 
-  mutate(date_fac = interaction(pop_spec, capture_date)) %>%
-  mutate(date_fac = as.character(date_fac)) %>% 
-  mutate(date_fac = as.factor(date_fac)) %>% 
-  mutate(date_fac = as.numeric(date_fac))
-  
-}
-
-####
-## And finally finally, create a few vectors for the stan model
-####
-
-spec_pop            <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
-spec_which_pop      <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric() 
-
-if (red_p_model) {
- day_which_pop      <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$pop_spec %>% as.numeric()
- day_which_pop_rand <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
- p_rand_which_day   <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$date_fac %>% as.numeric()
- spec_which_pop     <- (capt_history.p %>% group_by(date_fac) %>% slice(1))$Species %>% as.numeric()
-} else {
- spec_pop           <- (capt_history.p %>% group_by(pop_spec) %>% slice(1))$Species %>% as.numeric()
- day_which_pop      <- (capt_history.p %>% group_by(pop_spec, capture_date) %>% slice(1))$pop_spec %>% as.numeric()
-}
-
-## Check for gaps long enough within-season to estimate within-year survival
-capt_history.phi %>% group_by(pop_spec) %>%
-  summarize(
-    length(which(offseason == 0 & phi_ones == 0))
-  )
+## For detection random effect
+p_rand_which_day   <- (capt_history.p %>% group_by(Site, capture_date) %>% slice(1))$date_fac %>% as.numeric()

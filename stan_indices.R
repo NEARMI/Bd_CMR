@@ -25,7 +25,7 @@ for (i in which_ind_ll) {
  ## (on the last day they were captured)
 which_chi_ll    <- numeric(0)
 
-for (i in 1:n_ind) {
+for (i in 1:nrow(capture_range)) {
   these_chis   <- p_first_index[i] - 1 + capture_range$final[i]
   which_chi_ll <- c(which_chi_ll, these_chis)
 }
@@ -45,7 +45,7 @@ phi_one_index   <- which(capt_history.phi$phi_ones == 1 & capt_history.phi$phi_z
 phi_in_index    <- which(capt_history.phi$offseason == 0 & capt_history.phi$phi_ones == 0 & capt_history.phi$phi_zeros == 0)
 
 ## phi's that are estimated ``between-season'' 
-phi_off_index   <- which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)  
+phi_off_index   <- which(capt_history.phi$offseason == 1 & capt_history.phi$phi_zeros == 0)
 
 ## ps that must be 0 (ps for each individual before that individual was captured)
 p_zero_index    <- which(capt_history.p$p_zeros == 0)
